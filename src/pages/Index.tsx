@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { VoiceButton } from '@/components/VoiceButton';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
-import { Message, Task } from '@/types/agent';
+import { Message, Task, ScheduledAction } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { 
@@ -22,11 +22,42 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+import { CalendarClock } from 'lucide-react';
+
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard' },
-  { icon: GitBranch, label: 'Sequences' },
+  { icon: CalendarClock, label: 'Scheduled Actions' },
   { icon: MessageSquare, label: 'Conversations' },
   { icon: User, label: 'User info' },
+];
+
+const demoScheduledActions: ScheduledAction[] = [
+  {
+    id: '1',
+    name: 'Short Form Content Maker',
+    description: 'Daily AI news content generation',
+    isActive: true,
+    createdAt: new Date(),
+    steps: [
+      { id: '1-1', type: 'trigger', label: '8:00 AM Daily' },
+      { id: '1-2', type: 'action', label: 'Fetch AI News' },
+      { id: '1-3', type: 'action', label: 'Generate Short Form Content' },
+      { id: '1-4', type: 'action', label: 'Post to Social Channels' },
+    ],
+  },
+  {
+    id: '2',
+    name: 'Lead Pipeline Updated',
+    description: 'CRM lead won automation',
+    isActive: true,
+    createdAt: new Date(),
+    steps: [
+      { id: '2-1', type: 'trigger', label: 'CRM Lead Status → Won' },
+      { id: '2-2', type: 'condition', label: 'Check Lead Type' },
+      { id: '2-3', type: 'action', label: 'Send Onboarding Form' },
+      { id: '2-4', type: 'action', label: 'Notify Account Manager' },
+    ],
+  },
 ];
 
 const Index = () => {

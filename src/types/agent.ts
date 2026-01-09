@@ -16,18 +16,18 @@ export interface Task {
   completedAt?: Date;
 }
 
-export interface SequenceStep {
+export interface ScheduledActionStep {
   id: string;
   type: 'trigger' | 'action' | 'condition';
   label: string;
   config?: Record<string, unknown>;
 }
 
-export interface Sequence {
+export interface ScheduledAction {
   id: string;
   name: string;
   description?: string;
-  steps: SequenceStep[];
+  steps: ScheduledActionStep[];
   isActive: boolean;
   createdAt: Date;
 }
