@@ -1,10 +1,17 @@
-import { motion } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, ListTodo, ArrowLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Clock, ArrowDown, GitBranch, Play, ListTodo, Menu, X, LayoutDashboard, CalendarClock, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep, Task } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { TasksPanel } from '@/components/TasksPanel';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
+
+const navItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
+  { icon: Clock, label: 'Executions', path: undefined },
+];
 
 const demoScheduledActions: ScheduledAction[] = [
   {
@@ -79,25 +86,22 @@ function ActionStepNode({ step }: { step: ScheduledActionStep }) {
 
 const ScheduledActions = () => {
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-30 p-4 bg-background/80 backdrop-blur-sm border-b border-border">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/')}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back
+    <div className="min-h-screen bg-background flex">
+      {/* Mobile Header with Hamburger */}
+      {isMobile && (
+        <header className="fixed top-0 left-0 right-0 z-30 p-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border">
+          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
+            <Menu className="w-6 h-6" />
           </Button>
-          
-          <h1 className="text-lg font-semibold text-foreground">Scheduled Actions</h1>
-          
+
+          <h1 className="text-lg font-semibold text-foreground">Automations</h1>
+
           <Button
             variant="ghost"
             size="sm"
@@ -105,17 +109,142 @@ const ScheduledActions = () => {
             className="gap-2"
           >
             <ListTodo className="w-4 h-4" />
-            Tasks
             <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">
               1
             </span>
           </Button>
-        </div>
-      </header>
+        </header>
+      )}
+
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isMobile && sidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)}
+              className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40"
+            />
+            <motion.aside
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed left-0 top-0 bottom-0 w-64 bg-background border-r border-border z-50 p-4 flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-semibold">Menu</h2>
+                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+
+              <nav className="flex flex-col gap-2 flex-1">
+                {navItems.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      if (item.path) navigate(item.path);
+                    }}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left ${
+                      item.path === '/scheduled-actions'
+                        ? 'bg-secondary text-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="text-sm">{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+
+              {/* Settings at bottom */}
+              <div className="border-t border-border pt-4 mt-4">
+                <button
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left w-full"
+                >
+                  <Settings className="w-5 h-5" />
+                  <span className="text-sm">Settings</span>
+                </button>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Left Sidebar - Navigation */}
+      {!isMobile && (
+        <motion.aside
+          initial={false}
+          animate={{ width: desktopSidebarOpen ? 192 : 56 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className="border-r border-border p-3 flex flex-col gap-2 overflow-hidden flex-shrink-0"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
+            className="mb-4 self-end"
+          >
+            {desktopSidebarOpen ? (
+              <PanelLeftClose className="w-5 h-5" />
+            ) : (
+              <PanelLeft className="w-5 h-5" />
+            )}
+          </Button>
+
+          {navItems.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => item.path && navigate(item.path)}
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left whitespace-nowrap ${
+                item.path === '/scheduled-actions'
+                  ? 'bg-secondary text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+            >
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              {desktopSidebarOpen && <span className="text-sm">{item.label}</span>}
+            </button>
+          ))}
+
+          {/* Settings at bottom */}
+          <div className="mt-auto border-t border-border pt-3">
+            <button
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap w-full"
+            >
+              <Settings className="w-5 h-5 flex-shrink-0" />
+              {desktopSidebarOpen && <span className="text-sm">Settings</span>}
+            </button>
+          </div>
+        </motion.aside>
+      )}
 
       {/* Main Content */}
-      <main className="pt-20 pb-8 px-4">
+      <main className={`flex-1 ${isMobile ? 'pt-20' : ''} pb-8 px-4`}>
         <div className="max-w-4xl mx-auto">
+          {/* Desktop header with title and tasks */}
+          {!isMobile && (
+            <div className="flex items-center justify-between py-6">
+              <h1 className="text-2xl font-bold text-foreground">Automations</h1>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTasksOpen(true)}
+                className="gap-2"
+              >
+                <ListTodo className="w-4 h-4" />
+                Tasks
+                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  1
+                </span>
+              </Button>
+            </div>
+          )}
+
           <div className="grid gap-6 md:grid-cols-2">
             {demoScheduledActions.map((action, index) => (
               <motion.div
