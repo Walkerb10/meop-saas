@@ -25,10 +25,10 @@ import { Button } from '@/components/ui/button';
 import { CalendarClock } from 'lucide-react';
 
 const navItems = [
-  { icon: LayoutDashboard, label: 'Dashboard' },
-  { icon: CalendarClock, label: 'Scheduled Actions' },
-  { icon: MessageSquare, label: 'Conversations' },
-  { icon: User, label: 'User info' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: CalendarClock, label: 'Scheduled Actions', path: '/scheduled-actions' },
+  { icon: MessageSquare, label: 'Conversations', path: undefined },
+  { icon: User, label: 'User info', path: undefined },
 ];
 
 const demoScheduledActions: ScheduledAction[] = [
@@ -161,7 +161,10 @@ const Index = () => {
                 {navItems.map((item) => (
                   <button
                     key={item.label}
-                    onClick={() => setSidebarOpen(false)}
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      if (item.path) window.location.href = item.path;
+                    }}
                     className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
                   >
                     <item.icon className="w-5 h-5" />
@@ -197,6 +200,7 @@ const Index = () => {
           {navItems.map((item) => (
             <button
               key={item.label}
+              onClick={() => item.path && (window.location.href = item.path)}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
