@@ -132,14 +132,24 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
     
-    const { data, error } = await supabase.functions.invoke('elevenlabs-stt', {
-      body: formData,
-    });
+    // Use fetch directly for FormData (supabase.functions.invoke doesn't handle FormData properly)
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-stt`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: formData,
+      }
+    );
     
-    if (error) {
-      throw new Error(error.message || 'Transcription failed');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Transcription failed');
     }
     
+    const data = await response.json();
     return data.text || '';
   }, []);
 
