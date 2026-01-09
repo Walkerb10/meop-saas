@@ -33,15 +33,33 @@ const VOICE_IDS: Record<string, string> = {
 export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOptions) {
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [isActive, setIsActive] = useState(false);
+  
+  // Use refs for all mutable state to avoid hook dependency issues
   const messagesRef = useRef<Message[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const shouldContinueRef = useRef(false);
-  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const voiceIdRef = useRef(voiceId);
+  const onTranscriptRef = useRef(onTranscript);
+  const onErrorRef = useRef(onError);
+
+  // Keep refs in sync
+  useEffect(() => {
+    voiceIdRef.current = voiceId;
+  }, [voiceId]);
+
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+  }, [onTranscript]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   const getAIResponse = useCallback(async (userText: string): Promise<string> => {
     messagesRef.current.push({ role: 'user', content: userText });
@@ -69,7 +87,7 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
   }, []);
 
   const speakText = useCallback(async (text: string): Promise<void> => {
-    const elevenLabsVoiceId = VOICE_IDS[voiceId] || VOICE_IDS.Sarah;
+    const elevenLabsVoiceId = VOICE_IDS[voiceIdRef.current] || VOICE_IDS.Sarah;
     
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
@@ -108,10 +126,9 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       
       audio.play().catch(reject);
     });
-  }, [voiceId]);
+  }, []);
 
   const transcribeAudio = useCallback(async (audioBlob: Blob): Promise<string> => {
-    // Use ElevenLabs Speech-to-Text
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
     
@@ -126,6 +143,9 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     return data.text || '';
   }, []);
 
+  // Use a ref for startRecording to break circular dependency
+  const startRecordingRef = useRef<() => Promise<void>>();
+
   const processRecording = useCallback(async () => {
     if (audioChunksRef.current.length === 0) return;
     
@@ -133,9 +153,8 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     audioChunksRef.current = [];
     
     if (audioBlob.size < 1000) {
-      // Too small, probably just noise
       if (shouldContinueRef.current) {
-        startRecording();
+        startRecordingRef.current?.();
       }
       return;
     }
@@ -148,17 +167,17 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       if (!transcript.trim()) {
         if (shouldContinueRef.current) {
           setStatus('listening');
-          startRecording();
+          startRecordingRef.current?.();
         }
         return;
       }
       
-      onTranscript?.(transcript, 'user');
+      onTranscriptRef.current?.(transcript, 'user');
       
       if (!shouldContinueRef.current) return;
       
       const response = await getAIResponse(transcript);
-      onTranscript?.(response, 'assistant');
+      onTranscriptRef.current?.(response, 'assistant');
       
       if (!shouldContinueRef.current) return;
       
@@ -167,17 +186,17 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       
       if (shouldContinueRef.current) {
         setStatus('listening');
-        startRecording();
+        startRecordingRef.current?.();
       }
     } catch (error) {
       console.error('Voice chat error:', error);
-      onError?.(error instanceof Error ? error.message : 'An error occurred');
+      onErrorRef.current?.(error instanceof Error ? error.message : 'An error occurred');
       if (shouldContinueRef.current) {
         setStatus('listening');
-        startRecording();
+        startRecordingRef.current?.();
       }
     }
-  }, [transcribeAudio, getAIResponse, speakText, onTranscript, onError]);
+  }, [transcribeAudio, getAIResponse, speakText]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -191,7 +210,6 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
         });
       }
       
-      // Set up audio analysis for silence detection
       if (!audioContextRef.current) {
         audioContextRef.current = new AudioContext();
         analyserRef.current = audioContextRef.current.createAnalyser();
@@ -217,10 +235,9 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
         processRecording();
       };
       
-      mediaRecorder.start(100); // Collect data every 100ms
+      mediaRecorder.start(100);
       setStatus('listening');
       
-      // Set up silence detection
       const checkSilence = () => {
         if (!analyserRef.current || !shouldContinueRef.current) return;
         
@@ -230,24 +247,22 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
         const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
         
         if (average < 10) {
-          // Silence detected
           if (!silenceTimeoutRef.current) {
             silenceTimeoutRef.current = setTimeout(() => {
               if (mediaRecorderRef.current?.state === 'recording' && audioChunksRef.current.length > 0) {
                 mediaRecorderRef.current.stop();
               }
               silenceTimeoutRef.current = null;
-            }, 1500); // 1.5 seconds of silence
+            }, 1500);
           }
         } else {
-          // Sound detected, clear silence timeout
           if (silenceTimeoutRef.current) {
             clearTimeout(silenceTimeoutRef.current);
             silenceTimeoutRef.current = null;
           }
         }
         
-        if (shouldContinueRef.current && status === 'listening') {
+        if (shouldContinueRef.current) {
           requestAnimationFrame(checkSilence);
         }
       };
@@ -256,11 +271,16 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       
     } catch (error) {
       console.error('Failed to start recording:', error);
-      onError?.('Microphone access denied');
+      onErrorRef.current?.('Microphone access denied');
       setStatus('idle');
       setIsActive(false);
     }
-  }, [processRecording, onError, status]);
+  }, [processRecording]);
+
+  // Keep startRecordingRef in sync
+  useEffect(() => {
+    startRecordingRef.current = startRecording;
+  }, [startRecording]);
 
   const start = useCallback(() => {
     setIsActive(true);
@@ -311,12 +331,26 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     }
   }, [isActive, start, stop]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stop();
+      shouldContinueRef.current = false;
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
     };
-  }, [stop]);
+  }, []);
 
   return {
     status,
