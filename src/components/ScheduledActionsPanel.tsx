@@ -1,19 +1,19 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Zap, ArrowDown, GitBranch, Play } from 'lucide-react';
-import { Sequence, SequenceStep } from '@/types/agent';
+import { X, Clock, ArrowDown, GitBranch, Play, Zap } from 'lucide-react';
+import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 
-interface SequencesPanelProps {
+interface ScheduledActionsPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  sequences: Sequence[];
+  actions: ScheduledAction[];
 }
 
-function SequenceStepNode({ step }: { step: SequenceStep }) {
+function ActionStepNode({ step }: { step: ScheduledActionStep }) {
   const getIcon = () => {
     switch (step.type) {
       case 'trigger':
-        return <Zap className="w-4 h-4 text-primary" />;
+        return <Clock className="w-4 h-4 text-primary" />;
       case 'condition':
         return <GitBranch className="w-4 h-4 text-yellow-400" />;
       case 'action':
@@ -33,7 +33,7 @@ function SequenceStepNode({ step }: { step: SequenceStep }) {
   };
 
   return (
-    <div className={`sequence-node ${getTypeColor()}`}>
+    <div className={`rounded-lg border p-3 ${getTypeColor()}`}>
       <div className="flex items-center gap-2">
         {getIcon()}
         <span className="text-sm font-medium text-foreground">{step.label}</span>
@@ -43,7 +43,7 @@ function SequenceStepNode({ step }: { step: SequenceStep }) {
   );
 }
 
-export function SequencesPanel({ isOpen, onClose, sequences }: SequencesPanelProps) {
+export function ScheduledActionsPanel({ isOpen, onClose, actions }: ScheduledActionsPanelProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -63,11 +63,11 @@ export function SequencesPanel({ isOpen, onClose, sequences }: SequencesPanelPro
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '-100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed left-0 top-0 bottom-0 w-full md:w-96 glass-strong z-50 flex flex-col"
+            className="fixed left-0 top-0 bottom-0 w-full md:w-96 bg-background border-r border-border z-50 flex flex-col"
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Sequences</h2>
+              <h2 className="text-lg font-semibold text-foreground">Scheduled Actions</h2>
               <Button
                 variant="ghost"
                 size="icon"
@@ -78,45 +78,49 @@ export function SequencesPanel({ isOpen, onClose, sequences }: SequencesPanelPro
               </Button>
             </div>
 
-            {/* Sequences list */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-6">
-              {sequences.length === 0 ? (
+            {/* Actions list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {actions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mb-4">
-                    <GitBranch className="w-8 h-8 text-muted-foreground" />
+                    <Zap className="w-8 h-8 text-muted-foreground" />
                   </div>
                   <p className="text-muted-foreground text-sm">
-                    No sequences yet. Create workflows by saying "If X then Y"
+                    No scheduled actions yet. Create automations by defining triggers and actions.
                   </p>
                 </div>
               ) : (
                 <AnimatePresence mode="popLayout">
-                  {sequences.map((sequence, index) => (
+                  {actions.map((action, index) => (
                     <motion.div
-                      key={sequence.id}
+                      key={action.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 20 }}
                       transition={{ delay: index * 0.05 }}
-                      className="glass rounded-xl p-4"
+                      className="rounded-xl border border-border bg-secondary/30 p-4"
                     >
                       <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-medium text-foreground">{sequence.name}</h3>
+                        <h3 className="font-medium text-foreground">{action.name}</h3>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          sequence.isActive 
+                          action.isActive 
                             ? 'bg-green-400/10 text-green-400'
                             : 'bg-secondary text-muted-foreground'
                         }`}>
-                          {sequence.isActive ? 'Active' : 'Inactive'}
+                          {action.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </div>
                       
+                      {action.description && (
+                        <p className="text-xs text-muted-foreground mb-3">{action.description}</p>
+                      )}
+                      
                       {/* Steps visualization */}
                       <div className="space-y-0">
-                        {sequence.steps.map((step, stepIndex) => (
+                        {action.steps.map((step, stepIndex) => (
                           <div key={step.id}>
-                            <SequenceStepNode step={step} />
-                            {stepIndex < sequence.steps.length - 1 && (
+                            <ActionStepNode step={step} />
+                            {stepIndex < action.steps.length - 1 && (
                               <div className="flex justify-center py-1">
                                 <ArrowDown className="w-4 h-4 text-muted-foreground" />
                               </div>
