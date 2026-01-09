@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 
 export type VoiceStatus = 'idle' | 'listening' | 'processing' | 'speaking';
 
@@ -34,21 +33,17 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [isActive, setIsActive] = useState(false);
   
-  // Use refs for all mutable state to avoid hook dependency issues
   const messagesRef = useRef<Message[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const shouldContinueRef = useRef(false);
-  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceIdRef = useRef(voiceId);
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
 
-  // Keep refs in sync
   useEffect(() => {
     voiceIdRef.current = voiceId;
   }, [voiceId]);
@@ -63,6 +58,8 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
 
   const getAIResponse = useCallback(async (userText: string): Promise<string> => {
     messagesRef.current.push({ role: 'user', content: userText });
+    
+    console.log('Getting AI response for:', userText);
     
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
@@ -82,12 +79,15 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     }
 
     const data = await response.json();
+    console.log('AI response:', data.content);
     messagesRef.current.push({ role: 'assistant', content: data.content });
     return data.content;
   }, []);
 
   const speakText = useCallback(async (text: string): Promise<void> => {
     const elevenLabsVoiceId = VOICE_IDS[voiceIdRef.current] || VOICE_IDS.Sarah;
+    
+    console.log('Speaking text with voice:', elevenLabsVoiceId);
     
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-tts`,
@@ -102,7 +102,8 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     );
 
     if (!response.ok) {
-      throw new Error('TTS request failed');
+      const error = await response.json();
+      throw new Error(error.error || 'TTS request failed');
     }
 
     const audioBlob = await response.blob();
@@ -132,7 +133,8 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
     
-    // Use fetch directly for FormData (supabase.functions.invoke doesn't handle FormData properly)
+    console.log('Transcribing audio, size:', audioBlob.size);
+    
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-stt`,
       {
@@ -150,21 +152,28 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     }
     
     const data = await response.json();
+    console.log('Transcription result:', data.text);
     return data.text || '';
   }, []);
 
-  // Use a ref for startRecording to break circular dependency
-  const startRecordingRef = useRef<() => Promise<void>>();
-
-  const processRecording = useCallback(async () => {
-    if (audioChunksRef.current.length === 0) return;
+  const processAndContinue = useCallback(async () => {
+    if (audioChunksRef.current.length === 0) {
+      console.log('No audio chunks to process');
+      if (shouldContinueRef.current) {
+        startListening();
+      }
+      return;
+    }
     
     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
     audioChunksRef.current = [];
     
+    console.log('Processing audio blob, size:', audioBlob.size);
+    
     if (audioBlob.size < 1000) {
+      console.log('Audio too small, skipping');
       if (shouldContinueRef.current) {
-        startRecordingRef.current?.();
+        startListening();
       }
       return;
     }
@@ -175,9 +184,10 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       const transcript = await transcribeAudio(audioBlob);
       
       if (!transcript.trim()) {
+        console.log('Empty transcript, continuing to listen');
         if (shouldContinueRef.current) {
           setStatus('listening');
-          startRecordingRef.current?.();
+          startListening();
         }
         return;
       }
@@ -196,21 +206,22 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       
       if (shouldContinueRef.current) {
         setStatus('listening');
-        startRecordingRef.current?.();
+        startListening();
       }
     } catch (error) {
       console.error('Voice chat error:', error);
       onErrorRef.current?.(error instanceof Error ? error.message : 'An error occurred');
       if (shouldContinueRef.current) {
         setStatus('listening');
-        startRecordingRef.current?.();
+        startListening();
       }
     }
   }, [transcribeAudio, getAIResponse, speakText]);
 
-  const startRecording = useCallback(async () => {
+  const startListening = useCallback(async () => {
     try {
       if (!streamRef.current) {
+        console.log('Requesting microphone access...');
         streamRef.current = await navigator.mediaDevices.getUserMedia({ 
           audio: {
             echoCancellation: true,
@@ -218,20 +229,19 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
             autoGainControl: true,
           } 
         });
+        console.log('Microphone access granted');
       }
       
-      if (!audioContextRef.current) {
-        audioContextRef.current = new AudioContext();
-        analyserRef.current = audioContextRef.current.createAnalyser();
-        const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
-        source.connect(analyserRef.current);
-        analyserRef.current.fftSize = 256;
-      }
+      // Check for supported MIME types
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/mp4';
       
-      const mediaRecorder = new MediaRecorder(streamRef.current, {
-        mimeType: 'audio/webm;codecs=opus',
-      });
+      console.log('Using MIME type:', mimeType);
       
+      const mediaRecorder = new MediaRecorder(streamRef.current, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       
@@ -242,42 +252,21 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       };
       
       mediaRecorder.onstop = () => {
-        processRecording();
+        console.log('Recording stopped, chunks:', audioChunksRef.current.length);
+        processAndContinue();
       };
       
       mediaRecorder.start(100);
       setStatus('listening');
+      console.log('Recording started');
       
-      const checkSilence = () => {
-        if (!analyserRef.current || !shouldContinueRef.current) return;
-        
-        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-        analyserRef.current.getByteFrequencyData(dataArray);
-        
-        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-        
-        if (average < 10) {
-          if (!silenceTimeoutRef.current) {
-            silenceTimeoutRef.current = setTimeout(() => {
-              if (mediaRecorderRef.current?.state === 'recording' && audioChunksRef.current.length > 0) {
-                mediaRecorderRef.current.stop();
-              }
-              silenceTimeoutRef.current = null;
-            }, 1500);
-          }
-        } else {
-          if (silenceTimeoutRef.current) {
-            clearTimeout(silenceTimeoutRef.current);
-            silenceTimeoutRef.current = null;
-          }
+      // Auto-stop after 5 seconds of recording
+      recordingTimeoutRef.current = setTimeout(() => {
+        if (mediaRecorderRef.current?.state === 'recording') {
+          console.log('Auto-stopping after timeout');
+          mediaRecorderRef.current.stop();
         }
-        
-        if (shouldContinueRef.current) {
-          requestAnimationFrame(checkSilence);
-        }
-      };
-      
-      requestAnimationFrame(checkSilence);
+      }, 5000);
       
     } catch (error) {
       console.error('Failed to start recording:', error);
@@ -285,28 +274,25 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       setStatus('idle');
       setIsActive(false);
     }
-  }, [processRecording]);
-
-  // Keep startRecordingRef in sync
-  useEffect(() => {
-    startRecordingRef.current = startRecording;
-  }, [startRecording]);
+  }, [processAndContinue]);
 
   const start = useCallback(() => {
+    console.log('Starting voice chat');
     setIsActive(true);
     shouldContinueRef.current = true;
     messagesRef.current = [];
-    startRecording();
-  }, [startRecording]);
+    startListening();
+  }, [startListening]);
 
   const stop = useCallback(() => {
+    console.log('Stopping voice chat');
     shouldContinueRef.current = false;
     setIsActive(false);
     setStatus('idle');
     
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current);
-      silenceTimeoutRef.current = null;
+    if (recordingTimeoutRef.current) {
+      clearTimeout(recordingTimeoutRef.current);
+      recordingTimeoutRef.current = null;
     }
     
     if (mediaRecorderRef.current?.state === 'recording') {
@@ -317,12 +303,6 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
-    }
-    
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-      analyserRef.current = null;
     }
     
     if (audioRef.current) {
@@ -344,17 +324,14 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
   useEffect(() => {
     return () => {
       shouldContinueRef.current = false;
-      if (silenceTimeoutRef.current) {
-        clearTimeout(silenceTimeoutRef.current);
+      if (recordingTimeoutRef.current) {
+        clearTimeout(recordingTimeoutRef.current);
       }
       if (mediaRecorderRef.current?.state === 'recording') {
         mediaRecorderRef.current.stop();
       }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
       }
       if (audioRef.current) {
         audioRef.current.pause();
