@@ -53,6 +53,7 @@ const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
   { icon: Clock, label: 'Executions', path: undefined },
+  { icon: User, label: 'Profile', path: undefined },
 ];
 
 // Demo-only data (kept here to match the current demo approach)
