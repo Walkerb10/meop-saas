@@ -1,20 +1,22 @@
 import { motion } from 'framer-motion';
-import { Mic } from 'lucide-react';
+import { Mic, MicOff, Loader2 } from 'lucide-react';
+import { VoiceStatus } from '@/hooks/useVoiceChat';
 
 interface VoiceButtonProps {
-  status: 'disconnected' | 'connecting' | 'connected';
-  isSpeaking: boolean;
+  status: VoiceStatus;
+  isActive: boolean;
   onToggle: () => void;
 }
 
-export function VoiceButton({ status, isSpeaking, onToggle }: VoiceButtonProps) {
-  const isConnected = status === 'connected';
-  const isConnecting = status === 'connecting';
+export function VoiceButton({ status, isActive, onToggle }: VoiceButtonProps) {
+  const isListening = status === 'listening';
+  const isSpeaking = status === 'speaking';
+  const isProcessing = status === 'processing';
 
   return (
     <div className="relative flex items-center justify-center">
-      {/* Outer pulse ring when connected */}
-      {isConnected && (
+      {/* Outer pulse ring when active */}
+      {isActive && (
         <motion.div
           className="absolute w-36 h-36 rounded-full border-2 border-primary/50"
           animate={{
@@ -49,25 +51,39 @@ export function VoiceButton({ status, isSpeaking, onToggle }: VoiceButtonProps) 
         </>
       )}
 
+      {/* Listening pulse */}
+      {isListening && (
+        <motion.div
+          className="absolute w-36 h-36 rounded-full bg-primary/20"
+          animate={{
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 1,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        />
+      )}
+
       {/* Glow effect */}
       <div 
         className={`absolute w-40 h-40 rounded-full blur-3xl transition-all duration-500 ${
-          isConnected ? 'opacity-50 scale-100' : 'opacity-0 scale-50'
+          isActive ? 'opacity-50 scale-100' : 'opacity-0 scale-50'
         }`}
-        style={{ background: 'hsl(175 80% 50% / 0.4)' }}
+        style={{ background: 'hsl(var(--primary) / 0.4)' }}
       />
 
       {/* Main button */}
       <motion.button
         onClick={onToggle}
-        disabled={isConnecting}
         className={`relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 ${
-          isConnected 
-            ? 'bg-primary shadow-[0_0_40px_hsl(175_80%_50%/0.5)]' 
-            : 'bg-primary/80 hover:bg-primary hover:shadow-[0_0_30px_hsl(175_80%_50%/0.3)]'
-        } ${isConnecting ? 'animate-pulse' : ''}`}
-        whileHover={{ scale: isConnecting ? 1 : 1.05 }}
-        whileTap={{ scale: isConnecting ? 1 : 0.95 }}
+          isActive 
+            ? 'bg-primary shadow-[0_0_40px_hsl(var(--primary)/0.5)]' 
+            : 'bg-primary/80 hover:bg-primary hover:shadow-[0_0_30px_hsl(var(--primary)/0.3)]'
+        }`}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
       >
         {/* Wave bars when speaking */}
         {isSpeaking ? (
@@ -85,8 +101,12 @@ export function VoiceButton({ status, isSpeaking, onToggle }: VoiceButtonProps) 
               />
             ))}
           </div>
+        ) : isProcessing ? (
+          <Loader2 className="w-12 h-12 text-primary-foreground animate-spin" />
+        ) : isActive ? (
+          <MicOff className="w-12 h-12 text-primary-foreground" />
         ) : (
-          <Mic className={`w-12 h-12 text-primary-foreground ${isConnecting ? 'opacity-50' : ''}`} />
+          <Mic className="w-12 h-12 text-primary-foreground" />
         )}
       </motion.button>
 
@@ -97,7 +117,7 @@ export function VoiceButton({ status, isSpeaking, onToggle }: VoiceButtonProps) 
         animate={{ opacity: 1 }}
       >
         <span className="text-sm font-medium text-muted-foreground">
-          {isConnecting ? 'Connecting...' : isConnected ? (isSpeaking ? 'Speaking' : 'Listening') : 'Tap to talk'}
+          {isProcessing ? 'Thinking...' : isSpeaking ? 'Speaking' : isListening ? 'Listening...' : 'Tap to talk'}
         </span>
       </motion.div>
     </div>

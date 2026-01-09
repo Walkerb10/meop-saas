@@ -2,24 +2,20 @@ import { useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { VoiceButton } from '@/components/VoiceButton';
 import { VoiceSelector } from '@/components/VoiceSelector';
-import { useElevenLabsConversation } from '@/hooks/useElevenLabsConversation';
+import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { Message } from '@/types/agent';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
-  const [agentId, setAgentId] = useState('');
-  const [inputAgentId, setInputAgentId] = useState('');
   const [selectedVoice, setSelectedVoice] = useState('Sarah');
   const [messages, setMessages] = useState<Message[]>([]);
   const { toast } = useToast();
 
-  const handleMessage = useCallback((msg: { role: 'user' | 'assistant'; content: string }) => {
+  const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages(prev => [...prev, {
       id: Date.now().toString(),
-      role: msg.role,
-      content: msg.content,
+      role,
+      content: text,
       timestamp: new Date(),
     }]);
   }, []);
@@ -27,77 +23,16 @@ const Index = () => {
   const handleError = useCallback((error: string) => {
     toast({
       variant: 'destructive',
-      title: 'Connection Error',
+      title: 'Error',
       description: error,
     });
   }, [toast]);
 
-  const { status, isSpeaking, startConversation, stopConversation } = useElevenLabsConversation({
-    agentId,
-    onMessage: handleMessage,
+  const { status, isActive, toggle } = useVoiceChat({
+    voiceId: selectedVoice,
+    onTranscript: handleTranscript,
     onError: handleError,
   });
-
-  const handleToggle = useCallback(() => {
-    if (status === 'connected') {
-      stopConversation();
-    } else if (status === 'disconnected') {
-      startConversation();
-    }
-  }, [status, startConversation, stopConversation]);
-
-  const handleSetAgent = () => {
-    if (inputAgentId.trim()) {
-      setAgentId(inputAgentId.trim());
-    }
-  };
-
-  // If no agent ID set, show setup screen
-  if (!agentId) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6">
-        <motion.div 
-          className="w-full max-w-md space-y-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl font-bold">Voice Agent Setup</h1>
-            <p className="text-muted-foreground">Enter your ElevenLabs Agent ID to start</p>
-          </div>
-          
-          <div className="space-y-4">
-            <Input
-              placeholder="Enter Agent ID..."
-              value={inputAgentId}
-              onChange={(e) => setInputAgentId(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSetAgent()}
-              className="text-center"
-            />
-            <Button 
-              onClick={handleSetAgent} 
-              className="w-full"
-              disabled={!inputAgentId.trim()}
-            >
-              Connect Agent
-            </Button>
-          </div>
-
-          <p className="text-xs text-center text-muted-foreground">
-            Create an agent at{' '}
-            <a 
-              href="https://elevenlabs.io/app/conversational-ai" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-primary hover:underline"
-            >
-              ElevenLabs
-            </a>
-          </p>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden">
@@ -105,7 +40,7 @@ const Index = () => {
       <div 
         className="fixed inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 50% 70%, hsl(175 80% 50% / 0.08), transparent 50%)',
+          background: 'radial-gradient(circle at 50% 70%, hsl(var(--primary) / 0.08), transparent 50%)',
         }}
       />
 
@@ -114,13 +49,22 @@ const Index = () => {
         <VoiceSelector 
           selectedVoice={selectedVoice} 
           onVoiceChange={setSelectedVoice}
-          disabled={status === 'connected'}
+          disabled={isActive}
         />
       </header>
 
       {/* Transcript area */}
       <main className="flex-1 flex flex-col items-center pt-20 pb-64 px-4 overflow-y-auto">
         <div className="w-full max-w-2xl space-y-4">
+          {messages.length === 0 && (
+            <motion.p 
+              className="text-center text-muted-foreground mt-32"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              Tap the button below to start talking
+            </motion.p>
+          )}
           {messages.map((msg) => (
             <motion.div
               key={msg.id}
@@ -147,8 +91,8 @@ const Index = () => {
       >
         <VoiceButton 
           status={status}
-          isSpeaking={isSpeaking}
-          onToggle={handleToggle}
+          isActive={isActive}
+          onToggle={toggle}
         />
       </motion.div>
 
@@ -156,7 +100,7 @@ const Index = () => {
       <div 
         className="fixed bottom-0 left-0 right-0 h-48 pointer-events-none"
         style={{
-          background: 'linear-gradient(to top, hsl(220 20% 4%), transparent)',
+          background: 'linear-gradient(to top, hsl(var(--background)), transparent)',
         }}
       />
     </div>
