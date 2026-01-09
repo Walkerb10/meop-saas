@@ -1,28 +1,51 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VoiceButton } from '@/components/VoiceButton';
-import { VoiceSelector } from '@/components/VoiceSelector';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { Message, Task, ScheduledAction } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { 
   LayoutDashboard, 
-  GitBranch, 
   MessageSquare, 
   User, 
-  CheckCircle2, 
   Clock, 
-  Loader2, 
-  AlertCircle,
   Menu,
   X,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  CalendarClock,
+  Settings,
+  ListTodo
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
-import { CalendarClock } from 'lucide-react';
+const VOICES = [
+  { id: 'Roger', name: 'Roger', description: 'Deep & confident' },
+  { id: 'Sarah', name: 'Sarah', description: 'Warm & friendly' },
+  { id: 'Laura', name: 'Laura', description: 'Professional & clear' },
+  { id: 'Charlie', name: 'Charlie', description: 'Casual & relaxed' },
+  { id: 'George', name: 'George', description: 'British & refined' },
+  { id: 'Callum', name: 'Callum', description: 'Scottish accent' },
+  { id: 'Liam', name: 'Liam', description: 'Young & energetic' },
+  { id: 'Alice', name: 'Alice', description: 'Soft & gentle' },
+  { id: 'Matilda', name: 'Matilda', description: 'Warm & expressive' },
+  { id: 'Jessica', name: 'Jessica', description: 'Bright & engaging' },
+  { id: 'Eric', name: 'Eric', description: 'Calm & reassuring' },
+  { id: 'Brian', name: 'Brian', description: 'Authoritative' },
+];
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -60,15 +83,19 @@ const demoScheduledActions: ScheduledAction[] = [
   },
 ];
 
+const demoTask: Task = {
+  id: '1',
+  title: 'Create a scheduled action to the team in Slack every 4pm on Thursdays for KPI meeting',
+  status: 'in_progress',
+  createdAt: new Date(),
+};
+
 const Index = () => {
   const [selectedVoice, setSelectedVoice] = useState('Sarah');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [tasks] = useState<Task[]>([
-    { id: '1', title: 'first task', status: 'pending', createdAt: new Date() },
-    { id: '2', title: 'second task', status: 'pending', createdAt: new Date() },
-  ]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
 
@@ -95,19 +122,6 @@ const Index = () => {
     onError: handleError,
   });
 
-  const getStatusIcon = (taskStatus: Task['status']) => {
-    switch (taskStatus) {
-      case 'pending':
-        return <Clock className="w-4 h-4 text-muted-foreground" />;
-      case 'in_progress':
-        return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
-      case 'completed':
-        return <CheckCircle2 className="w-4 h-4 text-green-400" />;
-      case 'failed':
-        return <AlertCircle className="w-4 h-4 text-destructive" />;
-    }
-  };
-
   return (
     <div className="min-h-screen flex">
       {/* Mobile Header with Hamburger */}
@@ -120,12 +134,26 @@ const Index = () => {
           >
             <Menu className="w-6 h-6" />
           </Button>
-          <VoiceSelector 
-            selectedVoice={selectedVoice} 
-            onVoiceChange={setSelectedVoice}
-            disabled={isActive}
-          />
-          <div className="w-10" /> {/* Spacer for centering */}
+          <span className="text-sm text-muted-foreground">{selectedVoice}</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative">
+                <ListTodo className="w-5 h-5" />
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                  1
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80">
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm">Tasks</h3>
+                <div className="flex items-start gap-2 p-2 rounded-lg bg-secondary/50">
+                  <Clock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-foreground">{demoTask.title}</p>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </header>
       )}
 
@@ -157,7 +185,7 @@ const Index = () => {
                   <X className="w-5 h-5" />
                 </Button>
               </div>
-              <nav className="flex flex-col gap-2">
+              <nav className="flex flex-col gap-2 flex-1">
                 {navItems.map((item) => (
                   <button
                     key={item.label}
@@ -172,6 +200,33 @@ const Index = () => {
                   </button>
                 ))}
               </nav>
+              {/* Settings at bottom */}
+              <div className="border-t border-border pt-4 mt-4">
+                <button
+                  onClick={() => setSettingsOpen(!settingsOpen)}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left w-full"
+                >
+                  <Settings className="w-5 h-5" />
+                  <span className="text-sm">Settings</span>
+                </button>
+                {settingsOpen && (
+                  <div className="mt-3 px-3">
+                    <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
+                    <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isActive}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VOICES.map((voice) => (
+                          <SelectItem key={voice.id} value={voice.id}>
+                            {voice.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
             </motion.aside>
           </>
         )}
@@ -207,19 +262,65 @@ const Index = () => {
               {desktopSidebarOpen && <span className="text-sm">{item.label}</span>}
             </button>
           ))}
+          
+          {/* Settings at bottom */}
+          <div className="mt-auto border-t border-border pt-3">
+            <button
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap w-full"
+            >
+              <Settings className="w-5 h-5 flex-shrink-0" />
+              {desktopSidebarOpen && <span className="text-sm">Settings</span>}
+            </button>
+            {settingsOpen && desktopSidebarOpen && (
+              <div className="mt-3 px-3">
+                <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
+                <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isActive}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VOICES.map((voice) => (
+                      <SelectItem key={voice.id} value={voice.id}>
+                        {voice.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </motion.aside>
       )}
 
       {/* Center - Voice Button */}
       <main className={`flex-1 flex flex-col items-center justify-center relative ${isMobile ? 'pt-16' : ''}`}>
-        {/* Voice selector at top (desktop only) */}
+        {/* Tasks button in top right (desktop only) */}
         {!isMobile && (
-          <div className="absolute top-4">
-            <VoiceSelector 
-              selectedVoice={selectedVoice} 
-              onVoiceChange={setSelectedVoice}
-              disabled={isActive}
-            />
+          <div className="absolute top-4 right-4">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ListTodo className="w-4 h-4" />
+                  Tasks
+                  <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                    1
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-96">
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Tasks</h3>
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
+                    <Clock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0 animate-pulse" />
+                    <div>
+                      <p className="text-sm text-foreground font-medium">Creating scheduled action...</p>
+                      <p className="text-sm text-muted-foreground mt-1">{demoTask.title}</p>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         )}
 
@@ -237,27 +338,6 @@ const Index = () => {
           onToggle={toggle}
         />
       </main>
-
-      {/* Right Sidebar - Tasks (desktop only) */}
-      {!isMobile && (
-        <aside className="w-64 border-l border-border p-4 flex flex-col">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Tasks</h2>
-          <div className="flex-1 space-y-2">
-            {tasks.map((task, index) => (
-              <motion.div
-                key={task.id}
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="flex items-center gap-2 text-sm text-foreground"
-              >
-                {getStatusIcon(task.status)}
-                <span>{index + 1}. {task.title}</span>
-              </motion.div>
-            ))}
-          </div>
-        </aside>
-      )}
     </div>
   );
 };
