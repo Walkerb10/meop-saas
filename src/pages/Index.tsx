@@ -5,18 +5,20 @@ import { useVoiceChat } from '@/hooks/useVoiceChat';
 import { Message, Task, ScheduledAction } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { 
-  LayoutDashboard, 
-  MessageSquare, 
-  User, 
-  Clock, 
+import {
+  LayoutDashboard,
+  MessageSquare,
+  User,
+  Clock,
   Menu,
   X,
   PanelLeftClose,
   PanelLeft,
   CalendarClock,
   Settings,
-  ListTodo
+  ListTodo,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,6 +56,7 @@ const navItems = [
   { icon: User, label: 'User info', path: undefined },
 ];
 
+// Demo-only data (kept here to match the current demo approach)
 const demoScheduledActions: ScheduledAction[] = [
   {
     id: '1',
@@ -85,10 +88,68 @@ const demoScheduledActions: ScheduledAction[] = [
 
 const demoTask: Task = {
   id: '1',
-  title: 'Create a scheduled action to the team in Slack every 4pm on Thursdays for KPI meeting',
+  title: 'Lead won → send onboarding sequence',
   status: 'in_progress',
   createdAt: new Date(),
 };
+
+const demoTaskMeta = {
+  whatsGettingDone:
+    'Creating a scheduled action that triggers when a CRM lead is marked “Won”, then sends onboarding.',
+  demoSteps: [
+    'Trigger: CRM lead status changes to Won',
+    'Action: Send onboarding form (Google Sheet)',
+    'Action: Send intro video + checklist (Notion doc)',
+  ],
+  technicalNotes: [
+    'Google Sheet: Onboarding Form (shared link)',
+    'Notion: “Customer Onboarding – Intro Video” document',
+  ],
+} as const;
+
+function TasksPopoverContent() {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Tasks</h3>
+        <span className="text-xs text-muted-foreground">1 active</span>
+      </div>
+
+      <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-3">
+        <div className="flex items-start gap-3">
+          <Clock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0 animate-pulse" />
+          <div className="min-w-0">
+            <p className="text-sm text-foreground font-medium">{demoTask.title}</p>
+            <p className="text-xs text-muted-foreground mt-1">{demoTaskMeta.whatsGettingDone}</p>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-foreground">Demo steps</p>
+          <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+            {demoTaskMeta.demoSteps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-foreground">Technical notes</p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>{demoTaskMeta.technicalNotes[0]}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Notion className="w-4 h-4" />
+              <span>{demoTaskMeta.technicalNotes[1]}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const Index = () => {
   const [selectedVoice, setSelectedVoice] = useState('Sarah');
@@ -100,21 +161,27 @@ const Index = () => {
   const { toast } = useToast();
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
-    setMessages(prev => [...prev, {
-      id: Date.now().toString(),
-      role,
-      content: text,
-      timestamp: new Date(),
-    }]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Date.now().toString(),
+        role,
+        content: text,
+        timestamp: new Date(),
+      },
+    ]);
   }, []);
 
-  const handleError = useCallback((error: string) => {
-    toast({
-      variant: 'destructive',
-      title: 'Error',
-      description: error,
-    });
-  }, [toast]);
+  const handleError = useCallback(
+    (error: string) => {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error,
+      });
+    },
+    [toast]
+  );
 
   const { status, isActive, toggle } = useVoiceChat({
     voiceId: selectedVoice,
@@ -127,14 +194,12 @@ const Index = () => {
       {/* Mobile Header with Hamburger */}
       {isMobile && (
         <header className="fixed top-0 left-0 right-0 z-30 p-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setSidebarOpen(true)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-6 h-6" />
           </Button>
+
           <span className="text-sm text-muted-foreground">{selectedVoice}</span>
+
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
@@ -145,13 +210,7 @@ const Index = () => {
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80">
-              <div className="space-y-2">
-                <h3 className="font-semibold text-sm">Tasks</h3>
-                <div className="flex items-start gap-2 p-2 rounded-lg bg-secondary/50">
-                  <Clock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                  <p className="text-sm text-foreground">{demoTask.title}</p>
-                </div>
-              </div>
+              <TasksPopoverContent />
             </PopoverContent>
           </Popover>
         </header>
@@ -177,14 +236,11 @@ const Index = () => {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-lg font-semibold">Menu</h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSidebarOpen(false)}
-                >
+                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
                   <X className="w-5 h-5" />
                 </Button>
               </div>
+
               <nav className="flex flex-col gap-2 flex-1">
                 {navItems.map((item) => (
                   <button
@@ -200,6 +256,7 @@ const Index = () => {
                   </button>
                 ))}
               </nav>
+
               {/* Settings at bottom */}
               <div className="border-t border-border pt-4 mt-4">
                 <button
@@ -209,6 +266,7 @@ const Index = () => {
                   <Settings className="w-5 h-5" />
                   <span className="text-sm">Settings</span>
                 </button>
+
                 {settingsOpen && (
                   <div className="mt-3 px-3">
                     <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
@@ -252,6 +310,7 @@ const Index = () => {
               <PanelLeft className="w-5 h-5" />
             )}
           </Button>
+
           {navItems.map((item) => (
             <button
               key={item.label}
@@ -262,7 +321,7 @@ const Index = () => {
               {desktopSidebarOpen && <span className="text-sm">{item.label}</span>}
             </button>
           ))}
-          
+
           {/* Settings at bottom */}
           <div className="mt-auto border-t border-border pt-3">
             <button
@@ -272,6 +331,7 @@ const Index = () => {
               <Settings className="w-5 h-5 flex-shrink-0" />
               {desktopSidebarOpen && <span className="text-sm">Settings</span>}
             </button>
+
             {settingsOpen && desktopSidebarOpen && (
               <div className="mt-3 px-3">
                 <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
@@ -295,48 +355,37 @@ const Index = () => {
 
       {/* Center - Voice Button */}
       <main className={`flex-1 flex flex-col items-center justify-center relative ${isMobile ? 'pt-16' : ''}`}>
-        {/* Tasks button in top right (desktop only) */}
-        {!isMobile && (
-          <div className="absolute top-4 right-4">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ListTodo className="w-4 h-4" />
-                  Tasks
-                  <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                    1
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-96">
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Tasks</h3>
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
-                    <Clock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0 animate-pulse" />
-                    <div>
-                      <p className="text-sm text-foreground font-medium">Creating scheduled action...</p>
-                      <p className="text-sm text-muted-foreground mt-1">{demoTask.title}</p>
-                    </div>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        )}
-
         {/* Ambient glow */}
-        <div 
+        <div
           className="absolute inset-0 pointer-events-none"
           style={{
             background: 'radial-gradient(circle at 50% 50%, hsl(var(--primary) / 0.08), transparent 50%)',
           }}
         />
 
-        <VoiceButton 
-          status={status}
-          isActive={isActive}
-          onToggle={toggle}
-        />
+        <div className="relative flex items-center justify-center">
+          <VoiceButton status={status} isActive={isActive} onToggle={toggle} />
+
+          {/* Tasks button positioned near the main button (desktop demo) */}
+          {!isMobile && (
+            <div className="absolute -right-28 -top-6">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <ListTodo className="w-4 h-4" />
+                    Tasks
+                    <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                      1
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-96">
+                  <TasksPopoverContent />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   );
