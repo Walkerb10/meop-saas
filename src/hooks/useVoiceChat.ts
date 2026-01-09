@@ -33,6 +33,7 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [isActive, setIsActive] = useState(false);
   
+  // Refs for mutable state
   const messagesRef = useRef<Message[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -40,21 +41,19 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
   const streamRef = useRef<MediaStream | null>(null);
   const shouldContinueRef = useRef(false);
   const recordingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
+  // Refs for props to avoid stale closures
   const voiceIdRef = useRef(voiceId);
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
+  
+  // Refs for functions to break circular dependencies
+  const startListeningRef = useRef<() => Promise<void>>();
 
-  useEffect(() => {
-    voiceIdRef.current = voiceId;
-  }, [voiceId]);
-
-  useEffect(() => {
-    onTranscriptRef.current = onTranscript;
-  }, [onTranscript]);
-
-  useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
+  // Keep refs in sync
+  useEffect(() => { voiceIdRef.current = voiceId; }, [voiceId]);
+  useEffect(() => { onTranscriptRef.current = onTranscript; }, [onTranscript]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   const getAIResponse = useCallback(async (userText: string): Promise<string> => {
     messagesRef.current.push({ role: 'user', content: userText });
@@ -160,7 +159,7 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     if (audioChunksRef.current.length === 0) {
       console.log('No audio chunks to process');
       if (shouldContinueRef.current) {
-        startListening();
+        startListeningRef.current?.();
       }
       return;
     }
@@ -173,7 +172,7 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     if (audioBlob.size < 1000) {
       console.log('Audio too small, skipping');
       if (shouldContinueRef.current) {
-        startListening();
+        startListeningRef.current?.();
       }
       return;
     }
@@ -187,7 +186,7 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
         console.log('Empty transcript, continuing to listen');
         if (shouldContinueRef.current) {
           setStatus('listening');
-          startListening();
+          startListeningRef.current?.();
         }
         return;
       }
@@ -206,14 +205,14 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
       
       if (shouldContinueRef.current) {
         setStatus('listening');
-        startListening();
+        startListeningRef.current?.();
       }
     } catch (error) {
       console.error('Voice chat error:', error);
       onErrorRef.current?.(error instanceof Error ? error.message : 'An error occurred');
       if (shouldContinueRef.current) {
         setStatus('listening');
-        startListening();
+        startListeningRef.current?.();
       }
     }
   }, [transcribeAudio, getAIResponse, speakText]);
@@ -276,6 +275,11 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     }
   }, [processAndContinue]);
 
+  // Keep startListeningRef in sync
+  useEffect(() => {
+    startListeningRef.current = startListening;
+  }, [startListening]);
+
   const start = useCallback(() => {
     console.log('Starting voice chat');
     setIsActive(true);
@@ -321,6 +325,7 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     }
   }, [isActive, start, stop]);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       shouldContinueRef.current = false;
