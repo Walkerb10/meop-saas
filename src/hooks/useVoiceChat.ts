@@ -1,4 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export type VoiceStatus = 'idle' | 'listening' | 'processing' | 'speaking';
 
@@ -33,10 +34,14 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [isActive, setIsActive] = useState(false);
   const messagesRef = useRef<Message[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const shouldContinueRef = useRef(false);
+  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
 
   const getAIResponse = useCallback(async (userText: string): Promise<string> => {
     messagesRef.current.push({ role: 'user', content: userText });
@@ -105,100 +110,197 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     });
   }, [voiceId]);
 
-  const startListening = useCallback(() => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      onError?.('Speech recognition not supported in this browser');
+  const transcribeAudio = useCallback(async (audioBlob: Blob): Promise<string> => {
+    // Use ElevenLabs Speech-to-Text
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.webm');
+    
+    const { data, error } = await supabase.functions.invoke('elevenlabs-stt', {
+      body: formData,
+    });
+    
+    if (error) {
+      throw new Error(error.message || 'Transcription failed');
+    }
+    
+    return data.text || '';
+  }, []);
+
+  const processRecording = useCallback(async () => {
+    if (audioChunksRef.current.length === 0) return;
+    
+    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+    audioChunksRef.current = [];
+    
+    if (audioBlob.size < 1000) {
+      // Too small, probably just noise
+      if (shouldContinueRef.current) {
+        startRecording();
+      }
       return;
     }
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    recognitionRef.current = recognition;
     
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      setStatus('listening');
-    };
-
-    recognition.onresult = async (event) => {
-      const transcript = event.results[0][0].transcript;
+    setStatus('processing');
+    
+    try {
+      const transcript = await transcribeAudio(audioBlob);
+      
+      if (!transcript.trim()) {
+        if (shouldContinueRef.current) {
+          setStatus('listening');
+          startRecording();
+        }
+        return;
+      }
+      
       onTranscript?.(transcript, 'user');
       
       if (!shouldContinueRef.current) return;
       
-      setStatus('processing');
+      const response = await getAIResponse(transcript);
+      onTranscript?.(response, 'assistant');
       
-      try {
-        const response = await getAIResponse(transcript);
-        onTranscript?.(response, 'assistant');
-        
-        if (!shouldContinueRef.current) return;
-        
-        setStatus('speaking');
-        await speakText(response);
-        
-        // Continue listening if still active
-        if (shouldContinueRef.current) {
-          startListening();
+      if (!shouldContinueRef.current) return;
+      
+      setStatus('speaking');
+      await speakText(response);
+      
+      if (shouldContinueRef.current) {
+        setStatus('listening');
+        startRecording();
+      }
+    } catch (error) {
+      console.error('Voice chat error:', error);
+      onError?.(error instanceof Error ? error.message : 'An error occurred');
+      if (shouldContinueRef.current) {
+        setStatus('listening');
+        startRecording();
+      }
+    }
+  }, [transcribeAudio, getAIResponse, speakText, onTranscript, onError]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      if (!streamRef.current) {
+        streamRef.current = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          } 
+        });
+      }
+      
+      // Set up audio analysis for silence detection
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
+        source.connect(analyserRef.current);
+        analyserRef.current.fftSize = 256;
+      }
+      
+      const mediaRecorder = new MediaRecorder(streamRef.current, {
+        mimeType: 'audio/webm;codecs=opus',
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
-      } catch (error) {
-        console.error('Voice chat error:', error);
-        onError?.(error instanceof Error ? error.message : 'An error occurred');
-        setStatus('idle');
-        setIsActive(false);
-        shouldContinueRef.current = false;
-      }
-    };
-
-    recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
-      if (event.error !== 'no-speech' && event.error !== 'aborted') {
-        onError?.(`Speech recognition error: ${event.error}`);
-      }
-      // Try to restart if still active
-      if (shouldContinueRef.current && event.error === 'no-speech') {
-        startListening();
-      } else if (event.error !== 'aborted') {
-        setStatus('idle');
-        setIsActive(false);
-        shouldContinueRef.current = false;
-      }
-    };
-
-    recognition.onend = () => {
-      if (status === 'listening' && shouldContinueRef.current) {
-        // Restart if we ended without getting a result
-        startListening();
-      }
-    };
-
-    recognition.start();
-  }, [getAIResponse, speakText, onTranscript, onError, status]);
+      };
+      
+      mediaRecorder.onstop = () => {
+        processRecording();
+      };
+      
+      mediaRecorder.start(100); // Collect data every 100ms
+      setStatus('listening');
+      
+      // Set up silence detection
+      const checkSilence = () => {
+        if (!analyserRef.current || !shouldContinueRef.current) return;
+        
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(dataArray);
+        
+        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        
+        if (average < 10) {
+          // Silence detected
+          if (!silenceTimeoutRef.current) {
+            silenceTimeoutRef.current = setTimeout(() => {
+              if (mediaRecorderRef.current?.state === 'recording' && audioChunksRef.current.length > 0) {
+                mediaRecorderRef.current.stop();
+              }
+              silenceTimeoutRef.current = null;
+            }, 1500); // 1.5 seconds of silence
+          }
+        } else {
+          // Sound detected, clear silence timeout
+          if (silenceTimeoutRef.current) {
+            clearTimeout(silenceTimeoutRef.current);
+            silenceTimeoutRef.current = null;
+          }
+        }
+        
+        if (shouldContinueRef.current && status === 'listening') {
+          requestAnimationFrame(checkSilence);
+        }
+      };
+      
+      requestAnimationFrame(checkSilence);
+      
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      onError?.('Microphone access denied');
+      setStatus('idle');
+      setIsActive(false);
+    }
+  }, [processRecording, onError, status]);
 
   const start = useCallback(() => {
     setIsActive(true);
     shouldContinueRef.current = true;
     messagesRef.current = [];
-    startListening();
-  }, [startListening]);
+    startRecording();
+  }, [startRecording]);
 
   const stop = useCallback(() => {
     shouldContinueRef.current = false;
     setIsActive(false);
     setStatus('idle');
     
-    if (recognitionRef.current) {
-      recognitionRef.current.abort();
-      recognitionRef.current = null;
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
+    }
+    
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current = null;
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+      analyserRef.current = null;
     }
     
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
     }
+    
+    audioChunksRef.current = [];
   }, []);
 
   const toggle = useCallback(() => {
@@ -209,6 +311,13 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     }
   }, [isActive, start, stop]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stop();
+    };
+  }, [stop]);
+
   return {
     status,
     isActive,
@@ -216,14 +325,4 @@ export function useVoiceChat({ voiceId, onTranscript, onError }: UseVoiceChatOpt
     stop,
     toggle,
   };
-}
-
-// Type declarations for Speech Recognition
-declare global {
-  interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    SpeechRecognition: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    webkitSpeechRecognition: any;
-  }
 }
