@@ -141,7 +141,7 @@ function TasksPopoverContent() {
               <span>{demoTaskMeta.technicalNotes[0]}</span>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Notion className="w-4 h-4" />
+              <FileText className="w-4 h-4" />
               <span>{demoTaskMeta.technicalNotes[1]}</span>
             </div>
           </div>
