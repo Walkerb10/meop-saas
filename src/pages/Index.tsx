@@ -51,9 +51,8 @@ const VOICES = [
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: CalendarClock, label: 'Scheduled Actions', path: '/scheduled-actions' },
-  { icon: MessageSquare, label: 'Conversations', path: undefined },
-  { icon: User, label: 'User info', path: undefined },
+  { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
+  { icon: Clock, label: 'Executions', path: undefined },
 ];
 
 // Demo-only data (kept here to match the current demo approach)
@@ -200,19 +199,8 @@ const Index = () => {
 
           <span className="text-sm text-muted-foreground">{selectedVoice}</span>
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
-                <ListTodo className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
-                  1
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80">
-              <TasksPopoverContent />
-            </PopoverContent>
-          </Popover>
+          {/* Empty div to balance the header layout */}
+          <div className="w-10" />
         </header>
       )}
 
@@ -355,6 +343,26 @@ const Index = () => {
 
       {/* Center - Voice Button */}
       <main className={`flex-1 flex flex-col items-center justify-center relative ${isMobile ? 'pt-16' : ''}`}>
+        {/* Desktop Tasks button - top right area, below header */}
+        {!isMobile && (
+          <div className="absolute top-6 right-6">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ListTodo className="w-4 h-4" />
+                  Tasks
+                  <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                    1
+                  </span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-96">
+                <TasksPopoverContent />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
+
         {/* Ambient glow */}
         <div
           className="absolute inset-0 pointer-events-none"
@@ -366,12 +374,12 @@ const Index = () => {
         <div className="relative flex items-center justify-center">
           <VoiceButton status={status} isActive={isActive} onToggle={toggle} />
 
-          {/* Tasks button positioned near the main button (desktop demo) */}
-          {!isMobile && (
-            <div className="absolute -right-28 -top-6">
+          {/* Mobile Tasks button - positioned up and to the right of voice button */}
+          {isMobile && (
+            <div className="absolute -right-4 -top-20">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
+                  <Button variant="outline" size="sm" className="gap-2 shadow-lg">
                     <ListTodo className="w-4 h-4" />
                     Tasks
                     <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
@@ -379,7 +387,7 @@ const Index = () => {
                     </span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent align="end" className="w-96">
+                <PopoverContent align="end" className="w-80">
                   <TasksPopoverContent />
                 </PopoverContent>
               </Popover>
