@@ -246,63 +246,71 @@ const Index = () => {
           initial={false}
           animate={{ width: desktopSidebarOpen ? 200 : 56 }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="border-r border-border p-3 flex flex-col gap-2 overflow-hidden h-screen"
+          className="border-r border-border flex flex-col overflow-hidden h-screen"
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
-            className="mb-4 self-start"
-          >
-            {desktopSidebarOpen ? (
-              <PanelLeftClose className="w-5 h-5" />
-            ) : (
-              <PanelLeft className="w-5 h-5" />
-            )}
-          </Button>
-
-          {mainNavItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => item.path && navigate(item.path)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
-              title={!desktopSidebarOpen ? item.label : undefined}
+          <div className="p-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
+              className="w-10 h-10"
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <AnimatePresence>
-                {desktopSidebarOpen && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="text-sm overflow-hidden"
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </button>
-          ))}
+              {desktopSidebarOpen ? (
+                <PanelLeftClose className="w-5 h-5" />
+              ) : (
+                <PanelLeft className="w-5 h-5" />
+              )}
+            </Button>
+          </div>
+
+          <nav className="flex-1 px-2 space-y-1">
+            {mainNavItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => item.path && navigate(item.path)}
+                className="flex items-center gap-3 w-full h-10 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
+                title={!desktopSidebarOpen ? item.label : undefined}
+              >
+                <div className="w-6 flex items-center justify-center flex-shrink-0">
+                  <item.icon className="w-5 h-5" />
+                </div>
+                <AnimatePresence mode="wait">
+                  {desktopSidebarOpen && (
+                    <motion.span
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.1 }}
+                      className="text-sm whitespace-nowrap"
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            ))}
+          </nav>
 
           {/* Settings and Profile at bottom */}
-          <div className="mt-auto border-t border-border pt-3 space-y-2">
+          <div className="border-t border-border p-2 space-y-1">
             {bottomNavItems.map((item) => (
               <button
                 key={item.label}
                 onClick={() => item.path && navigate(item.path)}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap w-full"
+                className="flex items-center gap-3 w-full h-10 px-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
                 title={!desktopSidebarOpen ? item.label : undefined}
               >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                <AnimatePresence>
+                <div className="w-6 flex items-center justify-center flex-shrink-0">
+                  <item.icon className="w-5 h-5" />
+                </div>
+                <AnimatePresence mode="wait">
                   {desktopSidebarOpen && (
                     <motion.span
-                      initial={{ opacity: 0, width: 0 }}
-                      animate={{ opacity: 1, width: 'auto' }}
-                      exit={{ opacity: 0, width: 0 }}
-                      transition={{ duration: 0.15 }}
-                      className="text-sm overflow-hidden"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.1 }}
+                      className="text-sm whitespace-nowrap"
                     >
                       {item.label}
                     </motion.span>
