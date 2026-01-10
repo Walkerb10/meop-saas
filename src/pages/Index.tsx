@@ -318,13 +318,13 @@ const Index = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <h1 className="text-xl md:text-2xl font-semibold text-foreground">
+                  <p className="text-xl md:text-2xl font-semibold text-foreground">
                     Speak your problem.
-                  </h1>
-                  <p className="text-lg md:text-xl text-muted-foreground">
+                  </p>
+                  <p className="text-xl md:text-2xl font-semibold text-foreground">
                     Agents handle it.
                   </p>
-                  <p className="text-lg md:text-xl text-muted-foreground">
+                  <p className="text-xl md:text-2xl font-semibold text-foreground">
                     Start to finish.
                   </p>
                 </motion.div>
