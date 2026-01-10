@@ -324,8 +324,8 @@ const Index = () => {
 
       {/* Right side content with top bar */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Top Header Bar */}
-        <header className="h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border">
+        {/* Top Header Bar - Sticky */}
+        <header className="sticky top-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border">
           {/* Left side - hamburger on mobile */}
           {isMobile ? (
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
