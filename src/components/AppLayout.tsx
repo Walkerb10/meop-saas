@@ -220,7 +220,7 @@ export function AppLayout({
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="gap-2 border-primary text-foreground hover:bg-primary/10"
+                className="gap-2 border-white/50 text-foreground hover:bg-white/10"
               >
                 <ListTodo className="w-4 h-4" />
                 Tasks
