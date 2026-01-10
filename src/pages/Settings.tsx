@@ -1,13 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut } from 'lucide-react';
+import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
 import { AppLayout } from '@/components/AppLayout';
 import { useSequences } from '@/hooks/useSequences';
 import { useAuth } from '@/hooks/useAuth';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -15,6 +17,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+interface N8nTool {
+  id: string;
+  title: string;
+  webhookUrl: string;
+  description: string;
+}
 
 const VOICES = [
   { id: 'Roger', name: 'Roger', description: 'Deep & confident' },
@@ -62,6 +71,33 @@ const Settings = () => {
     return localStorage.getItem('selectedVoice') || 'Sarah';
   });
   const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
+  
+  // n8n Tools state
+  const [n8nTools, setN8nTools] = useState<N8nTool[]>(() => {
+    const saved = localStorage.getItem('n8nTools');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newTool, setNewTool] = useState({ title: '', webhookUrl: '', description: '' });
+
+  useEffect(() => {
+    localStorage.setItem('n8nTools', JSON.stringify(n8nTools));
+  }, [n8nTools]);
+
+  const addN8nTool = () => {
+    if (!newTool.title.trim() || !newTool.webhookUrl.trim()) return;
+    const tool: N8nTool = {
+      id: Date.now().toString(),
+      title: newTool.title.trim(),
+      webhookUrl: newTool.webhookUrl.trim(),
+      description: newTool.description.trim(),
+    };
+    setN8nTools([...n8nTools, tool]);
+    setNewTool({ title: '', webhookUrl: '', description: '' });
+  };
+
+  const deleteN8nTool = (id: string) => {
+    setN8nTools(n8nTools.filter(t => t.id !== id));
+  };
 
   const handleLogout = async () => {
     await signOut();
@@ -175,6 +211,77 @@ const Settings = () => {
                   onUpdate={updateSequence}
                   onDelete={deleteSequence}
                 />
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-border" />
+
+              {/* n8n Tools Section */}
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">n8n Webhook Tools</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Add n8n webhook URLs as tools for the agent to use.
+                  </p>
+                </div>
+
+                {/* Existing n8n tools */}
+                {n8nTools.length > 0 && (
+                  <div className="grid gap-3">
+                    {n8nTools.map((tool) => (
+                      <div
+                        key={tool.id}
+                        className="flex items-start justify-between p-4 rounded-lg border border-border bg-card"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-sm">{tool.title}</h3>
+                          {tool.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
+                          )}
+                          <code className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground break-all mt-2 inline-block">
+                            {tool.webhookUrl}
+                          </code>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="ml-3 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteN8nTool(tool.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add new tool form */}
+                <div className="p-4 rounded-lg border border-dashed border-border bg-muted/30 space-y-3">
+                  <Input
+                    placeholder="Tool title (e.g., Research Agent)"
+                    value={newTool.title}
+                    onChange={(e) => setNewTool({ ...newTool, title: e.target.value })}
+                  />
+                  <Input
+                    placeholder="n8n Webhook URL"
+                    value={newTool.webhookUrl}
+                    onChange={(e) => setNewTool({ ...newTool, webhookUrl: e.target.value })}
+                  />
+                  <Textarea
+                    placeholder="Description (optional) - What does this tool do?"
+                    value={newTool.description}
+                    onChange={(e) => setNewTool({ ...newTool, description: e.target.value })}
+                    rows={2}
+                  />
+                  <Button 
+                    onClick={addN8nTool} 
+                    disabled={!newTool.title.trim() || !newTool.webhookUrl.trim()}
+                    className="gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Tool
+                  </Button>
+                </div>
               </div>
             </motion.div>
           </TabsContent>
