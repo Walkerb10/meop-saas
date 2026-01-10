@@ -5,22 +5,26 @@ import { AppLayout } from '@/components/AppLayout';
 import { useVapiAgent } from '@/hooks/useVapiAgent';
 import { Message } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Loader2, Zap } from 'lucide-react';
+import { Send, Loader2, Zap, Clock, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { useTasks } from '@/hooks/useTasks';
+import { format, formatDistanceToNow } from 'date-fns';
 
-interface Execution {
-  id: string;
-  sequence_name: string;
-  status: string;
-  started_at: string;
-}
+function TasksPopoverContent() {
+  const { tasks, loading } = useTasks();
 
-function TasksPopoverContent({ executions }: { executions: Execution[] }) {
-  const runningTasks = executions.filter(e => e.status === 'running');
+  const processingTasks = tasks.filter(t => t.status === 'processing');
+  const scheduledTasks = tasks.filter(t => t.status === 'scheduled').slice(0, 3);
   
-  if (runningTasks.length === 0) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
+
+  if (tasks.length === 0) {
     return (
       <div className="text-center py-6">
         <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mx-auto mb-3">
@@ -28,31 +32,59 @@ function TasksPopoverContent({ executions }: { executions: Execution[] }) {
         </div>
         <p className="text-sm text-muted-foreground">No active tasks</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Tasks appear here when automations are running
+          Tasks appear here when automations run
         </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Active Tasks</h3>
-        <span className="text-xs text-muted-foreground">{runningTasks.length} running</span>
-      </div>
-      {runningTasks.map((task) => (
-        <div key={task.id} className="rounded-lg border border-border bg-secondary/30 p-3">
-          <div className="flex items-start gap-3">
-            <Loader2 className="w-4 h-4 text-primary mt-0.5 animate-spin shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-foreground font-medium truncate">{task.sequence_name}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Started {format(new Date(task.started_at), 'h:mm a')}
-              </p>
-            </div>
+    <div className="space-y-4">
+      {/* Processing tasks */}
+      {processingTasks.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            <span>Running</span>
           </div>
+          {processingTasks.map((task) => (
+            <div key={task.id} className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+              <div className="flex items-start gap-2">
+                <Loader2 className="w-3.5 h-3.5 text-primary mt-0.5 animate-spin shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground font-medium truncate">{task.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Started {task.startedAt ? format(task.startedAt, 'h:mm a') : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      {/* Scheduled tasks */}
+      {scheduledTasks.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground uppercase tracking-wide font-medium">
+            <Calendar className="w-3 h-3" />
+            <span>Upcoming</span>
+          </div>
+          {scheduledTasks.map((task) => (
+            <div key={task.id} className="rounded-lg border border-border bg-secondary/30 p-2.5">
+              <div className="flex items-start gap-2">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground font-medium truncate">{task.name}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {task.scheduledTime ? formatDistanceToNow(task.scheduledTime, { addSuffix: true }) : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -60,33 +92,10 @@ function TasksPopoverContent({ executions }: { executions: Execution[] }) {
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [textInput, setTextInput] = useState('');
-  const [executions, setExecutions] = useState<Execution[]>([]);
   const [inputFocused, setInputFocused] = useState(false);
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const { toast } = useToast();
-
-  // Fetch running executions for tasks
-  useEffect(() => {
-    const fetchExecutions = async () => {
-      const { data } = await supabase
-        .from('executions')
-        .select('id, sequence_name, status, started_at')
-        .eq('status', 'running')
-        .order('started_at', { ascending: false });
-      if (data) setExecutions(data);
-    };
-    fetchExecutions();
-
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel('executions-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'executions' }, () => {
-        fetchExecutions();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+  const { tasks } = useTasks();
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages((prev) => {
@@ -147,7 +156,7 @@ const Index = () => {
     setHasStartedChat(false);
   }, [isActive, stop]);
 
-  const runningCount = executions.filter(e => e.status === 'running').length;
+  const processingCount = tasks.filter(t => t.status === 'processing').length;
 
   // Show tagline only if we haven't started a chat yet
   const showTagline = !hasStartedChat;
@@ -155,8 +164,8 @@ const Index = () => {
   return (
     <AppLayout 
       showTasksButton 
-      tasksContent={<TasksPopoverContent executions={executions} />}
-      taskCount={runningCount}
+      tasksContent={<TasksPopoverContent />}
+      taskCount={processingCount}
       showNewChatButton={hasStartedChat}
       onNewChat={handleNewChat}
     >
