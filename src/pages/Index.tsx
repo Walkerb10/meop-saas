@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentVoiceButton } from '@/components/AgentVoiceButton';
 import { AppLayout } from '@/components/AppLayout';
-import { useElevenLabsAgent } from '@/hooks/useElevenLabsAgent';
+import { useVapiAgent } from '@/hooks/useVapiAgent';
 import { Message } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
 import { Send, Loader2, Zap } from 'lucide-react';
@@ -111,7 +111,7 @@ const Index = () => {
     [toast]
   );
 
-  const { status, isActive, toggle, stop } = useElevenLabsAgent({
+  const { status, isActive, toggle, stop } = useVapiAgent({
     onTranscript: handleTranscript,
     onError: handleError,
   });
