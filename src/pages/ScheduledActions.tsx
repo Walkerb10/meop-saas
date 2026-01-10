@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, X, Save } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { AppLayout } from '@/components/AppLayout';
 import { useAutomations } from '@/hooks/useAutomations';
 import { useTimezone } from '@/hooks/useTimezone';
@@ -61,9 +62,21 @@ function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst:
   );
 }
 
+type AutomationType = 'text' | 'research' | 'email' | 'slack';
+
 interface AutomationFormData {
   name: string;
+  type: AutomationType;
   message: string;
+  // Research specific
+  researchQuery: string;
+  researchOutputFormat: string;
+  // Email specific
+  emailTo: string;
+  emailSubject: string;
+  // Slack specific
+  slackChannel: string;
+  // Scheduling
   frequency: 'daily' | 'weekly' | 'monthly';
   time: string;
   dayOfWeek: string;
@@ -73,36 +86,53 @@ interface AutomationFormData {
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-// Helper to extract message from automation steps
-function extractMessageFromSteps(steps: ScheduledActionStep[]): string {
-  const actionStep = steps.find(s => s.type === 'action');
-  if (actionStep?.config && typeof actionStep.config === 'object' && 'message' in actionStep.config) {
-    return (actionStep.config as { message: string }).message || '';
-  }
-  return '';
-}
+const AUTOMATION_TYPES = [
+  { id: 'text' as const, label: 'Send Text', icon: MessageSquare, description: 'Send SMS via n8n webhook' },
+  { id: 'research' as const, label: 'Research', icon: Search, description: 'AI-powered research via Perplexity' },
+  { id: 'email' as const, label: 'Send Email', icon: Mail, description: 'Send email via Gmail webhook' },
+  { id: 'slack' as const, label: 'Slack Message', icon: Hash, description: 'Post to Slack channel' },
+];
 
-// Helper to extract trigger config from steps
-function extractTriggerFromSteps(steps: ScheduledActionStep[]): { frequency: string; time: string; dayOfWeek: string; dayOfMonth: string } {
+// Helper to extract data from automation steps
+function extractFromSteps(steps: ScheduledActionStep[]): Partial<AutomationFormData> {
+  const actionStep = steps.find(s => s.type === 'action');
   const triggerStep = steps.find(s => s.type === 'trigger');
   const label = triggerStep?.label || '';
   
-  // Parse the trigger label to extract frequency, time, day
-  let frequency = 'daily';
+  // Extract type
+  let type: AutomationType = 'text';
+  const config = actionStep?.config as Record<string, unknown> | undefined;
+  if (config?.action_type === 'research') type = 'research';
+  else if (config?.action_type === 'send_email') type = 'email';
+  else if (config?.action_type === 'slack_message') type = 'slack';
+  
+  // Extract message
+  const message = (config?.message as string) || '';
+  
+  // Extract research fields
+  const researchQuery = (config?.query as string) || '';
+  const researchOutputFormat = (config?.output_format as string) || 'summary';
+  
+  // Extract email fields
+  const emailTo = (config?.to as string) || '';
+  const emailSubject = (config?.subject as string) || '';
+  
+  // Extract slack fields
+  const slackChannel = (config?.channel as string) || '';
+  
+  // Parse trigger
+  let frequency: 'daily' | 'weekly' | 'monthly' = 'daily';
   let time = '09:00';
   let dayOfWeek = 'Monday';
   let dayOfMonth = '1';
   
-  // Try to extract time from label like "Every Monday at 5:00 PM"
   const timeMatch = label.match(/at\s+(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
   if (timeMatch) {
     let hours = parseInt(timeMatch[1]);
     const minutes = timeMatch[2];
     const period = timeMatch[3]?.toUpperCase();
-    
     if (period === 'PM' && hours !== 12) hours += 12;
     if (period === 'AM' && hours === 12) hours = 0;
-    
     time = `${hours.toString().padStart(2, '0')}:${minutes}`;
   }
   
@@ -115,7 +145,7 @@ function extractTriggerFromSteps(steps: ScheduledActionStep[]): { frequency: str
     if (dayMatch) dayOfMonth = dayMatch[1];
   }
   
-  return { frequency, time, dayOfWeek, dayOfMonth };
+  return { type, message, researchQuery, researchOutputFormat, emailTo, emailSubject, slackChannel, frequency, time, dayOfWeek, dayOfMonth };
 }
 
 const ScheduledActions = () => {
@@ -125,7 +155,13 @@ const ScheduledActions = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<AutomationFormData>({
     name: '',
+    type: 'text',
     message: '',
+    researchQuery: '',
+    researchOutputFormat: 'summary',
+    emailTo: '',
+    emailSubject: '',
+    slackChannel: '',
     frequency: 'daily',
     time: '09:00',
     dayOfWeek: 'Monday',
@@ -133,29 +169,13 @@ const ScheduledActions = () => {
     webhookUrl: '',
   });
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   
   const { automations, loading, executeAutomation, deleteAutomation, createAutomation, updateAutomation } = useAutomations();
   const { formatTime, getTimezoneAbbr } = useTimezone();
 
-  // When selecting an automation, populate form data for editing
-  useEffect(() => {
-    if (selectedAutomation && isEditing) {
-      const triggerData = extractTriggerFromSteps(selectedAutomation.steps);
-      setFormData({
-        name: selectedAutomation.name,
-        message: extractMessageFromSteps(selectedAutomation.steps),
-        frequency: triggerData.frequency as 'daily' | 'weekly' | 'monthly',
-        time: triggerData.time,
-        dayOfWeek: triggerData.dayOfWeek,
-        dayOfMonth: triggerData.dayOfMonth,
-        webhookUrl: '', // We'd need to fetch this from DB if needed
-      });
-    }
-  }, [selectedAutomation, isEditing]);
-
   const handleExecute = async () => {
     if (!selectedAutomation) return;
-    
     setExecuting(true);
     try {
       await executeAutomation(selectedAutomation.id);
@@ -178,6 +198,19 @@ const ScheduledActions = () => {
     }
   };
 
+  const handleToggleActive = async (automation: ScheduledAction, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setTogglingId(automation.id);
+    try {
+      await updateAutomation(automation.id, { isActive: !automation.isActive });
+      toast.success(automation.isActive ? 'Automation disabled' : 'Automation enabled');
+    } catch (err) {
+      toast.error('Failed to update automation');
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const buildTriggerLabel = () => {
     const timeFormatted = formatTime(formData.time);
     const tzAbbr = getTimezoneAbbr();
@@ -190,9 +223,99 @@ const ScheduledActions = () => {
     return `Daily at ${timeFormatted} ${tzAbbr}`;
   };
 
+  const buildActionLabel = () => {
+    switch (formData.type) {
+      case 'research':
+        return `Research: "${formData.researchQuery.substring(0, 30)}${formData.researchQuery.length > 30 ? '...' : ''}"`;
+      case 'email':
+        return `Email to: ${formData.emailTo || '(enter email)'}`;
+      case 'slack':
+        return `Slack #${formData.slackChannel || '(enter channel)'}`;
+      default:
+        return formData.message 
+          ? `Send text: "${formData.message.substring(0, 40)}${formData.message.length > 40 ? '...' : ''}"` 
+          : 'Send text: (enter message)';
+    }
+  };
+
+  const buildSteps = (): ScheduledActionStep[] => {
+    const triggerStep: ScheduledActionStep = {
+      id: crypto.randomUUID(),
+      type: 'trigger',
+      label: buildTriggerLabel(),
+    };
+
+    let actionConfig: Record<string, unknown> = {};
+    switch (formData.type) {
+      case 'research':
+        actionConfig = {
+          action_type: 'research',
+          query: formData.researchQuery,
+          output_format: formData.researchOutputFormat,
+        };
+        break;
+      case 'email':
+        actionConfig = {
+          action_type: 'send_email',
+          to: formData.emailTo,
+          subject: formData.emailSubject,
+          message: formData.message,
+        };
+        break;
+      case 'slack':
+        actionConfig = {
+          action_type: 'slack_message',
+          channel: formData.slackChannel,
+          message: formData.message,
+        };
+        break;
+      default:
+        actionConfig = {
+          action_type: 'send_text',
+          message: formData.message,
+        };
+    }
+
+    const actionStep: ScheduledActionStep = {
+      id: crypto.randomUUID(),
+      type: 'action',
+      label: buildActionLabel(),
+      config: actionConfig,
+    };
+
+    return [triggerStep, actionStep];
+  };
+
+  const getDescription = () => {
+    switch (formData.type) {
+      case 'research':
+        return `Research: "${formData.researchQuery}"`;
+      case 'email':
+        return `Email to ${formData.emailTo}: "${formData.emailSubject}"`;
+      case 'slack':
+        return `Slack #${formData.slackChannel}: "${formData.message}"`;
+      default:
+        return `Scheduled text: "${formData.message}"`;
+    }
+  };
+
+  const isFormValid = () => {
+    if (!formData.name.trim()) return false;
+    switch (formData.type) {
+      case 'research':
+        return formData.researchQuery.trim().length > 0;
+      case 'email':
+        return formData.emailTo.trim().length > 0 && formData.message.trim().length > 0;
+      case 'slack':
+        return formData.slackChannel.trim().length > 0 && formData.message.trim().length > 0;
+      default:
+        return formData.message.trim().length > 0;
+    }
+  };
+
   const handleCreate = async () => {
-    if (!formData.name.trim() || !formData.message.trim()) {
-      toast.error('Please fill in name and message');
+    if (!isFormValid()) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -209,29 +332,12 @@ const ScheduledActions = () => {
         triggerConfig.day_of_month = parseInt(formData.dayOfMonth);
       }
 
-      const steps: ScheduledActionStep[] = [
-        {
-          id: crypto.randomUUID(),
-          type: 'trigger',
-          label: buildTriggerLabel(),
-        },
-        {
-          id: crypto.randomUUID(),
-          type: 'action',
-          label: `Send text: "${formData.message.substring(0, 40)}${formData.message.length > 40 ? '...' : ''}"`,
-          config: {
-            action_type: 'send_text',
-            message: formData.message,
-          },
-        },
-      ];
-
       await createAutomation({
         name: formData.name,
-        description: `Scheduled text: "${formData.message}"`,
+        description: getDescription(),
         triggerType: 'schedule',
         triggerConfig,
-        steps,
+        steps: buildSteps(),
         n8nWebhookUrl: formData.webhookUrl || undefined,
       });
 
@@ -246,8 +352,8 @@ const ScheduledActions = () => {
   };
 
   const handleSaveEdit = async () => {
-    if (!selectedAutomation || !formData.name.trim() || !formData.message.trim()) {
-      toast.error('Please fill in name and message');
+    if (!selectedAutomation || !isFormValid()) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -264,28 +370,11 @@ const ScheduledActions = () => {
         triggerConfig.day_of_month = parseInt(formData.dayOfMonth);
       }
 
-      const steps: ScheduledActionStep[] = [
-        {
-          id: crypto.randomUUID(),
-          type: 'trigger',
-          label: buildTriggerLabel(),
-        },
-        {
-          id: crypto.randomUUID(),
-          type: 'action',
-          label: `Send text: "${formData.message.substring(0, 40)}${formData.message.length > 40 ? '...' : ''}"`,
-          config: {
-            action_type: 'send_text',
-            message: formData.message,
-          },
-        },
-      ];
-
       await updateAutomation(selectedAutomation.id, {
         name: formData.name,
-        description: `Scheduled text: "${formData.message}"`,
+        description: getDescription(),
         triggerConfig,
-        steps,
+        steps: buildSteps(),
         n8nWebhookUrl: formData.webhookUrl || undefined,
       });
 
@@ -302,7 +391,13 @@ const ScheduledActions = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      type: 'text',
       message: '',
+      researchQuery: '',
+      researchOutputFormat: 'summary',
+      emailTo: '',
+      emailSubject: '',
+      slackChannel: '',
       frequency: 'daily',
       time: '09:00',
       dayOfWeek: 'Monday',
@@ -320,18 +415,27 @@ const ScheduledActions = () => {
 
   const startEditing = () => {
     if (!selectedAutomation) return;
-    const triggerData = extractTriggerFromSteps(selectedAutomation.steps);
+    const extracted = extractFromSteps(selectedAutomation.steps);
     setFormData({
       name: selectedAutomation.name,
-      message: extractMessageFromSteps(selectedAutomation.steps),
-      frequency: triggerData.frequency as 'daily' | 'weekly' | 'monthly',
-      time: triggerData.time,
-      dayOfWeek: triggerData.dayOfWeek,
-      dayOfMonth: triggerData.dayOfMonth,
+      type: extracted.type || 'text',
+      message: extracted.message || '',
+      researchQuery: extracted.researchQuery || '',
+      researchOutputFormat: extracted.researchOutputFormat || 'summary',
+      emailTo: extracted.emailTo || '',
+      emailSubject: extracted.emailSubject || '',
+      slackChannel: extracted.slackChannel || '',
+      frequency: extracted.frequency || 'daily',
+      time: extracted.time || '09:00',
+      dayOfWeek: extracted.dayOfWeek || 'Monday',
+      dayOfMonth: extracted.dayOfMonth || '1',
       webhookUrl: '',
     });
     setIsEditing(true);
   };
+
+  const selectedTypeInfo = AUTOMATION_TYPES.find(t => t.id === formData.type);
+  const TypeIcon = selectedTypeInfo?.icon || MessageSquare;
 
   // Render the automation form (used for both create and edit)
   const renderAutomationForm = (isEdit: boolean) => (
@@ -343,17 +447,37 @@ const ScheduledActions = () => {
       className="space-y-6"
     >
       <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-medium">Text Sequence</h3>
-            <p className="text-xs text-muted-foreground">Send scheduled text messages</p>
+        {/* Automation Type Selector */}
+        <div>
+          <label className="text-sm font-medium mb-2 block">Automation Type</label>
+          <div className="grid grid-cols-2 gap-2">
+            {AUTOMATION_TYPES.map((type) => {
+              const Icon = type.icon;
+              const isSelected = formData.type === type.id;
+              return (
+                <button
+                  key={type.id}
+                  onClick={() => setFormData({ ...formData, type: type.id })}
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
+                    isSelected 
+                      ? 'border-primary bg-primary/10' 
+                      : 'border-border bg-secondary/30 hover:border-primary/50'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`} />
+                  <div>
+                    <p className={`text-sm font-medium ${isSelected ? 'text-primary' : 'text-foreground'}`}>
+                      {type.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{type.description}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="border-t border-border pt-4 space-y-3">
           <div>
             <label className="text-sm font-medium mb-1.5 block">Name</label>
             <Input
@@ -363,16 +487,108 @@ const ScheduledActions = () => {
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">Message</label>
-            <Textarea
-              placeholder="The message to send..."
-              value={formData.message}
-              onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-              rows={3}
-            />
-          </div>
+          {/* Type-specific fields */}
+          {formData.type === 'text' && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Message</label>
+              <Textarea
+                placeholder="The message to send..."
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                rows={3}
+              />
+            </div>
+          )}
 
+          {formData.type === 'research' && (
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Research Query</label>
+                <Textarea
+                  placeholder="What do you want to research? e.g., Latest AI developments this week"
+                  value={formData.researchQuery}
+                  onChange={(e) => setFormData({ ...formData, researchQuery: e.target.value })}
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Output Format</label>
+                <Select 
+                  value={formData.researchOutputFormat} 
+                  onValueChange={(v) => setFormData({ ...formData, researchOutputFormat: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="summary">Summary (brief overview)</SelectItem>
+                    <SelectItem value="detailed">Detailed (in-depth analysis)</SelectItem>
+                    <SelectItem value="bullets">Bullet Points</SelectItem>
+                    <SelectItem value="actionable">Actionable Insights</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
+          {formData.type === 'email' && (
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">To (Email)</label>
+                <Input
+                  type="email"
+                  placeholder="recipient@example.com"
+                  value={formData.emailTo}
+                  onChange={(e) => setFormData({ ...formData, emailTo: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Subject</label>
+                <Input
+                  placeholder="Email subject..."
+                  value={formData.emailSubject}
+                  onChange={(e) => setFormData({ ...formData, emailSubject: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Message</label>
+                <Textarea
+                  placeholder="Email body..."
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
+
+          {formData.type === 'slack' && (
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Channel</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">#</span>
+                  <Input
+                    placeholder="general"
+                    value={formData.slackChannel}
+                    onChange={(e) => setFormData({ ...formData, slackChannel: e.target.value })}
+                    className="pl-7"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Message</label>
+                <Textarea
+                  placeholder="Slack message..."
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Scheduling */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium mb-1.5 block">Frequency</label>
@@ -443,7 +659,9 @@ const ScheduledActions = () => {
               onChange={(e) => setFormData({ ...formData, webhookUrl: e.target.value })}
             />
             <p className="text-xs text-muted-foreground mt-1">
-              When executed, this webhook will be called to actually send the text
+              {formData.type === 'research' 
+                ? 'Research is done internally via Perplexity. Webhook optional for forwarding results.'
+                : 'When executed, this webhook will be called with the action payload'}
             </p>
           </div>
         </div>
@@ -458,13 +676,7 @@ const ScheduledActions = () => {
             isFirst={true} 
           />
           <ActionStepNode 
-            step={{ 
-              id: '2', 
-              type: 'action', 
-              label: formData.message 
-                ? `Send text: "${formData.message.substring(0, 40)}${formData.message.length > 40 ? '...' : ''}"` 
-                : 'Send text: (enter message above)'
-            }} 
+            step={{ id: '2', type: 'action', label: buildActionLabel() }} 
             isFirst={false} 
           />
         </div>
@@ -481,7 +693,7 @@ const ScheduledActions = () => {
         <Button 
           className="flex-1 gap-2"
           onClick={isEdit ? handleSaveEdit : handleCreate}
-          disabled={saving || !formData.name.trim() || !formData.message.trim()}
+          disabled={saving || !isFormValid()}
         >
           {saving ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -584,36 +796,44 @@ const ScheduledActions = () => {
                 </div>
               ) : (
                 automations.map((action, index) => (
-                  <motion.button
+                  <motion.div
                     key={action.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    onClick={() => setSelectedAutomation(action)}
-                    className="w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/30 hover:bg-card/80 transition-all group"
+                    className="rounded-xl border border-border bg-card p-4 hover:border-primary/30 transition-all group"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-4">
+                      {/* Toggle Switch */}
+                      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                          checked={action.isActive}
+                          onCheckedChange={() => handleToggleActive(action, { stopPropagation: () => {} } as React.MouseEvent)}
+                          disabled={togglingId === action.id}
+                        />
+                      </div>
+
+                      {/* Content - clickable */}
+                      <button
+                        onClick={() => setSelectedAutomation(action)}
+                        className="flex-1 text-left min-w-0"
+                      >
                         <div className="flex items-center gap-3 mb-1">
-                          <h3 className="font-semibold text-foreground truncate">{action.name}</h3>
-                          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                            action.isActive 
-                              ? 'bg-green-400/10 text-green-400'
-                              : 'bg-secondary text-muted-foreground'
-                          }`}>
-                            {action.isActive ? 'Active' : 'Inactive'}
-                          </span>
+                          <h3 className={`font-semibold truncate ${action.isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                            {action.name}
+                          </h3>
                         </div>
                         {action.description && (
-                          <p className="text-sm text-muted-foreground">{action.description}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-1">{action.description}</p>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
                           {action.steps.length} steps{action.steps[0] && ` • ${action.steps[0].label}`}
                         </p>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-4" />
+                      </button>
+
+                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
                     </div>
-                  </motion.button>
+                  </motion.div>
                 ))
               )}
             </motion.div>
@@ -626,19 +846,30 @@ const ScheduledActions = () => {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              {/* Status and description */}
-              <div className="flex items-center gap-3">
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  selectedAutomation.isActive 
-                    ? 'bg-green-400/10 text-green-400'
-                    : 'bg-secondary text-muted-foreground'
-                }`}>
-                  {selectedAutomation.isActive ? 'Active' : 'Inactive'}
-                </span>
-                {selectedAutomation.description && (
-                  <p className="text-sm text-muted-foreground">{selectedAutomation.description}</p>
-                )}
+              {/* Status toggle */}
+              <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
+                <div className="flex items-center gap-3">
+                  <Power className={`w-5 h-5 ${selectedAutomation.isActive ? 'text-green-400' : 'text-muted-foreground'}`} />
+                  <div>
+                    <p className="font-medium">
+                      {selectedAutomation.isActive ? 'Automation Active' : 'Automation Disabled'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedAutomation.isActive ? 'Will run on schedule' : 'Will not run until enabled'}
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={selectedAutomation.isActive}
+                  onCheckedChange={() => handleToggleActive(selectedAutomation, { stopPropagation: () => {} } as React.MouseEvent)}
+                  disabled={togglingId === selectedAutomation.id}
+                />
               </div>
+
+              {/* Description */}
+              {selectedAutomation.description && (
+                <p className="text-sm text-muted-foreground">{selectedAutomation.description}</p>
+              )}
 
               {/* Sequence visualization */}
               {selectedAutomation.steps.length > 0 ? (
