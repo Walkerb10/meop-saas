@@ -101,18 +101,24 @@ export function useAutomations() {
       // If there's an n8n webhook, call it
       if (automation.n8n_webhook_url) {
         try {
-          // Extract message from action step config
-          const actionStep = (automation.steps as unknown as Array<{ type: string; config?: { message?: string } }>)
-            ?.find(s => s.type === 'action');
-          const message = actionStep?.config?.message || automation.description || automation.name;
+          // Extract action config from the action step
+          const actionStep = (
+            automation.steps as unknown as Array<{ type: string; config?: Record<string, unknown> }>
+          )?.find((s) => s.type === 'action');
+
+          const actionConfig = (actionStep?.config || {}) as Record<string, unknown>;
+          const configMessage = typeof actionConfig.message === 'string' ? actionConfig.message : null;
+          const message = configMessage?.trim() || automation.description || automation.name;
 
           const response = await fetch(automation.n8n_webhook_url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              message: message,
               automation_name: automation.name,
               execution_id: execution.id,
+              action_type: actionConfig.action_type || null,
+              ...actionConfig,
+              message,
             }),
           });
 
