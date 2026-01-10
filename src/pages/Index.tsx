@@ -1,79 +1,58 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentVoiceButton } from '@/components/AgentVoiceButton';
 import { AppLayout } from '@/components/AppLayout';
 import { useElevenLabsAgent } from '@/hooks/useElevenLabsAgent';
-import { Message, Task } from '@/types/agent';
+import { Message } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
-import {
-  Clock,
-  FileSpreadsheet,
-  FileText,
-  Send,
-} from 'lucide-react';
+import { Send, Loader2, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
 
-const demoTask: Task = {
-  id: '1',
-  title: 'Lead won → send onboarding sequence',
-  status: 'in_progress',
-  createdAt: new Date(),
-};
+interface Execution {
+  id: string;
+  sequence_name: string;
+  status: string;
+  started_at: string;
+}
 
-const demoTaskMeta = {
-  whatsGettingDone:
-    'Creating a scheduled action that triggers when a CRM lead is marked "Won", then sends onboarding.',
-  demoSteps: [
-    'Trigger: CRM lead status changes to Won',
-    'Action: Send onboarding form (Google Sheet)',
-    'Action: Send intro video + checklist (Notion doc)',
-  ],
-  technicalNotes: [
-    'Google Sheet: Onboarding Form (shared link)',
-    'Notion: "Customer Onboarding – Intro Video" document',
-  ],
-} as const;
+function TasksPopoverContent({ executions }: { executions: Execution[] }) {
+  const runningTasks = executions.filter(e => e.status === 'running');
+  
+  if (runningTasks.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mx-auto mb-3">
+          <Zap className="w-6 h-6 text-muted-foreground" />
+        </div>
+        <p className="text-sm text-muted-foreground">No active tasks</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Tasks appear here when automations are running
+        </p>
+      </div>
+    );
+  }
 
-function TasksPopoverContent() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold">Tasks</h3>
-        <span className="text-xs text-muted-foreground">1 active</span>
+        <h3 className="font-semibold">Active Tasks</h3>
+        <span className="text-xs text-muted-foreground">{runningTasks.length} running</span>
       </div>
-
-      <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-3">
-        <div className="flex items-start gap-3">
-          <Clock className="w-4 h-4 text-primary mt-0.5 flex-shrink-0 animate-pulse" />
-          <div className="min-w-0">
-            <p className="text-sm text-foreground font-medium">{demoTask.title}</p>
-            <p className="text-xs text-muted-foreground mt-1">{demoTaskMeta.whatsGettingDone}</p>
-          </div>
-        </div>
-
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-foreground">Demo steps</p>
-          <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
-            {demoTaskMeta.demoSteps.map((step) => (
-              <li key={step}>{step}</li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-foreground">Technical notes</p>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>{demoTaskMeta.technicalNotes[0]}</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <FileText className="w-4 h-4" />
-              <span>{demoTaskMeta.technicalNotes[1]}</span>
+      {runningTasks.map((task) => (
+        <div key={task.id} className="rounded-lg border border-border bg-secondary/30 p-3">
+          <div className="flex items-start gap-3">
+            <Loader2 className="w-4 h-4 text-primary mt-0.5 animate-spin shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-foreground font-medium truncate">{task.sequence_name}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Started {format(new Date(task.started_at), 'h:mm a')}
+              </p>
             </div>
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
@@ -81,7 +60,32 @@ function TasksPopoverContent() {
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [textInput, setTextInput] = useState('');
+  const [executions, setExecutions] = useState<Execution[]>([]);
+  const [inputFocused, setInputFocused] = useState(false);
   const { toast } = useToast();
+
+  // Fetch running executions for tasks
+  useEffect(() => {
+    const fetchExecutions = async () => {
+      const { data } = await supabase
+        .from('executions')
+        .select('id, sequence_name, status, started_at')
+        .eq('status', 'running')
+        .order('started_at', { ascending: false });
+      if (data) setExecutions(data);
+    };
+    fetchExecutions();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel('executions-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'executions' }, () => {
+        fetchExecutions();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages((prev) => [
@@ -111,11 +115,13 @@ const Index = () => {
     onError: handleError,
   });
 
+  const runningCount = executions.filter(e => e.status === 'running').length;
+
   return (
     <AppLayout 
       showTasksButton 
-      tasksContent={<TasksPopoverContent />}
-      taskCount={1}
+      tasksContent={<TasksPopoverContent executions={executions} />}
+      taskCount={runningCount}
     >
       <div className="flex-1 flex flex-col relative h-full">
         {/* Ambient glow */}
@@ -127,64 +133,123 @@ const Index = () => {
         />
 
         {/* Main content area */}
-        <div className="flex-1 flex items-center justify-center">
-          <motion.div 
-            className="relative flex flex-col items-center justify-center gap-8"
-            animate={{ 
-              y: isActive ? -80 : 0 
-            }}
-            transition={{ type: 'spring', damping: 20, stiffness: 150 }}
-          >
-            {/* Logo tagline - hidden when active */}
-            <AnimatePresence>
-              {!isActive && (
-                <motion.div 
-                  className="text-center space-y-1 max-w-md px-4"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Speak your problem.
-                  </p>
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Agents handle it.
-                  </p>
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Start to finish.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        <div className="flex-1 flex flex-col">
+          <AnimatePresence mode="wait">
+            {!isActive ? (
+              /* Idle state - centered mic */
+              <motion.div 
+                key="idle"
+                className="flex-1 flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <div className="relative flex flex-col items-center justify-center gap-8">
+                  {/* Logo tagline */}
+                  <motion.div 
+                    className="text-center space-y-1 max-w-md px-4"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <p className="text-xl md:text-2xl font-semibold text-foreground">
+                      Speak your problem.
+                    </p>
+                    <p className="text-xl md:text-2xl font-semibold text-foreground">
+                      Agents handle it.
+                    </p>
+                    <p className="text-xl md:text-2xl font-semibold text-foreground">
+                      Start to finish.
+                    </p>
+                  </motion.div>
 
-            <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
-          </motion.div>
+                  <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
+                </div>
+              </motion.div>
+            ) : (
+              /* Active state - chat interface */
+              <motion.div 
+                key="active"
+                className="flex-1 flex flex-col"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {/* Top bar with mic */}
+                <div className="p-4 flex justify-center">
+                  <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} size="small" />
+                </div>
+
+                {/* Messages area */}
+                <div className="flex-1 overflow-y-auto px-4 pb-4">
+                  <div className="max-w-2xl mx-auto space-y-4">
+                    {messages.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground text-sm">
+                        Start speaking to begin the conversation...
+                      </div>
+                    ) : (
+                      messages.map((msg) => (
+                        <motion.div
+                          key={msg.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                              msg.role === 'user'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-secondary text-foreground'
+                            }`}
+                          >
+                            <p className="text-sm">{msg.content}</p>
+                            <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              {format(msg.timestamp, 'h:mm a')}
+                            </p>
+                          </div>
+                        </motion.div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Bottom text input - ChatGPT style */}
         <div className="p-4 bg-background/80 backdrop-blur-sm">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-center bg-secondary/50 rounded-full border border-border focus-within:border-primary/50 transition-colors px-4">
-              <input
+            <motion.div 
+              className={`relative flex items-center bg-secondary/50 rounded-full border transition-all duration-300 px-4 ${
+                inputFocused 
+                  ? 'border-primary shadow-[0_0_20px_hsl(var(--primary)/0.3)]' 
+                  : 'border-border'
+              }`}
+              animate={{
+                scale: inputFocused ? 1.01 : 1,
+              }}
+            >
+              <motion.input
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
                 placeholder="Message..."
                 className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
               />
               <Button 
                 size="icon" 
                 variant="ghost"
-                className={`shrink-0 h-9 w-9 rounded-full transition-all border-2 ${
+                className={`shrink-0 h-8 w-8 rounded-full transition-all ${
                   textInput.trim() 
-                    ? 'text-primary border-primary hover:bg-primary/10' 
-                    : 'text-muted-foreground border-muted-foreground/30 hover:bg-muted'
+                    ? 'text-primary hover:bg-primary/10' 
+                    : 'text-muted-foreground hover:bg-muted'
                 }`}
                 disabled={!textInput.trim()}
               >
                 <Send className="w-4 h-4" />
               </Button>
-            </div>
+            </motion.div>
           </div>
         </div>
       </div>

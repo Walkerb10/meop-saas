@@ -220,12 +220,12 @@ export function AppLayout({
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="gap-2 border-white/50 text-foreground hover:bg-white/10"
+                className="gap-2 border-border text-foreground hover:bg-secondary relative"
               >
                 <ListTodo className="w-4 h-4" />
                 Tasks
                 {taskCount > 0 && (
-                  <span className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-medium min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
                     {taskCount}
                   </span>
                 )}
