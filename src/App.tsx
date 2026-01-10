@@ -8,6 +8,7 @@ import ScheduledActions from "./pages/ScheduledActions";
 import Settings from "./pages/Settings";
 import Executions from "./pages/Executions";
 import Profile from "./pages/Profile";
+import Conversations from "./pages/Conversations";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/settings" element={<Settings />} />
           <Route path="/executions" element={<Executions />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/conversations" element={<Conversations />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

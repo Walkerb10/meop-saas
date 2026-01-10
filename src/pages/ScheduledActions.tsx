@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, Menu, X, LayoutDashboard, CalendarClock, Settings, PanelLeftClose, PanelLeft, Zap, ChevronRight, ArrowLeft, User } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Menu, X, LayoutDashboard, CalendarClock, Settings, PanelLeftClose, PanelLeft, Zap, ChevronRight, ArrowLeft, User, MessageSquare } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep, Task } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { TasksPanel } from '@/components/TasksPanel';
@@ -11,6 +11,7 @@ const mainNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
   { icon: Clock, label: 'Executions', path: '/executions' },
+  { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
 ];
 
 const bottomNavItems = [
@@ -127,7 +128,7 @@ const ScheduledActions = () => {
             className="gap-1"
           >
             <span className="text-sm">Tasks</span>
-            <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">
+            <span className="bg-primary text-white text-xs px-1.5 py-0.5 rounded-full">
               1
             </span>
           </Button>
@@ -278,10 +279,10 @@ const ScheduledActions = () => {
                 onClick={() => setTasksOpen(true)}
                 className="gap-2"
               >
-                Tasks
-                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                  1
-                </span>
+              Tasks
+              <span className="bg-primary text-white text-xs px-1.5 py-0.5 rounded-full">
+                1
+              </span>
               </Button>
             </div>
           )}

@@ -22,6 +22,7 @@ import {
   Send,
   Plus,
   Mic,
+  MessageSquare,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -35,6 +36,7 @@ const mainNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
   { icon: Clock, label: 'Executions', path: '/executions' },
+  { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
 ];
 
 const bottomNavItems = [
@@ -331,7 +333,7 @@ const Index = () => {
               <Button variant="ghost" size="sm" className="gap-2">
                 <ListTodo className="w-4 h-4" />
                 Tasks
-                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                <span className="bg-primary text-white text-xs px-1.5 py-0.5 rounded-full">
                   1
                 </span>
               </Button>
