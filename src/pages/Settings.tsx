@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Webhook, Volume2, Bell, Shield, Copy, Check } from 'lucide-react';
+import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
 import { AppLayout } from '@/components/AppLayout';
 import { useSequences } from '@/hooks/useSequences';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Select,
   SelectContent,
@@ -54,10 +56,17 @@ const ELEVENLABS_WEBHOOKS = [
 
 const Settings = () => {
   const { sequences, addSequence, updateSequence, deleteSequence } = useSequences();
+  const { signOut, user } = useAuth();
+  const navigate = useNavigate();
   const [selectedVoice, setSelectedVoice] = useState(() => {
     return localStorage.getItem('selectedVoice') || 'Sarah';
   });
   const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+  };
 
   const supabaseUrl = useMemo(() => {
     return import.meta.env.VITE_SUPABASE_URL || '';
@@ -227,8 +236,19 @@ const Settings = () => {
               <div>
                 <h2 className="text-lg font-semibold mb-2">Security</h2>
                 <p className="text-sm text-muted-foreground">
-                  Security settings coming soon.
+                  Manage your account security settings.
                 </p>
+              </div>
+
+              <div className="border-t border-border pt-6">
+                <h3 className="font-medium mb-2">Account</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Signed in as <span className="font-medium text-foreground">{user?.email}</span>
+                </p>
+                <Button variant="destructive" onClick={handleLogout} className="gap-2">
+                  <LogOut className="w-4 h-4" />
+                  Logout
+                </Button>
               </div>
             </motion.div>
           </TabsContent>
