@@ -20,27 +20,53 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  // Check if this is a tool call (has scheduling fields from text sequence tool)
+  // Check if this is a tool call (has scheduling fields from automation tool)
   if (body.message_content && body.frequency && body.scheduled_time) {
-    console.log("📱 Text sequence tool detected!");
+    // Determine the automation type from the payload
+    const automationType = body.automation_type || body.channel || body.type || 'text';
+    const channel = body.channel || body.slack_channel || body.discord_channel || null;
+    
+    console.log(`📱 Automation tool detected! Type: ${automationType}, Channel: ${channel}`);
     
     // Build human-readable trigger label
     const triggerLabel = body.frequency === 'weekly' 
       ? `Every ${body.day_of_week || 'week'} at ${body.scheduled_time}`
       : body.frequency === 'monthly'
       ? `Monthly on day ${body.day_of_month || 1} at ${body.scheduled_time}`
+      : body.frequency === 'one_time'
+      ? `One-time on ${body.one_time_date} at ${body.scheduled_time}`
       : `Daily at ${body.scheduled_time}`;
+
+    // Determine action type and label based on automation type
+    let actionType = 'send_text';
+    let actionLabel = `Send text: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`;
+    let automationName = `Text: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`;
+
+    if (automationType === 'slack' || body.slack_channel) {
+      actionType = 'send_slack';
+      actionLabel = `Post to #${channel || 'general'}: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`;
+      automationName = `Slack: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`;
+    } else if (automationType === 'discord' || body.discord_channel) {
+      actionType = 'send_discord';
+      actionLabel = `Post to #${channel || 'general'}: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`;
+      automationName = `Discord: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`;
+    } else if (automationType === 'email' || body.email_to) {
+      actionType = 'send_email';
+      actionLabel = `Email to ${body.email_to || 'recipient'}: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`;
+      automationName = `Email: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`;
+    }
 
     // Create automation with properly formatted steps for UI display
     const automationData = {
-      name: `Text: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`,
-      description: `Scheduled text: "${body.message_content}"`,
-      trigger_type: "schedule",
+      name: automationName,
+      description: `Scheduled ${automationType}: "${body.message_content}"`,
+      trigger_type: body.frequency === 'one_time' ? 'one_time' : 'scheduled',
       trigger_config: {
         frequency: body.frequency,
-        scheduled_time: body.scheduled_time,
+        time: body.scheduled_time,
         day_of_week: body.day_of_week || null,
         day_of_month: body.day_of_month || null,
+        one_time_date: body.one_time_date || null,
       },
       steps: [
         {
@@ -51,15 +77,17 @@ serve(async (req) => {
         {
           id: crypto.randomUUID(),
           type: "action",
-          label: `Send text: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`,
+          label: actionLabel,
           config: {
-            action_type: "send_text",
+            action_type: actionType,
             message: body.message_content,
             phone: body.phone_number || null,
+            channel: channel,
+            email_to: body.email_to || null,
           },
         },
       ],
-      is_active: true,
+      is_active: body.frequency !== 'one_time', // One-time starts inactive
     };
 
     const { data, error } = await supabase.from("automations").insert(automationData).select().single();
@@ -72,9 +100,9 @@ serve(async (req) => {
       });
     }
 
-    console.log("✅ Created text sequence automation:", data.id);
+    console.log(`✅ Created ${automationType} automation:`, data.id);
     return new Response(
-      JSON.stringify({ success: true, automation_id: data.id, message: "Text sequence created!" }),
+      JSON.stringify({ success: true, automation_id: data.id, message: `${automationType} automation created!` }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
