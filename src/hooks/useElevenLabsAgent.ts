@@ -81,29 +81,30 @@ export function useElevenLabsAgent({
     setIsConnecting(true);
     
     try {
-      // Request microphone permission
+      // Request microphone permission (prompt once, then release the stream)
       console.log('🎤 Requesting microphone permission...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('✅ Microphone permission granted, tracks:', stream.getAudioTracks().length);
+      const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      permissionStream.getTracks().forEach((t) => t.stop());
+      console.log('✅ Microphone permission granted');
 
-      // Get signed URL from edge function
-      console.log('🔑 Getting signed URL...');
+      // Get WebRTC conversation token from backend
+      console.log('🔑 Getting conversation token...');
       const { data, error } = await supabase.functions.invoke(
         'elevenlabs-conversation-token',
         { body: { agentId } }
       );
 
-      if (error || !data?.signed_url) {
+      if (error || !data?.token) {
         throw new Error(error?.message || 'Failed to get conversation token');
       }
-      
-      console.log('✅ Got signed URL, starting session...');
 
-      // Start the conversation with WebSocket
+      console.log('✅ Got token, starting WebRTC session...');
+
       await conversation.startSession({
-        signedUrl: data.signed_url,
+        conversationToken: data.token,
+        connectionType: 'webrtc',
       });
-      
+
       console.log('✅ Session started, conversation status:', conversation.status);
     } catch (error) {
       console.error('❌ Failed to start conversation:', error);
