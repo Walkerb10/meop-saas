@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Webhook, Volume2, Bell, Shield } from 'lucide-react';
+import { ArrowLeft, Webhook, Volume2, Bell, Shield, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
@@ -29,16 +29,51 @@ const VOICES = [
   { id: 'Brian', name: 'Brian', description: 'Authoritative' },
 ];
 
+const ELEVENLABS_WEBHOOKS = [
+  {
+    name: 'Conversation Webhook',
+    description: 'Receives transcripts and events from ElevenLabs conversations',
+    path: 'elevenlabs-webhook',
+  },
+  {
+    name: 'Conversation Token',
+    description: 'Generates signed URLs for starting agent conversations',
+    path: 'elevenlabs-conversation-token',
+  },
+  {
+    name: 'Text-to-Speech',
+    description: 'Converts text to speech audio',
+    path: 'elevenlabs-tts',
+  },
+  {
+    name: 'Speech-to-Text',
+    description: 'Converts audio to text transcripts',
+    path: 'elevenlabs-stt',
+  },
+];
+
 const Settings = () => {
   const navigate = useNavigate();
   const { sequences, addSequence, updateSequence, deleteSequence } = useSequences();
   const [selectedVoice, setSelectedVoice] = useState(() => {
     return localStorage.getItem('selectedVoice') || 'Sarah';
   });
+  const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
+
+  const supabaseUrl = useMemo(() => {
+    return import.meta.env.VITE_SUPABASE_URL || '';
+  }, []);
 
   const handleVoiceChange = (voice: string) => {
     setSelectedVoice(voice);
     localStorage.setItem('selectedVoice', voice);
+  };
+
+  const copyWebhookUrl = (path: string) => {
+    const url = `${supabaseUrl}/functions/v1/${path}`;
+    navigator.clipboard.writeText(url);
+    setCopiedWebhook(path);
+    setTimeout(() => setCopiedWebhook(null), 2000);
   };
 
   return (
@@ -79,21 +114,65 @@ const Settings = () => {
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
+              className="space-y-8"
             >
-              <div>
-                <h2 className="text-lg font-semibold mb-2">n8n Webhook Sequences</h2>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Create webhook URLs that can be called by ElevenLabs tools to trigger n8n workflows.
-                  Each sequence maps to an n8n webhook that will be called when the tool is invoked.
-                </p>
+              {/* ElevenLabs Webhooks Section */}
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">ElevenLabs Webhooks</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Use these endpoints to integrate with ElevenLabs agent tools and callbacks.
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  {ELEVENLABS_WEBHOOKS.map((webhook) => (
+                    <div
+                      key={webhook.path}
+                      className="flex items-center justify-between p-4 rounded-lg border border-border bg-card"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-sm">{webhook.name}</h3>
+                        <p className="text-xs text-muted-foreground mb-2">{webhook.description}</p>
+                        <code className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground break-all">
+                          {supabaseUrl}/functions/v1/{webhook.path}
+                        </code>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="ml-3 shrink-0"
+                        onClick={() => copyWebhookUrl(webhook.path)}
+                      >
+                        {copiedWebhook === webhook.path ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <SequencesManager
-                sequences={sequences}
-                onAdd={addSequence}
-                onUpdate={updateSequence}
-                onDelete={deleteSequence}
-              />
+
+              {/* Divider */}
+              <div className="border-t border-border" />
+
+              {/* n8n Webhook Sequences Section */}
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">n8n Webhook Sequences</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Create webhook URLs that can be called by ElevenLabs tools to trigger n8n workflows.
+                    Each sequence maps to an n8n webhook that will be called when the tool is invoked.
+                  </p>
+                </div>
+                <SequencesManager
+                  sequences={sequences}
+                  onAdd={addSequence}
+                  onUpdate={updateSequence}
+                  onDelete={deleteSequence}
+                />
+              </div>
             </motion.div>
           </TabsContent>
 
