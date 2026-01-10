@@ -2,8 +2,10 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VoiceButton } from '@/components/VoiceButton';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
+import { useSequences } from '@/hooks/useSequences';
 import { Message, Task, ScheduledAction } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
+import { SequencesManager } from '@/components/SequencesManager';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   LayoutDashboard,
@@ -159,6 +161,7 @@ const Index = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
+  const { sequences, addSequence, updateSequence, deleteSequence } = useSequences();
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages((prev) => [
@@ -268,20 +271,28 @@ const Index = () => {
                 </button>
 
                 {settingsOpen && (
-                  <div className="mt-3 px-3">
-                    <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
-                    <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isActive}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {VOICES.map((voice) => (
-                          <SelectItem key={voice.id} value={voice.id}>
-                            {voice.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="mt-3 px-3 space-y-4">
+                    <div>
+                      <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
+                      <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isActive}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VOICES.map((voice) => (
+                            <SelectItem key={voice.id} value={voice.id}>
+                              {voice.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <SequencesManager
+                      sequences={sequences}
+                      onAdd={addSequence}
+                      onUpdate={updateSequence}
+                      onDelete={deleteSequence}
+                    />
                   </div>
                 )}
               </div>
@@ -333,20 +344,28 @@ const Index = () => {
             </button>
 
             {settingsOpen && desktopSidebarOpen && (
-              <div className="mt-3 px-3">
-                <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
-                <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isActive}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VOICES.map((voice) => (
-                      <SelectItem key={voice.id} value={voice.id}>
-                        {voice.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="mt-3 px-3 space-y-4">
+                <div>
+                  <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
+                  <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isActive}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VOICES.map((voice) => (
+                        <SelectItem key={voice.id} value={voice.id}>
+                          {voice.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <SequencesManager
+                  sequences={sequences}
+                  onAdd={addSequence}
+                  onUpdate={updateSequence}
+                  onDelete={deleteSequence}
+                />
               </div>
             )}
           </div>
