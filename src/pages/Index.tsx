@@ -20,6 +20,8 @@ import {
   FileSpreadsheet,
   FileText,
   Send,
+  Plus,
+  Mic,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -29,10 +31,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
-const navItems = [
+const mainNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
   { icon: Clock, label: 'Executions', path: '/executions' },
+];
+
+const bottomNavItems = [
   { icon: User, label: 'Profile', path: '/profile' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
@@ -197,7 +202,7 @@ const Index = () => {
               </div>
 
               <nav className="flex flex-col gap-2 flex-1">
-                {navItems.map((item) => (
+                {mainNavItems.map((item) => (
                   <button
                     key={item.label}
                     onClick={() => {
@@ -211,6 +216,23 @@ const Index = () => {
                   </button>
                 ))}
               </nav>
+
+              {/* Settings and Profile at bottom */}
+              <div className="border-t border-border pt-4 mt-4 space-y-2">
+                {bottomNavItems.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      if (item.path) navigate(item.path);
+                    }}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left w-full"
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="text-sm">{item.label}</span>
+                  </button>
+                ))}
+              </div>
             </motion.aside>
           </>
         )}
@@ -237,7 +259,7 @@ const Index = () => {
             )}
           </Button>
 
-          {navItems.map((item) => (
+          {mainNavItems.map((item) => (
             <button
               key={item.label}
               onClick={() => item.path && navigate(item.path)}
@@ -260,6 +282,33 @@ const Index = () => {
               </AnimatePresence>
             </button>
           ))}
+
+          {/* Settings and Profile at bottom */}
+          <div className="mt-auto border-t border-border pt-3 space-y-2">
+            {bottomNavItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => item.path && navigate(item.path)}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap w-full"
+                title={!desktopSidebarOpen ? item.label : undefined}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <AnimatePresence>
+                  {desktopSidebarOpen && (
+                    <motion.span
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: 'auto' }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="text-sm overflow-hidden"
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            ))}
+          </div>
         </motion.aside>
       )}
 
@@ -339,18 +388,39 @@ const Index = () => {
             </motion.div>
           </div>
 
-          {/* Bottom text input */}
-          <div className="p-4 border-t border-border bg-background/80 backdrop-blur-sm">
-            <div className="max-w-2xl mx-auto flex gap-2">
-              <Input
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 bg-secondary/50"
-              />
-              <Button size="icon" variant="default" className="shrink-0">
-                <Send className="w-4 h-4" />
-              </Button>
+          {/* Bottom text input - ChatGPT style */}
+          <div className="p-4 bg-background/80 backdrop-blur-sm">
+            <div className="max-w-3xl mx-auto">
+              <div className="relative flex items-center bg-secondary/50 rounded-2xl border border-border focus-within:border-primary/50 transition-colors">
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="shrink-0 ml-1 h-9 w-9 rounded-full hover:bg-muted"
+                >
+                  <Plus className="w-5 h-5" />
+                </Button>
+                <input
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  placeholder="Message..."
+                  className="flex-1 bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground"
+                />
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="shrink-0 h-9 w-9 rounded-full hover:bg-muted mr-1"
+                >
+                  <Mic className="w-5 h-5" />
+                </Button>
+                {textInput.trim() && (
+                  <Button 
+                    size="icon" 
+                    className="shrink-0 h-9 w-9 rounded-full mr-1"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </main>
