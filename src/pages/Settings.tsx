@@ -78,8 +78,8 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border p-4">
+      {/* Header - Sticky */}
+      <header className="sticky top-0 z-30 border-b border-border p-4 bg-background/80 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
             <ArrowLeft className="w-5 h-5" />
