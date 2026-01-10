@@ -86,6 +86,43 @@ const Settings = () => {
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+  const [logFilter, setLogFilter] = useState<string>('all');
+
+  // Extract tool name from raw payload
+  const getToolName = (payload: Json): string | null => {
+    if (!payload || typeof payload !== 'object') return null;
+    const p = payload as Record<string, unknown>;
+    
+    // Check for known tool signatures
+    if (p.tool_name && typeof p.tool_name === 'string') return p.tool_name;
+    if (p.message_content && p.frequency) return 'schedule_text';
+    if (p.type === 'user_transcript' || p.type === 'user_transcription') return null; // chat
+    if (p.type === 'agent_response') return null; // chat
+    if (p.webhook_url || p.n8n_webhook) return 'n8n_trigger';
+    if (p.research_query || p.query) return 'research';
+    if (p.phone_number && p.message) return 'send_text';
+    
+    return null;
+  };
+
+  // Get all unique tool names for filter
+  const availableTools = useMemo(() => {
+    const tools = new Set<string>();
+    webhookLogs.forEach(log => {
+      const toolName = getToolName(log.raw_payload);
+      if (toolName) tools.add(toolName);
+    });
+    return Array.from(tools).sort();
+  }, [webhookLogs]);
+
+  // Filter logs based on selection
+  const filteredLogs = useMemo(() => {
+    if (logFilter === 'all') return webhookLogs;
+    if (logFilter === 'chat') {
+      return webhookLogs.filter(log => !getToolName(log.raw_payload));
+    }
+    return webhookLogs.filter(log => getToolName(log.raw_payload) === logFilter);
+  }, [webhookLogs, logFilter]);
   
   // n8n Tools state
   const [n8nTools, setN8nTools] = useState<N8nTool[]>(() => {
@@ -373,9 +410,25 @@ const Settings = () => {
                     Inspect raw payloads received from ElevenLabs and other tools.
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={fetchWebhookLogs} disabled={logsLoading}>
-                  <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Select value={logFilter} onValueChange={setLogFilter}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue placeholder="Filter logs" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Logs</SelectItem>
+                      <SelectItem value="chat">Chat Only</SelectItem>
+                      {availableTools.map(tool => (
+                        <SelectItem key={tool} value={tool}>
+                          {tool.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="ghost" size="icon" onClick={fetchWebhookLogs} disabled={logsLoading}>
+                    <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </div>
 
               {webhookLogs.length === 0 ? (
@@ -384,12 +437,17 @@ const Settings = () => {
                   <p>No webhook logs yet</p>
                   <p className="text-sm mt-1">Click the Logs tab to load recent payloads</p>
                 </div>
+              ) : filteredLogs.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-lg">
+                  <FileText className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                  <p>No logs match this filter</p>
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {webhookLogs.map((log) => {
+                  {filteredLogs.map((log) => {
                     const isExpanded = expandedLogs.has(log.id);
-                    const isToolCall = log.raw_payload && typeof log.raw_payload === 'object' && 
-                      ('message_content' in (log.raw_payload as object) || 'frequency' in (log.raw_payload as object));
+                    const toolName = getToolName(log.raw_payload);
+                    const isToolCall = !!toolName;
                     
                     return (
                       <div
@@ -410,12 +468,12 @@ const Settings = () => {
                               <div className="flex items-center gap-2">
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                                   isToolCall 
-                                    ? 'bg-primary/10 text-primary' 
+                                    ? 'bg-primary/10 text-primary font-medium' 
                                     : log.role === 'user' 
                                     ? 'bg-blue-500/10 text-blue-500'
                                     : 'bg-muted text-muted-foreground'
                                 }`}>
-                                  {isToolCall ? 'TOOL' : log.role}
+                                  {isToolCall ? toolName.replace(/_/g, ' ').toUpperCase() : log.role}
                                 </span>
                                 <span className="text-xs text-muted-foreground">
                                   {new Date(log.created_at).toLocaleString()}
