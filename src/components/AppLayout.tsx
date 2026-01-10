@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSidebarState } from '@/hooks/useSidebarState';
 import {
   LayoutDashboard,
   User,
@@ -48,7 +49,7 @@ export function AppLayout({
   taskCount = 0 
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const { desktopSidebarOpen, setDesktopSidebarOpen } = useSidebarState();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
