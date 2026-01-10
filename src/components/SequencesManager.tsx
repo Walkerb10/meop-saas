@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Edit2, ChevronRight, Webhook, Save, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, Webhook, Save, X, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sequence } from '@/types/sequence';
@@ -15,11 +15,16 @@ interface SequencesManagerProps {
 export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: SequencesManagerProps) {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [newSequence, setNewSequence] = useState({
     name: '',
     description: '',
     n8nWebhookUrl: '',
   });
+
+  const supabaseUrl = useMemo(() => {
+    return import.meta.env.VITE_SUPABASE_URL || '';
+  }, []);
 
   const handleAdd = () => {
     if (!newSequence.name.trim()) return;
@@ -37,13 +42,24 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
     onUpdate(id, { [field]: value });
   };
 
+  const generateWebhookUrl = (sequenceId: string) => {
+    return `${supabaseUrl}/functions/v1/elevenlabs-webhook?sequence_id=${sequenceId}`;
+  };
+
+  const copyWebhookUrl = (sequenceId: string) => {
+    const url = generateWebhookUrl(sequenceId);
+    navigator.clipboard.writeText(url);
+    setCopiedId(sequenceId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-foreground">Sequences</h3>
+          <h3 className="text-sm font-medium text-foreground">Webhook Sequences</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Create tools for ElevenLabs to trigger n8n workflows
+            Create webhooks to trigger n8n workflows from ElevenLabs
           </p>
         </div>
         <Button
@@ -54,7 +70,7 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
           className="gap-1.5"
         >
           <Plus className="w-3.5 h-3.5" />
-          Add
+          Add Webhook
         </Button>
       </div>
 
@@ -66,31 +82,40 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="border border-border rounded-lg p-3 space-y-3 bg-secondary/30">
-              <div className="space-y-2">
-                <Input
-                  placeholder="Sequence name (e.g., Research Topic)"
-                  value={newSequence.name}
-                  onChange={(e) => setNewSequence((prev) => ({ ...prev, name: e.target.value }))}
-                  className="h-8 text-sm"
-                />
-                <Input
-                  placeholder="Description (optional)"
-                  value={newSequence.description}
-                  onChange={(e) => setNewSequence((prev) => ({ ...prev, description: e.target.value }))}
-                  className="h-8 text-sm"
-                />
-                <div className="flex items-center gap-2">
-                  <Webhook className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            <div className="border border-border rounded-lg p-4 space-y-3 bg-secondary/30">
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Title</label>
                   <Input
-                    placeholder="n8n Webhook URL"
-                    value={newSequence.n8nWebhookUrl}
-                    onChange={(e) => setNewSequence((prev) => ({ ...prev, n8nWebhookUrl: e.target.value }))}
-                    className="h-8 text-sm"
+                    placeholder="e.g., Research Topic, Send Report"
+                    value={newSequence.name}
+                    onChange={(e) => setNewSequence((prev) => ({ ...prev, name: e.target.value }))}
+                    className="h-9 text-sm"
                   />
                 </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+                  <Input
+                    placeholder="What does this webhook do?"
+                    value={newSequence.description}
+                    onChange={(e) => setNewSequence((prev) => ({ ...prev, description: e.target.value }))}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">n8n Webhook URL</label>
+                  <div className="flex items-center gap-2">
+                    <Webhook className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <Input
+                      placeholder="https://your-n8n.com/webhook/..."
+                      value={newSequence.n8nWebhookUrl}
+                      onChange={(e) => setNewSequence((prev) => ({ ...prev, n8nWebhookUrl: e.target.value }))}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-2 justify-end">
+              <div className="flex gap-2 justify-end pt-1">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -103,7 +128,7 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
                 </Button>
                 <Button size="sm" onClick={handleAdd} disabled={!newSequence.name.trim()}>
                   <Save className="w-3.5 h-3.5 mr-1.5" />
-                  Save
+                  Create Webhook
                 </Button>
               </div>
             </div>
@@ -114,12 +139,14 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center py-6 text-sm text-muted-foreground"
+            className="text-center py-8 text-sm text-muted-foreground border border-dashed border-border rounded-lg"
           >
-            No sequences yet. Add one to create an ElevenLabs tool.
+            <Webhook className="w-8 h-8 mx-auto mb-2 opacity-50" />
+            <p>No webhooks yet</p>
+            <p className="text-xs mt-1">Create one to generate a webhook URL for ElevenLabs</p>
           </motion.div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {sequences.map((sequence) => (
               <motion.div
                 key={sequence.id}
@@ -127,29 +154,38 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="border border-border rounded-lg p-3 bg-background hover:bg-secondary/20 transition-colors"
+                className="border border-border rounded-lg p-4 bg-card"
               >
                 {editingId === sequence.id ? (
-                  <div className="space-y-2">
-                    <Input
-                      value={sequence.name}
-                      onChange={(e) => handleUpdateSequence(sequence.id, 'name', e.target.value)}
-                      className="h-8 text-sm font-medium"
-                    />
-                    <Input
-                      placeholder="Description"
-                      value={sequence.description || ''}
-                      onChange={(e) => handleUpdateSequence(sequence.id, 'description', e.target.value)}
-                      className="h-8 text-sm"
-                    />
-                    <div className="flex items-center gap-2">
-                      <Webhook className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Title</label>
                       <Input
-                        placeholder="n8n Webhook URL"
-                        value={sequence.n8nWebhookUrl || ''}
-                        onChange={(e) => handleUpdateSequence(sequence.id, 'n8nWebhookUrl', e.target.value)}
-                        className="h-8 text-sm"
+                        value={sequence.name}
+                        onChange={(e) => handleUpdateSequence(sequence.id, 'name', e.target.value)}
+                        className="h-9 text-sm"
                       />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">Description</label>
+                      <Input
+                        placeholder="Description"
+                        value={sequence.description || ''}
+                        onChange={(e) => handleUpdateSequence(sequence.id, 'description', e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground mb-1 block">n8n Webhook URL</label>
+                      <div className="flex items-center gap-2">
+                        <Webhook className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                        <Input
+                          placeholder="n8n Webhook URL"
+                          value={sequence.n8nWebhookUrl || ''}
+                          onChange={(e) => handleUpdateSequence(sequence.id, 'n8nWebhookUrl', e.target.value)}
+                          className="h-9 text-sm"
+                        />
+                      </div>
                     </div>
                     <div className="flex justify-end">
                       <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>
@@ -159,46 +195,76 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <ChevronRight className="w-4 h-4 text-primary flex-shrink-0" />
-                        <span className="text-sm font-medium text-foreground truncate">
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-sm font-semibold text-foreground">
                           {sequence.name}
-                        </span>
+                        </h4>
+                        {sequence.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {sequence.description}
+                          </p>
+                        )}
                       </div>
-                      {sequence.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 ml-6 truncate">
-                          {sequence.description}
-                        </p>
-                      )}
-                      {sequence.n8nWebhookUrl && (
-                        <div className="flex items-center gap-1.5 mt-1 ml-6">
-                          <Webhook className="w-3 h-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground truncate font-mono">
-                            {sequence.n8nWebhookUrl}
-                          </span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => setEditingId(sequence.id)}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => onDelete(sequence.id)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => setEditingId(sequence.id)}
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => onDelete(sequence.id)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                    
+                    {/* Generated Webhook URL */}
+                    <div className="bg-muted/50 rounded-md p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">Webhook URL</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs gap-1"
+                          onClick={() => copyWebhookUrl(sequence.id)}
+                        >
+                          {copiedId === sequence.id ? (
+                            <>
+                              <Check className="w-3 h-3 text-green-500" />
+                              Copied
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <code className="text-xs bg-background px-2 py-1.5 rounded text-muted-foreground break-all block">
+                        {generateWebhookUrl(sequence.id)}
+                      </code>
                     </div>
+
+                    {/* n8n Target */}
+                    {sequence.n8nWebhookUrl && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Webhook className="w-3 h-3" />
+                        <span>Triggers:</span>
+                        <code className="bg-muted px-1.5 py-0.5 rounded truncate max-w-[200px]">
+                          {sequence.n8nWebhookUrl}
+                        </code>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
