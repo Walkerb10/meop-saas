@@ -123,7 +123,7 @@ const Index = () => {
       tasksContent={<TasksPopoverContent executions={executions} />}
       taskCount={runningCount}
     >
-      <div className="flex-1 flex flex-col relative h-full">
+      <div className="flex-1 flex flex-col relative h-full overflow-hidden">
         {/* Ambient glow */}
         <div
           className="absolute inset-0 pointer-events-none"
@@ -133,16 +133,17 @@ const Index = () => {
         />
 
         {/* Main content area */}
-        <div className="flex-1 flex flex-col">
-          {/* Tagline - only shows when idle */}
+        <div className="flex-1 flex flex-col relative overflow-hidden">
+          {/* Centered content when idle */}
           <AnimatePresence>
             {!isActive && (
               <motion.div 
-                className="flex-1 flex items-center justify-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                className="absolute inset-0 flex flex-col items-center justify-center gap-8"
+                initial={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
+                transition={{ duration: 0.3 }}
               >
+                {/* Tagline */}
                 <div className="text-center space-y-1 max-w-md px-4">
                   <p className="text-xl md:text-2xl font-semibold text-foreground">
                     Speak your problem.
@@ -154,86 +155,79 @@ const Index = () => {
                     Start to finish.
                   </p>
                 </div>
+
+                {/* Voice button - centered */}
+                <AgentVoiceButton 
+                  status={status} 
+                  isActive={isActive} 
+                  onToggle={toggle} 
+                  size="normal" 
+                />
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Voice button with animated position */}
-          <motion.div 
-            className="flex flex-col items-center"
-            layout
-            initial={false}
-            animate={{
-              y: isActive ? 0 : 0,
-              marginTop: isActive ? 16 : 0,
-              marginBottom: isActive ? 8 : 0,
-            }}
-            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            style={{
-              position: isActive ? 'relative' : 'absolute',
-              top: isActive ? 0 : '50%',
-              left: isActive ? 'auto' : '50%',
-              transform: isActive ? 'none' : 'translate(-50%, calc(-50% + 80px))',
-            }}
-          >
-            <motion.div
-              layout
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            >
-              <AgentVoiceButton 
-                status={status} 
-                isActive={isActive} 
-                onToggle={toggle} 
-                size={isActive ? 'small' : 'normal'} 
-              />
-            </motion.div>
-            
-            {/* Start speaking hint when active but no messages */}
-            <AnimatePresence>
-              {isActive && messages.length === 0 && (
-                <motion.p 
-                  className="text-muted-foreground text-sm mt-4"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                >
-                  Start speaking...
-                </motion.p>
-              )}
-            </AnimatePresence>
-          </motion.div>
-
-          {/* Messages area - only when active */}
+          {/* Active conversation view */}
           <AnimatePresence>
             {isActive && (
               <motion.div 
-                className="flex-1 overflow-y-auto px-4 pb-4"
+                className="flex-1 flex flex-col overflow-hidden"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                transition={{ delay: 0.2 }}
               >
-                <div className="max-w-2xl mx-auto space-y-4">
-                  {messages.map((msg) => (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                {/* Top bar with mic - animates in from center */}
+                <motion.div 
+                  className="pt-4 pb-2 flex flex-col items-center"
+                  initial={{ y: 100, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                >
+                  <AgentVoiceButton 
+                    status={status} 
+                    isActive={isActive} 
+                    onToggle={toggle} 
+                    size="small" 
+                  />
+                  
+                  {/* Start speaking hint when no messages */}
+                  {messages.length === 0 && (
+                    <motion.p 
+                      className="text-muted-foreground text-sm mt-4"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
                     >
-                      <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                          msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-secondary text-foreground'
-                        }`}
+                      Start speaking...
+                    </motion.p>
+                  )}
+                </motion.div>
+
+                {/* Messages area */}
+                <div className="flex-1 overflow-y-auto px-4 pb-4">
+                  <div className="max-w-2xl mx-auto space-y-4">
+                    {messages.map((msg) => (
+                      <motion.div
+                        key={msg.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                       >
-                        <p className="text-sm">{msg.content}</p>
-                        <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                          {format(msg.timestamp, 'h:mm a')}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
+                        <div
+                          className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                            msg.role === 'user'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-secondary text-foreground'
+                          }`}
+                        >
+                          <p className="text-sm">{msg.content}</p>
+                          <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            {format(msg.timestamp, 'h:mm a')}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -253,12 +247,12 @@ const Index = () => {
                 scale: inputFocused ? 1.01 : 1,
               }}
             >
-              <motion.input
+              <input
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="Message..."
+                placeholder="Enter message..."
                 className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
               />
               <Button 
