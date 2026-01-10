@@ -241,62 +241,49 @@ const Index = () => {
 
       {/* Desktop Left Sidebar - Fixed icon bar + expandable nav */}
       {!isMobile && (
-        <div className="flex border-r border-border">
-          {/* Fixed icon bar - always visible */}
-          <div className="w-14 p-3 flex flex-col items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
-              className="mb-4"
-            >
-              {desktopSidebarOpen ? (
-                <PanelLeftClose className="w-5 h-5" />
-              ) : (
-                <PanelLeft className="w-5 h-5" />
-              )}
-            </Button>
-
-            {navItems.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => {
-                  if (!desktopSidebarOpen) setDesktopSidebarOpen(true);
-                  if (item.path) navigate(item.path);
-                }}
-                className="flex items-center justify-center w-10 h-10 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                title={item.label}
-              >
-                <item.icon className="w-5 h-5" />
-              </button>
-            ))}
-          </div>
-
-          {/* Expandable sidebar content */}
-          <AnimatePresence>
-            {desktopSidebarOpen && (
-              <motion.aside
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 160, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="overflow-hidden"
-              >
-                <div className="p-3 pt-16 flex flex-col gap-2 w-40">
-                  {navItems.map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => item.path && navigate(item.path)}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
-                    >
-                      <span className="text-sm">{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </motion.aside>
+        <motion.aside
+          initial={false}
+          animate={{ width: desktopSidebarOpen ? 200 : 56 }}
+          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className="border-r border-border p-3 flex flex-col gap-2 overflow-hidden"
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
+            className="mb-4 self-start"
+          >
+            {desktopSidebarOpen ? (
+              <PanelLeftClose className="w-5 h-5" />
+            ) : (
+              <PanelLeft className="w-5 h-5" />
             )}
-          </AnimatePresence>
-        </div>
+          </Button>
+
+          {navItems.map((item) => (
+            <button
+              key={item.label}
+              onClick={() => item.path && navigate(item.path)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
+              title={!desktopSidebarOpen ? item.label : undefined}
+            >
+              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <AnimatePresence>
+                {desktopSidebarOpen && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="text-sm overflow-hidden"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </button>
+          ))}
+        </motion.aside>
       )}
 
       {/* Center - Voice Button */}
