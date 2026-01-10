@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.webhook-create-automation]
 verify_jwt = false
+
+[functions.webhook-n8n-trigger]
+verify_jwt = false
