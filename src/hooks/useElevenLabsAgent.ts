@@ -31,10 +31,19 @@ export function useElevenLabsAgent({
     onMessage: (message) => {
       console.log('Agent message:', message);
       
-      // Type-safe message handling using unknown first
+      // Type-safe message handling
       const msg = message as unknown as Record<string, unknown>;
       
-      // Handle user transcript
+      // ElevenLabs SDK format: { source: "ai" | "user", role: "agent" | "user", message: string }
+      if (msg.message && typeof msg.message === 'string') {
+        const role = msg.source === 'user' || msg.role === 'user' ? 'user' : 'assistant';
+        if (onTranscript) {
+          onTranscript(msg.message as string, role);
+        }
+        return;
+      }
+      
+      // Alternative format: user_transcript event
       if (msg.type === 'user_transcript') {
         const event = msg.user_transcription_event as Record<string, unknown> | undefined;
         const transcript = event?.user_transcript as string | undefined;
@@ -43,7 +52,7 @@ export function useElevenLabsAgent({
         }
       }
       
-      // Handle agent response
+      // Alternative format: agent_response event
       if (msg.type === 'agent_response') {
         const event = msg.agent_response_event as Record<string, unknown> | undefined;
         const response = event?.agent_response as string | undefined;
@@ -95,12 +104,12 @@ export function useElevenLabsAgent({
   }, [conversation]);
 
   const toggle = useCallback(async () => {
-    if (conversation.status === 'connected') {
-      await stop();
-    } else {
+    // Only start if not connected - don't toggle off (stay on like ChatGPT voice mode)
+    if (conversation.status !== 'connected') {
       await start();
     }
-  }, [conversation.status, start, stop]);
+    // Note: To end conversation, use the explicit stop() or New Chat button
+  }, [conversation.status, start]);
 
   // Map conversation status to our status type
   const getStatus = (): AgentStatus => {

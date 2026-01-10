@@ -174,11 +174,11 @@ const Index = () => {
               </div>
             )}
 
-            {/* Voice button - size based on whether chat has started */}
+            {/* Voice button - stays connected during conversation */}
             <AgentVoiceButton 
               status={status} 
               isActive={isActive} 
-              onToggle={toggle} 
+              onToggle={toggle}
               size={hasStartedChat ? 'small' : 'normal'} 
             />
             
