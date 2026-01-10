@@ -21,15 +21,15 @@ export function useElevenLabsAgent({
 
   const conversation = useConversation({
     onConnect: () => {
-      console.log('Connected to ElevenLabs agent');
+      console.log('✅ Connected to ElevenLabs agent - mic should be active');
       setIsConnecting(false);
     },
     onDisconnect: () => {
-      console.log('Disconnected from ElevenLabs agent');
+      console.log('❌ Disconnected from ElevenLabs agent');
       setIsConnecting(false);
     },
     onMessage: (message) => {
-      console.log('Agent message:', message);
+      console.log('📨 Agent message:', message);
       
       // Type-safe message handling
       const msg = message as unknown as Record<string, unknown>;
@@ -37,6 +37,7 @@ export function useElevenLabsAgent({
       // ElevenLabs SDK format: { source: "ai" | "user", role: "agent" | "user", message: string }
       if (msg.message && typeof msg.message === 'string') {
         const role = msg.source === 'user' || msg.role === 'user' ? 'user' : 'assistant';
+        console.log(`🎤 ${role} said: ${msg.message}`);
         if (onTranscript) {
           onTranscript(msg.message as string, role);
         }
@@ -48,6 +49,7 @@ export function useElevenLabsAgent({
         const event = msg.user_transcription_event as Record<string, unknown> | undefined;
         const transcript = event?.user_transcript as string | undefined;
         if (transcript && onTranscript) {
+          console.log(`🎤 user said (transcript event): ${transcript}`);
           onTranscript(transcript, 'user');
         }
       }
@@ -57,12 +59,13 @@ export function useElevenLabsAgent({
         const event = msg.agent_response_event as Record<string, unknown> | undefined;
         const response = event?.agent_response as string | undefined;
         if (response && onTranscript) {
+          console.log(`🤖 agent said (response event): ${response}`);
           onTranscript(response, 'assistant');
         }
       }
     },
     onError: (error) => {
-      console.error('Agent error:', error);
+      console.error('❌ Agent error:', error);
       setIsConnecting(false);
       const errorMessage = typeof error === 'string' ? error : 'Connection failed';
       onError?.(errorMessage);
@@ -70,15 +73,21 @@ export function useElevenLabsAgent({
   });
 
   const start = useCallback(async () => {
-    if (conversation.status === 'connected') return;
+    if (conversation.status === 'connected') {
+      console.log('Already connected, skipping');
+      return;
+    }
     
     setIsConnecting(true);
     
     try {
       // Request microphone permission
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('🎤 Requesting microphone permission...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('✅ Microphone permission granted, tracks:', stream.getAudioTracks().length);
 
       // Get signed URL from edge function
+      console.log('🔑 Getting signed URL...');
       const { data, error } = await supabase.functions.invoke(
         'elevenlabs-conversation-token',
         { body: { agentId } }
@@ -87,13 +96,17 @@ export function useElevenLabsAgent({
       if (error || !data?.signed_url) {
         throw new Error(error?.message || 'Failed to get conversation token');
       }
+      
+      console.log('✅ Got signed URL, starting session...');
 
       // Start the conversation with WebSocket
       await conversation.startSession({
         signedUrl: data.signed_url,
       });
+      
+      console.log('✅ Session started, conversation status:', conversation.status);
     } catch (error) {
-      console.error('Failed to start conversation:', error);
+      console.error('❌ Failed to start conversation:', error);
       setIsConnecting(false);
       onError?.(error instanceof Error ? error.message : 'Failed to connect');
     }
