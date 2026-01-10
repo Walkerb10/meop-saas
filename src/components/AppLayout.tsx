@@ -15,6 +15,7 @@ import {
   Settings,
   ListTodo,
   MessageSquare,
+  SquarePen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,13 +41,17 @@ interface AppLayoutProps {
   showTasksButton?: boolean;
   tasksContent?: React.ReactNode;
   taskCount?: number;
+  onNewChat?: () => void;
+  showNewChatButton?: boolean;
 }
 
 export function AppLayout({ 
   children, 
   showTasksButton = false, 
   tasksContent,
-  taskCount = 0 
+  taskCount = 0,
+  onNewChat,
+  showNewChatButton = false,
 }: AppLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { desktopSidebarOpen, setDesktopSidebarOpen } = useSidebarState();
@@ -206,14 +211,26 @@ export function AppLayout({
         <header className="fixed top-0 right-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border"
           style={{ left: isMobile ? 0 : desktopSidebarOpen ? '200px' : '56px' }}
         >
-          {/* Left side - hamburger on mobile */}
-          {isMobile ? (
-            <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
-              <Menu className="w-6 h-6" />
-            </Button>
-          ) : (
-            <div />
-          )}
+          {/* Left side - hamburger on mobile, New Chat on desktop */}
+          <div className="flex items-center gap-2">
+            {isMobile && (
+              <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
+                <Menu className="w-6 h-6" />
+              </Button>
+            )}
+            
+            {showNewChatButton && onNewChat && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onNewChat}
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <SquarePen className="w-4 h-4" />
+                <span className="hidden sm:inline">New chat</span>
+              </Button>
+            )}
+          </div>
 
           {/* Right side - Tasks button always visible */}
           <Popover>
