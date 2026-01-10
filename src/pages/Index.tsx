@@ -89,15 +89,29 @@ const Index = () => {
   }, []);
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        role,
-        content: text,
-        timestamp: new Date(),
-      },
-    ]);
+    setMessages((prev) => {
+      // If last message is from the same speaker, append to it
+      if (prev.length > 0 && prev[prev.length - 1].role === role) {
+        const updated = [...prev];
+        const lastMsg = updated[updated.length - 1];
+        updated[updated.length - 1] = {
+          ...lastMsg,
+          content: lastMsg.content + ' ' + text,
+          timestamp: new Date(), // Update timestamp to latest
+        };
+        return updated;
+      }
+      // Otherwise create a new message
+      return [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role,
+          content: text,
+          timestamp: new Date(),
+        },
+      ];
+    });
   }, []);
 
   const handleError = useCallback(
