@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/useAuth';
 import {
   LayoutDashboard,
   User,
@@ -14,6 +15,7 @@ import {
   Settings,
   ListTodo,
   MessageSquare,
+  LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -52,8 +54,14 @@ export function AppLayout({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
+  const { signOut } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+  };
 
   return (
     <div className="min-h-screen flex w-full">
@@ -120,6 +128,16 @@ export function AppLayout({
                     <span className="text-sm">{item.label}</span>
                   </button>
                 ))}
+                <button
+                  onClick={() => {
+                    setSidebarOpen(false);
+                    handleLogout();
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-left w-full text-muted-foreground hover:text-foreground hover:bg-secondary"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="text-sm">Logout</span>
+                </button>
               </div>
             </motion.aside>
           </>
@@ -190,6 +208,18 @@ export function AppLayout({
                 )}
               </button>
             ))}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 w-full h-10 px-2 rounded-lg transition-colors text-left text-muted-foreground hover:text-foreground hover:bg-secondary"
+              title={!desktopSidebarOpen ? 'Logout' : undefined}
+            >
+              <div className="w-6 flex items-center justify-center flex-shrink-0">
+                <LogOut className="w-5 h-5" />
+              </div>
+              {desktopSidebarOpen && (
+                <span className="text-sm whitespace-nowrap">Logout</span>
+              )}
+            </button>
           </div>
         </aside>
       )}
