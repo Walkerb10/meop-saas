@@ -78,6 +78,7 @@ const Settings = () => {
     return saved ? JSON.parse(saved) : [];
   });
   const [newTool, setNewTool] = useState({ title: '', webhookUrl: '', description: '' });
+  const [showAddN8nForm, setShowAddN8nForm] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('n8nTools', JSON.stringify(n8nTools));
@@ -93,6 +94,7 @@ const Settings = () => {
     };
     setN8nTools([...n8nTools, tool]);
     setNewTool({ title: '', webhookUrl: '', description: '' });
+    setShowAddN8nForm(false);
   };
 
   const deleteN8nTool = (id: string) => {
@@ -255,33 +257,59 @@ const Settings = () => {
                   </div>
                 )}
 
-                {/* Add new tool form */}
-                <div className="p-4 rounded-lg border border-dashed border-border bg-muted/30 space-y-3">
-                  <Input
-                    placeholder="Tool title (e.g., Research Agent)"
-                    value={newTool.title}
-                    onChange={(e) => setNewTool({ ...newTool, title: e.target.value })}
-                  />
-                  <Input
-                    placeholder="n8n Webhook URL"
-                    value={newTool.webhookUrl}
-                    onChange={(e) => setNewTool({ ...newTool, webhookUrl: e.target.value })}
-                  />
-                  <Textarea
-                    placeholder="Description (optional) - What does this tool do?"
-                    value={newTool.description}
-                    onChange={(e) => setNewTool({ ...newTool, description: e.target.value })}
-                    rows={2}
-                  />
+                {/* Add new tool button/form */}
+                {!showAddN8nForm ? (
                   <Button 
-                    onClick={addN8nTool} 
-                    disabled={!newTool.title.trim() || !newTool.webhookUrl.trim()}
+                    variant="outline" 
+                    onClick={() => setShowAddN8nForm(true)}
                     className="gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    Add Tool
+                    Add n8n Tool
                   </Button>
-                </div>
+                ) : (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="p-4 rounded-lg border border-dashed border-border bg-muted/30 space-y-3"
+                  >
+                    <Input
+                      placeholder="Tool title (e.g., Research Agent)"
+                      value={newTool.title}
+                      onChange={(e) => setNewTool({ ...newTool, title: e.target.value })}
+                    />
+                    <Input
+                      placeholder="n8n Webhook URL"
+                      value={newTool.webhookUrl}
+                      onChange={(e) => setNewTool({ ...newTool, webhookUrl: e.target.value })}
+                    />
+                    <Textarea
+                      placeholder="Description (optional) - What does this tool do?"
+                      value={newTool.description}
+                      onChange={(e) => setNewTool({ ...newTool, description: e.target.value })}
+                      rows={2}
+                    />
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={addN8nTool} 
+                        disabled={!newTool.title.trim() || !newTool.webhookUrl.trim()}
+                        className="gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Tool
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => {
+                          setShowAddN8nForm(false);
+                          setNewTool({ title: '', webhookUrl: '', description: '' });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </motion.div>
           </TabsContent>
