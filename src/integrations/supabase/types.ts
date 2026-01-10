@@ -41,6 +41,54 @@ export type Database = {
         }
         Relationships: []
       }
+      executions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          input_data: Json | null
+          notification_sent: boolean | null
+          output_data: Json | null
+          requires_human_review: boolean | null
+          sequence_name: string
+          started_at: string
+          status: string
+          workflow_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_data?: Json | null
+          notification_sent?: boolean | null
+          output_data?: Json | null
+          requires_human_review?: boolean | null
+          sequence_name: string
+          started_at?: string
+          status?: string
+          workflow_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          input_data?: Json | null
+          notification_sent?: boolean | null
+          output_data?: Json | null
+          requires_human_review?: boolean | null
+          sequence_name?: string
+          started_at?: string
+          status?: string
+          workflow_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
