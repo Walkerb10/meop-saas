@@ -1,10 +1,10 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Webhook, Volume2, Bell, Shield, Copy, Check } from 'lucide-react';
+import { Webhook, Volume2, Bell, Shield, Copy, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
+import { AppLayout } from '@/components/AppLayout';
 import { useSequences } from '@/hooks/useSequences';
 import {
   Select,
@@ -53,7 +53,6 @@ const ELEVENLABS_WEBHOOKS = [
 ];
 
 const Settings = () => {
-  const navigate = useNavigate();
   const { sequences, addSequence, updateSequence, deleteSequence } = useSequences();
   const [selectedVoice, setSelectedVoice] = useState(() => {
     return localStorage.getItem('selectedVoice') || 'Sarah';
@@ -77,19 +76,15 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header - Sticky */}
-      <header className="sticky top-0 z-30 border-b border-border p-4 bg-background/80 backdrop-blur-sm">
-        <div className="max-w-4xl mx-auto flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
+    <AppLayout>
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="mb-6">
           <h1 className="text-xl font-semibold">Settings</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Configure your integrations and preferences
+          </p>
         </div>
-      </header>
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto p-6">
         <Tabs defaultValue="webhooks" className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="webhooks" className="gap-2">
@@ -157,13 +152,12 @@ const Settings = () => {
               {/* Divider */}
               <div className="border-t border-border" />
 
-              {/* n8n Webhook Sequences Section */}
+              {/* Custom Webhooks Section */}
               <div className="space-y-4">
                 <div>
-                  <h2 className="text-lg font-semibold mb-2">n8n Webhook Sequences</h2>
+                  <h2 className="text-lg font-semibold mb-2">Custom Webhooks</h2>
                   <p className="text-sm text-muted-foreground">
-                    Create webhook URLs that can be called by ElevenLabs tools to trigger n8n workflows.
-                    Each sequence maps to an n8n webhook that will be called when the tool is invoked.
+                    Create webhook URLs for your integrations.
                   </p>
                 </div>
                 <SequencesManager
@@ -239,8 +233,8 @@ const Settings = () => {
             </motion.div>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 };
 

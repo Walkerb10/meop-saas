@@ -1,27 +1,14 @@
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Mail, Key } from 'lucide-react';
+import { User, Mail, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AppLayout } from '@/components/AppLayout';
 
 const Profile = () => {
-  const navigate = useNavigate();
-
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border p-4">
-        <div className="max-w-4xl mx-auto flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-xl font-semibold">Profile</h1>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="max-w-4xl mx-auto p-6">
+    <AppLayout>
+      <div className="max-w-4xl mx-auto p-6">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -33,7 +20,7 @@ const Profile = () => {
               <User className="w-10 h-10 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Your Profile</h2>
+              <h2 className="text-xl font-semibold">Profile</h2>
               <p className="text-sm text-muted-foreground">Manage your account settings</p>
             </div>
           </div>
@@ -70,8 +57,8 @@ const Profile = () => {
             <Button className="w-full">Save Changes</Button>
           </div>
         </motion.div>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 };
 

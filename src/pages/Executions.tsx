@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, 
   Clock, 
   CheckCircle2, 
   XCircle, 
@@ -11,8 +9,8 @@ import {
   RefreshCw 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AppLayout } from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
-
 import { Json } from '@/integrations/supabase/types';
 
 interface Execution {
@@ -55,7 +53,6 @@ const formatDuration = (ms: number | null): string => {
 };
 
 const Executions = () => {
-  const navigate = useNavigate();
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,7 +72,6 @@ const Executions = () => {
   useEffect(() => {
     fetchExecutions();
 
-    // Subscribe to realtime updates
     const channel = supabase
       .channel('executions-changes')
       .on(
@@ -91,39 +87,31 @@ const Executions = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border p-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
+    <AppLayout>
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
             <h1 className="text-xl font-semibold">Executions</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Track workflow executions and their results
+            </p>
           </div>
           <Button variant="ghost" size="icon" onClick={fetchExecutions}>
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
-      </header>
 
-      {/* Content */}
-      <main className="max-w-4xl mx-auto p-6">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="space-y-4"
         >
-          <p className="text-sm text-muted-foreground mb-6">
-            Track n8n workflow executions and their results. Human-in-the-loop tasks show as pending review.
-          </p>
-
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
           ) : executions.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-lg">
               <Clock className="w-8 h-8 mx-auto mb-3 opacity-50" />
               <p>No executions yet</p>
               <p className="text-sm mt-1">Workflow runs will appear here</p>
@@ -179,8 +167,8 @@ const Executions = () => {
             </div>
           )}
         </motion.div>
-      </main>
-    </div>
+      </div>
+    </AppLayout>
   );
 };
 
