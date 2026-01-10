@@ -165,6 +165,37 @@ export function useAutomations() {
     }
   }, []);
 
+  const updateAutomation = useCallback(async (automationId: string, updates: {
+    name?: string;
+    description?: string;
+    triggerConfig?: Record<string, unknown>;
+    steps?: ScheduledActionStep[];
+    n8nWebhookUrl?: string;
+    isActive?: boolean;
+  }) => {
+    try {
+      const updateData: Record<string, unknown> = {};
+      if (updates.name !== undefined) updateData.name = updates.name;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.triggerConfig !== undefined) updateData.trigger_config = updates.triggerConfig as Json;
+      if (updates.steps !== undefined) updateData.steps = updates.steps as unknown as Json;
+      if (updates.n8nWebhookUrl !== undefined) updateData.n8n_webhook_url = updates.n8nWebhookUrl || null;
+      if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
+
+      const { error: updateError } = await supabase
+        .from('automations')
+        .update(updateData)
+        .eq('id', automationId);
+
+      if (updateError) throw updateError;
+
+      await fetchAutomations();
+    } catch (err) {
+      console.error('Failed to update automation:', err);
+      throw err;
+    }
+  }, [fetchAutomations]);
+
   const deleteAutomation = useCallback(async (automationId: string) => {
     try {
       const { error: deleteError } = await supabase
@@ -206,6 +237,7 @@ export function useAutomations() {
     loading,
     error,
     createAutomation,
+    updateAutomation,
     executeAutomation,
     deleteAutomation,
     refetch: fetchAutomations,
