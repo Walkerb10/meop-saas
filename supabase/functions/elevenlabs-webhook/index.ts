@@ -24,9 +24,16 @@ serve(async (req) => {
   if (body.message_content && body.frequency && body.scheduled_time) {
     console.log("📱 Text sequence tool detected!");
     
-    // Create automation for the text sequence
+    // Build human-readable trigger label
+    const triggerLabel = body.frequency === 'weekly' 
+      ? `Every ${body.day_of_week || 'week'} at ${body.scheduled_time}`
+      : body.frequency === 'monthly'
+      ? `Monthly on day ${body.day_of_month || 1} at ${body.scheduled_time}`
+      : `Daily at ${body.scheduled_time}`;
+
+    // Create automation with properly formatted steps for UI display
     const automationData = {
-      name: `Text: ${body.message_content.substring(0, 30)}...`,
+      name: `Text: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`,
       description: `Scheduled text: "${body.message_content}"`,
       trigger_type: "schedule",
       trigger_config: {
@@ -37,8 +44,16 @@ serve(async (req) => {
       },
       steps: [
         {
-          type: "send_text",
+          id: crypto.randomUUID(),
+          type: "trigger",
+          label: triggerLabel,
+        },
+        {
+          id: crypto.randomUUID(),
+          type: "action",
+          label: `Send text: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`,
           config: {
+            action_type: "send_text",
             message: body.message_content,
             phone: body.phone_number || null,
           },
