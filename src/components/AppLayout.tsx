@@ -126,10 +126,10 @@ export function AppLayout({
         )}
       </AnimatePresence>
 
-      {/* Desktop Left Sidebar - fixed width, no animation on content change */}
+      {/* Desktop Left Sidebar - fixed position */}
       {!isMobile && (
         <aside 
-          className={`border-r border-border flex flex-col h-screen flex-shrink-0 transition-[width] duration-200 ${
+          className={`fixed left-0 top-0 bottom-0 border-r border-border flex flex-col bg-background z-40 transition-[width] duration-200 ${
             desktopSidebarOpen ? 'w-[200px]' : 'w-14'
           }`}
         >
@@ -148,7 +148,7 @@ export function AppLayout({
             </Button>
           </div>
 
-          <nav className="flex-1 px-2 space-y-1">
+          <nav className="flex-1 px-2 space-y-1 overflow-y-auto">
             {mainNavItems.map((item) => (
               <button
                 key={item.label}
@@ -194,10 +194,17 @@ export function AppLayout({
         </aside>
       )}
 
+      {/* Spacer for fixed sidebar */}
+      {!isMobile && (
+        <div className={`flex-shrink-0 transition-[width] duration-200 ${desktopSidebarOpen ? 'w-[200px]' : 'w-14'}`} />
+      )}
+
       {/* Right side content */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        {/* Top Header Bar - Sticky */}
-        <header className="sticky top-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border flex-shrink-0">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Top Header Bar - Fixed */}
+        <header className="fixed top-0 right-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border"
+          style={{ left: isMobile ? 0 : desktopSidebarOpen ? '200px' : '56px' }}
+        >
           {/* Left side - hamburger on mobile */}
           {isMobile ? (
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
@@ -230,7 +237,10 @@ export function AppLayout({
           )}
         </header>
 
-        {/* Main content */}
+        {/* Spacer for fixed header */}
+        <div className="h-14 flex-shrink-0" />
+
+        {/* Main content - scrollable */}
         <main className="flex-1 overflow-auto">
           {children}
         </main>
