@@ -44,6 +44,7 @@ export function useAutomations() {
     triggerConfig?: Record<string, unknown>;
     steps?: ScheduledActionStep[];
     n8nWebhookUrl?: string;
+    isActive?: boolean;
   }) => {
     try {
       const insertData = {
@@ -53,6 +54,7 @@ export function useAutomations() {
         trigger_config: (automation.triggerConfig || {}) as Json,
         steps: (automation.steps || []) as unknown as Json,
         n8n_webhook_url: automation.n8nWebhookUrl || null,
+        is_active: automation.isActive !== undefined ? automation.isActive : true,
       };
       
       const { data, error: insertError } = await supabase

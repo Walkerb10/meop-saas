@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Sparkles } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { useAutomations } from '@/hooks/useAutomations';
 import { useTimezone } from '@/hooks/useTimezone';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -17,6 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst: boolean }) {
   const getIcon = () => {
@@ -63,6 +72,7 @@ function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst:
 }
 
 type AutomationType = 'text' | 'research' | 'email' | 'slack';
+type FrequencyType = 'one_time' | 'daily' | 'weekly' | 'monthly';
 
 interface AutomationFormData {
   name: string;
@@ -71,13 +81,14 @@ interface AutomationFormData {
   // Research specific
   researchQuery: string;
   researchOutputFormat: string;
+  customOutputFormat: string;
   // Email specific
   emailTo: string;
   emailSubject: string;
   // Slack specific
   slackChannel: string;
   // Scheduling
-  frequency: 'daily' | 'weekly' | 'monthly';
+  frequency: FrequencyType;
   time: string;
   dayOfWeek: string;
   dayOfMonth: string;
@@ -94,7 +105,7 @@ const AUTOMATION_TYPES = [
 ];
 
 // Helper to extract data from automation steps
-function extractFromSteps(steps: ScheduledActionStep[]): Partial<AutomationFormData> {
+function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Partial<AutomationFormData> {
   const actionStep = steps.find(s => s.type === 'action');
   const triggerStep = steps.find(s => s.type === 'trigger');
   const label = triggerStep?.label || '';
@@ -111,7 +122,10 @@ function extractFromSteps(steps: ScheduledActionStep[]): Partial<AutomationFormD
   
   // Extract research fields
   const researchQuery = (config?.query as string) || '';
-  const researchOutputFormat = (config?.output_format as string) || 'summary';
+  const rawOutputFormat = (config?.output_format as string) || 'summary';
+  const isCustomFormat = !['summary', 'detailed', 'bullets', 'actionable'].includes(rawOutputFormat);
+  const researchOutputFormat = isCustomFormat ? 'custom' : rawOutputFormat;
+  const customOutputFormat = isCustomFormat ? rawOutputFormat : '';
   
   // Extract email fields
   const emailTo = (config?.to as string) || '';
@@ -120,8 +134,8 @@ function extractFromSteps(steps: ScheduledActionStep[]): Partial<AutomationFormD
   // Extract slack fields
   const slackChannel = (config?.channel as string) || '';
   
-  // Parse trigger
-  let frequency: 'daily' | 'weekly' | 'monthly' = 'daily';
+  // Parse trigger - check if it was one_time (inactive with no schedule indicator)
+  let frequency: FrequencyType = 'daily';
   let time = '09:00';
   let dayOfWeek = 'Monday';
   let dayOfMonth = '1';
@@ -136,7 +150,9 @@ function extractFromSteps(steps: ScheduledActionStep[]): Partial<AutomationFormD
     time = `${hours.toString().padStart(2, '0')}:${minutes}`;
   }
   
-  if (label.toLowerCase().includes('every') && DAYS_OF_WEEK.some(d => label.includes(d))) {
+  if (label.toLowerCase().includes('one-time') || label.toLowerCase().includes('manual')) {
+    frequency = 'one_time';
+  } else if (label.toLowerCase().includes('every') && DAYS_OF_WEEK.some(d => label.includes(d))) {
     frequency = 'weekly';
     dayOfWeek = DAYS_OF_WEEK.find(d => label.includes(d)) || 'Monday';
   } else if (label.toLowerCase().includes('monthly')) {
@@ -145,7 +161,7 @@ function extractFromSteps(steps: ScheduledActionStep[]): Partial<AutomationFormD
     if (dayMatch) dayOfMonth = dayMatch[1];
   }
   
-  return { type, message, researchQuery, researchOutputFormat, emailTo, emailSubject, slackChannel, frequency, time, dayOfWeek, dayOfMonth };
+  return { type, message, researchQuery, researchOutputFormat, customOutputFormat, emailTo, emailSubject, slackChannel, frequency, time, dayOfWeek, dayOfMonth };
 }
 
 const ScheduledActions = () => {
@@ -159,6 +175,7 @@ const ScheduledActions = () => {
     message: '',
     researchQuery: '',
     researchOutputFormat: 'summary',
+    customOutputFormat: '',
     emailTo: '',
     emailSubject: '',
     slackChannel: '',
@@ -168,6 +185,9 @@ const ScheduledActions = () => {
     dayOfMonth: '1',
     webhookUrl: '',
   });
+  const [enhancingQuery, setEnhancingQuery] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [pendingActivation, setPendingActivation] = useState<ScheduledAction | null>(null);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   
@@ -200,6 +220,25 @@ const ScheduledActions = () => {
 
   const handleToggleActive = async (automation: ScheduledAction, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // If trying to enable and was one-time (inactive), show schedule dialog
+    if (!automation.isActive) {
+      const extracted = extractFromSteps(automation.steps, automation.isActive);
+      if (extracted.frequency === 'one_time') {
+        setPendingActivation(automation);
+        // Pre-fill form for schedule selection
+        setFormData(prev => ({
+          ...prev,
+          frequency: 'daily',
+          time: extracted.time || '09:00',
+          dayOfWeek: extracted.dayOfWeek || 'Monday',
+          dayOfMonth: extracted.dayOfMonth || '1',
+        }));
+        setShowScheduleDialog(true);
+        return;
+      }
+    }
+    
     setTogglingId(automation.id);
     try {
       await updateAutomation(automation.id, { isActive: !automation.isActive });
@@ -211,11 +250,51 @@ const ScheduledActions = () => {
     }
   };
 
+  const handleConfirmActivation = async () => {
+    if (!pendingActivation) return;
+    
+    setTogglingId(pendingActivation.id);
+    try {
+      // Update the automation with new schedule and activate it
+      const triggerConfig: Record<string, unknown> = {
+        frequency: formData.frequency,
+        scheduled_time: formData.time,
+      };
+      
+      if (formData.frequency === 'weekly') {
+        triggerConfig.day_of_week = formData.dayOfWeek;
+      } else if (formData.frequency === 'monthly') {
+        triggerConfig.day_of_month = parseInt(formData.dayOfMonth);
+      }
+
+      // Update trigger step label
+      const newTriggerLabel = buildTriggerLabel();
+      const updatedSteps = pendingActivation.steps.map(step => 
+        step.type === 'trigger' ? { ...step, label: newTriggerLabel } : step
+      );
+
+      await updateAutomation(pendingActivation.id, { 
+        isActive: true,
+        triggerConfig,
+        steps: updatedSteps,
+      });
+      toast.success('Automation enabled with new schedule');
+    } catch (err) {
+      toast.error('Failed to update automation');
+    } finally {
+      setTogglingId(null);
+      setShowScheduleDialog(false);
+      setPendingActivation(null);
+    }
+  };
+
   const buildTriggerLabel = () => {
     const timeFormatted = formatTime(formData.time);
     const tzAbbr = getTimezoneAbbr();
     
-    if (formData.frequency === 'weekly') {
+    if (formData.frequency === 'one_time') {
+      return 'One-time execution (manual)';
+    } else if (formData.frequency === 'weekly') {
       return `Every ${formData.dayOfWeek} at ${timeFormatted} ${tzAbbr}`;
     } else if (formData.frequency === 'monthly') {
       return `Monthly on day ${formData.dayOfMonth} at ${timeFormatted} ${tzAbbr}`;
@@ -251,7 +330,9 @@ const ScheduledActions = () => {
         actionConfig = {
           action_type: 'research',
           query: formData.researchQuery,
-          output_format: formData.researchOutputFormat,
+          output_format: formData.researchOutputFormat === 'custom' 
+            ? formData.customOutputFormat 
+            : formData.researchOutputFormat,
         };
         break;
       case 'email':
@@ -303,6 +384,7 @@ const ScheduledActions = () => {
     if (!formData.name.trim()) return false;
     switch (formData.type) {
       case 'research':
+        if (formData.researchOutputFormat === 'custom' && !formData.customOutputFormat.trim()) return false;
         return formData.researchQuery.trim().length > 0;
       case 'email':
         return formData.emailTo.trim().length > 0 && formData.message.trim().length > 0;
@@ -310,6 +392,32 @@ const ScheduledActions = () => {
         return formData.slackChannel.trim().length > 0 && formData.message.trim().length > 0;
       default:
         return formData.message.trim().length > 0;
+    }
+  };
+
+  const handleEnhanceQuery = async () => {
+    if (!formData.researchQuery.trim()) {
+      toast.error('Enter a query first');
+      return;
+    }
+    
+    setEnhancingQuery(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('enhance-prompt', {
+        body: { prompt: formData.researchQuery, type: 'research' }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.enhancedPrompt) {
+        setFormData(prev => ({ ...prev, researchQuery: data.enhancedPrompt }));
+        toast.success('Query enhanced!');
+      }
+    } catch (err) {
+      console.error('Enhance error:', err);
+      toast.error('Failed to enhance query');
+    } finally {
+      setEnhancingQuery(false);
     }
   };
 
@@ -332,6 +440,9 @@ const ScheduledActions = () => {
         triggerConfig.day_of_month = parseInt(formData.dayOfMonth);
       }
 
+      // One-time executions start as inactive
+      const isActive = formData.frequency !== 'one_time';
+
       await createAutomation({
         name: formData.name,
         description: getDescription(),
@@ -339,6 +450,7 @@ const ScheduledActions = () => {
         triggerConfig,
         steps: buildSteps(),
         n8nWebhookUrl: formData.webhookUrl || undefined,
+        isActive,
       });
 
       toast.success('Automation created!');
@@ -395,6 +507,7 @@ const ScheduledActions = () => {
       message: '',
       researchQuery: '',
       researchOutputFormat: 'summary',
+      customOutputFormat: '',
       emailTo: '',
       emailSubject: '',
       slackChannel: '',
@@ -415,13 +528,14 @@ const ScheduledActions = () => {
 
   const startEditing = () => {
     if (!selectedAutomation) return;
-    const extracted = extractFromSteps(selectedAutomation.steps);
+    const extracted = extractFromSteps(selectedAutomation.steps, selectedAutomation.isActive);
     setFormData({
       name: selectedAutomation.name,
       type: extracted.type || 'text',
       message: extracted.message || '',
       researchQuery: extracted.researchQuery || '',
       researchOutputFormat: extracted.researchOutputFormat || 'summary',
+      customOutputFormat: extracted.customOutputFormat || '',
       emailTo: extracted.emailTo || '',
       emailSubject: extracted.emailSubject || '',
       slackChannel: extracted.slackChannel || '',
@@ -503,19 +617,35 @@ const ScheduledActions = () => {
           {formData.type === 'research' && (
             <>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Research Query</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium">Research Query</label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleEnhanceQuery}
+                    disabled={enhancingQuery || !formData.researchQuery.trim()}
+                    className="h-7 gap-1.5 text-xs text-primary hover:text-primary"
+                  >
+                    {enhancingQuery ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5" />
+                    )}
+                    Enhance with AI
+                  </Button>
+                </div>
                 <Textarea
                   placeholder="What do you want to research? e.g., Latest AI developments this week"
                   value={formData.researchQuery}
                   onChange={(e) => setFormData({ ...formData, researchQuery: e.target.value })}
-                  rows={2}
+                  rows={3}
                 />
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Output Format</label>
                 <Select 
                   value={formData.researchOutputFormat} 
-                  onValueChange={(v) => setFormData({ ...formData, researchOutputFormat: v })}
+                  onValueChange={(v) => setFormData({ ...formData, researchOutputFormat: v, customOutputFormat: v === 'custom' ? formData.customOutputFormat : '' })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -525,9 +655,21 @@ const ScheduledActions = () => {
                     <SelectItem value="detailed">Detailed (in-depth analysis)</SelectItem>
                     <SelectItem value="bullets">Bullet Points</SelectItem>
                     <SelectItem value="actionable">Actionable Insights</SelectItem>
+                    <SelectItem value="custom">Custom Format...</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {formData.researchOutputFormat === 'custom' && (
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Custom Output Format</label>
+                  <Textarea
+                    placeholder="Describe how you want the output formatted. e.g., 'Provide a table comparing the top 5 options with pros/cons columns'"
+                    value={formData.customOutputFormat}
+                    onChange={(e) => setFormData({ ...formData, customOutputFormat: e.target.value })}
+                    rows={2}
+                  />
+                </div>
+              )}
             </>
           )}
 
@@ -594,29 +736,37 @@ const ScheduledActions = () => {
               <label className="text-sm font-medium mb-1.5 block">Frequency</label>
               <Select 
                 value={formData.frequency} 
-                onValueChange={(v) => setFormData({ ...formData, frequency: v as 'daily' | 'weekly' | 'monthly' })}
+                onValueChange={(v) => setFormData({ ...formData, frequency: v as FrequencyType })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="one_time">One-time (manual)</SelectItem>
                   <SelectItem value="daily">Daily</SelectItem>
                   <SelectItem value="weekly">Weekly</SelectItem>
                   <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
               </Select>
+              {formData.frequency === 'one_time' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Automation will be created as inactive. Enable it to set a schedule.
+                </p>
+              )}
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">
-                Time ({getTimezoneAbbr()})
-              </label>
-              <Input
-                type="time"
-                value={formData.time}
-                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-              />
-            </div>
+            {formData.frequency !== 'one_time' && (
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">
+                  Time ({getTimezoneAbbr()})
+                </label>
+                <Input
+                  type="time"
+                  value={formData.time}
+                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                />
+              </div>
+            )}
           </div>
 
           {formData.frequency === 'weekly' && (
@@ -801,7 +951,11 @@ const ScheduledActions = () => {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="rounded-xl border border-border bg-card p-4 hover:border-primary/30 transition-all group"
+                    className={`rounded-xl border p-4 transition-all group ${
+                      action.isActive 
+                        ? 'border-border bg-card hover:border-primary/30' 
+                        : 'border-border/50 bg-card/50 opacity-60 hover:opacity-80'
+                    }`}
                   >
                     <div className="flex items-center gap-4">
                       {/* Toggle Switch */}
@@ -913,6 +1067,96 @@ const ScheduledActions = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Schedule Dialog for activating one-time automations */}
+        <Dialog open={showScheduleDialog} onOpenChange={(open) => {
+          setShowScheduleDialog(open);
+          if (!open) setPendingActivation(null);
+        }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Set Schedule</DialogTitle>
+              <DialogDescription>
+                Choose when this automation should run.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Frequency</label>
+                <Select 
+                  value={formData.frequency === 'one_time' ? 'daily' : formData.frequency}
+                  onValueChange={(v) => setFormData({ ...formData, frequency: v as FrequencyType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Daily</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">
+                  Time ({getTimezoneAbbr()})
+                </label>
+                <Input
+                  type="time"
+                  value={formData.time}
+                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                />
+              </div>
+
+              {formData.frequency === 'weekly' && (
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Day of Week</label>
+                  <Select 
+                    value={formData.dayOfWeek}
+                    onValueChange={(v) => setFormData({ ...formData, dayOfWeek: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAYS_OF_WEEK.map(day => (
+                        <SelectItem key={day} value={day}>{day}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {formData.frequency === 'monthly' && (
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">Day of Month</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={formData.dayOfMonth}
+                    onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowScheduleDialog(false);
+                setPendingActivation(null);
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmActivation} disabled={togglingId !== null}>
+                {togglingId ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : null}
+                Enable Automation
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );
