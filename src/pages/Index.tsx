@@ -241,9 +241,9 @@ const Index = () => {
 
       {/* Desktop Left Sidebar - Fixed icon bar + expandable nav */}
       {!isMobile && (
-        <div className="flex">
+        <div className="flex border-r border-border">
           {/* Fixed icon bar - always visible */}
-          <div className="w-14 border-r border-border p-3 flex flex-col items-center gap-2">
+          <div className="w-14 p-3 flex flex-col items-center gap-2">
             <Button
               variant="ghost"
               size="icon"
@@ -280,7 +280,7 @@ const Index = () => {
                 animate={{ width: 160, opacity: 1 }}
                 exit={{ width: 0, opacity: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="border-r border-border overflow-hidden"
+                className="overflow-hidden"
               >
                 <div className="p-3 pt-16 flex flex-col gap-2 w-40">
                   {navItems.map((item) => (
