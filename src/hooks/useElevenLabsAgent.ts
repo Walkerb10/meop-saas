@@ -118,12 +118,12 @@ export function useElevenLabsAgent({
   }, [conversation]);
 
   const toggle = useCallback(async () => {
-    // Only start if not connected - don't toggle off (stay on like ChatGPT voice mode)
-    if (conversation.status !== 'connected') {
+    if (conversation.status === 'connected') {
+      await stop();
+    } else {
       await start();
     }
-    // Note: To end conversation, use the explicit stop() or New Chat button
-  }, [conversation.status, start]);
+  }, [conversation.status, start, stop]);
 
   // Map conversation status to our status type
   const getStatus = (): AgentStatus => {

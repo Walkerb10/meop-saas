@@ -12,22 +12,63 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Parse body immediately
   const body = await req.json();
   console.log("ElevenLabs webhook received:", JSON.stringify(body));
 
-  // Return 200 immediately, then process in background
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  // Extract text from various ElevenLabs event types
+  // Check if this is a tool call (has scheduling fields from text sequence tool)
+  if (body.message_content && body.frequency && body.scheduled_time) {
+    console.log("📱 Text sequence tool detected!");
+    
+    // Create automation for the text sequence
+    const automationData = {
+      name: `Text: ${body.message_content.substring(0, 30)}...`,
+      description: `Scheduled text: "${body.message_content}"`,
+      trigger_type: "schedule",
+      trigger_config: {
+        frequency: body.frequency,
+        scheduled_time: body.scheduled_time,
+        day_of_week: body.day_of_week || null,
+        day_of_month: body.day_of_month || null,
+      },
+      steps: [
+        {
+          type: "send_text",
+          config: {
+            message: body.message_content,
+            phone: body.phone_number || null,
+          },
+        },
+      ],
+      is_active: true,
+    };
+
+    const { data, error } = await supabase.from("automations").insert(automationData).select().single();
+
+    if (error) {
+      console.error("Failed to create automation:", error);
+      return new Response(JSON.stringify({ success: false, error: error.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log("✅ Created text sequence automation:", data.id);
+    return new Response(
+      JSON.stringify({ success: true, automation_id: data.id, message: "Text sequence created!" }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Handle transcript storage
   let role: string | null = null;
   let content: string | null = null;
   let conversationId: string | null = body.conversation_id || null;
 
-  // Handle different payload structures from ElevenLabs
   if (body.type === "user_transcript" || body.type === "user_transcription") {
     role = "user";
     content = body.user_transcription_event?.user_transcript 
@@ -41,16 +82,13 @@ serve(async (req) => {
       || body.response 
       || body.text;
   } else if (body.transcript) {
-    // Generic transcript field
     role = body.role || "unknown";
     content = body.transcript;
   } else if (body.text) {
-    // Generic text field
     role = body.role || "unknown";
     content = body.text;
   }
 
-  // Store if we extracted content
   if (content) {
     const { error } = await supabase.from("conversation_transcripts").insert({
       role,
@@ -65,8 +103,7 @@ serve(async (req) => {
       console.log(`Stored ${role} transcript: ${content.substring(0, 50)}...`);
     }
   } else {
-    console.log("No extractable content, storing raw payload");
-    // Store raw payload anyway for debugging
+    console.log("No extractable content, raw payload stored");
     await supabase.from("conversation_transcripts").insert({
       role: body.type || "event",
       content: JSON.stringify(body).substring(0, 500),
@@ -77,9 +114,6 @@ serve(async (req) => {
 
   return new Response(
     JSON.stringify({ success: true }),
-    {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
+    { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 });
