@@ -97,19 +97,7 @@ export function useVapiAgent({
             onTranscriptRef.current(transcript, role);
           }
         }
-
-        // Handle conversation updates
-        if (msg.type === 'conversation-update') {
-          const conversation = msg.conversation as Array<{ role: string; content: string }>;
-          if (conversation && conversation.length > 0) {
-            const lastMessage = conversation[conversation.length - 1];
-            if (lastMessage && onTranscriptRef.current) {
-              const role = lastMessage.role === 'user' ? 'user' : 'assistant';
-              console.log(`💬 ${role}: ${lastMessage.content}`);
-              onTranscriptRef.current(lastMessage.content, role);
-            }
-          }
-        }
+        // Note: We only use transcript events, not conversation-update, to avoid duplicates
       });
 
       vapi.on('error', (error: unknown) => {

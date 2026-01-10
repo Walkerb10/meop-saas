@@ -279,4 +279,11 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* Hide Vapi floating button - we use our own mic button */
+  #vapi-support-btn,
+  [id^="vapi"],
+  .vapi-btn {
+    display: none !important;
+  }
 }
