@@ -12,44 +12,59 @@ serve(async (req) => {
   }
 
   try {
-    const { workflow_id, workflow_name, inputs } = await req.json();
+    const body = await req.json();
     
-    console.log("n8n trigger webhook called:", { workflow_id, workflow_name, inputs });
+    // ElevenLabs will send: tool_name, tool_call_id, and parameters
+    const { tool_name, tool_call_id, parameters } = body;
     
-    const N8N_WEBHOOK_URL = Deno.env.get("N8N_WEBHOOK_URL");
-    if (!N8N_WEBHOOK_URL) {
-      throw new Error("N8N_WEBHOOK_URL is not configured");
-    }
-
-    // If workflow_id is provided, trigger directly
-    // If workflow_name is provided, we need to find and trigger by name
-    const targetUrl = workflow_id 
-      ? `${N8N_WEBHOOK_URL}/webhook/${workflow_id}`
-      : `${N8N_WEBHOOK_URL}/webhook/${workflow_name}`;
-
-    console.log("Triggering n8n workflow at:", targetUrl);
-
-    const response = await fetch(targetUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(inputs || {}),
+    console.log("ElevenLabs webhook received:", { 
+      tool_name, 
+      tool_call_id, 
+      parameters,
+      full_body: body 
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("n8n webhook error:", response.status, errorText);
-      throw new Error(`n8n webhook error: ${response.status}`);
+    // Route based on the tool/workflow requested
+    let result: any = { received: true };
+    
+    switch (tool_name) {
+      case "research":
+        result = { 
+          action: "research",
+          query: parameters?.query,
+          status: "queued"
+        };
+        break;
+      case "send_text":
+        result = { 
+          action: "send_text",
+          to: parameters?.to,
+          message: parameters?.message,
+          status: "queued"
+        };
+        break;
+      case "create_automation":
+        result = { 
+          action: "create_automation",
+          name: parameters?.name,
+          steps: parameters?.steps,
+          status: "queued"
+        };
+        break;
+      default:
+        result = {
+          action: tool_name || "unknown",
+          parameters,
+          status: "received"
+        };
     }
 
-    const result = await response.json();
-    
-    console.log("n8n workflow completed successfully");
+    console.log("Webhook response:", result);
 
     return new Response(
       JSON.stringify({
         success: true,
+        tool_call_id,
         result,
       }),
       {
@@ -57,7 +72,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error("n8n trigger webhook error:", error);
+    console.error("ElevenLabs webhook error:", error);
     return new Response(
       JSON.stringify({
         success: false,
