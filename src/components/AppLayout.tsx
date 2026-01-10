@@ -220,16 +220,12 @@ export function AppLayout({
               <Button 
                 variant="outline" 
                 size="sm" 
-                className={`gap-2 transition-colors ${
-                  taskCount > 0 
-                    ? 'border-destructive text-destructive hover:bg-destructive/10' 
-                    : 'border-border hover:border-primary/50'
-                }`}
+                className="gap-2 border-primary text-foreground hover:bg-primary/10"
               >
                 <ListTodo className="w-4 h-4" />
                 Tasks
                 {taskCount > 0 && (
-                  <span className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full">
+                  <span className="bg-destructive text-destructive-foreground text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
                     {taskCount}
                   </span>
                 )}
