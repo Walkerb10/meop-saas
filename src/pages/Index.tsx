@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { VoiceButton } from '@/components/VoiceButton';
-import { useVoiceChat } from '@/hooks/useVoiceChat';
+import { AgentVoiceButton } from '@/components/AgentVoiceButton';
+import { useElevenLabsAgent } from '@/hooks/useElevenLabsAgent';
 import { Message, Task, ScheduledAction } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -162,8 +162,7 @@ const Index = () => {
     [toast]
   );
 
-  const { status, isActive, toggle } = useVoiceChat({
-    voiceId: selectedVoice,
+  const { status, isActive, toggle } = useElevenLabsAgent({
     onTranscript: handleTranscript,
     onError: handleError,
   });
@@ -305,7 +304,7 @@ const Index = () => {
         />
 
         <div className="relative flex items-center justify-center">
-          <VoiceButton status={status} isActive={isActive} onToggle={toggle} />
+          <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
 
         </div>
       </main>
