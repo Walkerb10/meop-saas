@@ -168,168 +168,172 @@ const Index = () => {
   });
 
   return (
-    <div className="min-h-screen flex">
-      {/* Mobile Header with Hamburger */}
-      {isMobile && (
-        <header className="fixed top-0 left-0 right-0 z-30 p-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border">
+    <div className="min-h-screen flex flex-col">
+      {/* Top Header Bar */}
+      <header className="fixed top-0 left-0 right-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border">
+        {/* Left side - hamburger on mobile, empty on desktop */}
+        {isMobile ? (
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-6 h-6" />
           </Button>
-
-          {/* Tasks button in mobile header */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ListTodo className="w-4 h-4" />
-                Tasks
-                <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                  1
-                </span>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80">
-              <TasksPopoverContent />
-            </PopoverContent>
-          </Popover>
-        </header>
-      )}
-
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {isMobile && sidebarOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSidebarOpen(false)}
-              className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40"
-            />
-            <motion.aside
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed left-0 top-0 bottom-0 w-64 bg-background border-r border-border z-50 p-4 flex flex-col"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold">Menu</h2>
-                <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-
-              <nav className="flex flex-col gap-2 flex-1">
-                {navItems.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      setSidebarOpen(false);
-                      if (item.path) navigate(item.path);
-                    }}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
-                  >
-                    <item.icon className="w-5 h-5" />
-                    <span className="text-sm">{item.label}</span>
-                  </button>
-                ))}
-              </nav>
-            </motion.aside>
-          </>
+        ) : (
+          <div className="w-10" />
         )}
-      </AnimatePresence>
 
-      {/* Desktop Left Sidebar - Fixed icon bar + expandable nav */}
-      {!isMobile && (
-        <motion.aside
-          initial={false}
-          animate={{ width: desktopSidebarOpen ? 200 : 56 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="border-r border-border p-3 flex flex-col gap-2 overflow-hidden"
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
-            className="mb-4 self-start"
-          >
-            {desktopSidebarOpen ? (
-              <PanelLeftClose className="w-5 h-5" />
-            ) : (
-              <PanelLeft className="w-5 h-5" />
-            )}
-          </Button>
+        {/* Right side - Tasks button */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ListTodo className="w-4 h-4" />
+              Tasks
+              <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                1
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="w-80 md:w-96">
+            <TasksPopoverContent />
+          </PopoverContent>
+        </Popover>
+      </header>
 
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => item.path && navigate(item.path)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
-              title={!desktopSidebarOpen ? item.label : undefined}
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <AnimatePresence>
-                {desktopSidebarOpen && (
-                  <motion.span
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="text-sm overflow-hidden"
-                  >
-                    {item.label}
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </button>
-          ))}
-        </motion.aside>
-      )}
+      <div className="flex flex-1 pt-14">
+        {/* Mobile Sidebar Overlay */}
+        <AnimatePresence>
+          {isMobile && sidebarOpen && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setSidebarOpen(false)}
+                className="fixed inset-0 bg-background/60 backdrop-blur-sm z-40"
+              />
+              <motion.aside
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed left-0 top-0 bottom-0 w-64 bg-background border-r border-border z-50 p-4 flex flex-col"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-lg font-semibold">Menu</h2>
+                  <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
+                    <X className="w-5 h-5" />
+                  </Button>
+                </div>
 
-      {/* Center - Voice Button */}
-      <main className={`flex-1 flex flex-col items-center justify-center relative ${isMobile ? 'pt-16' : ''}`}>
-        {/* Desktop Tasks button - top right area, below header */}
+                <nav className="flex flex-col gap-2 flex-1">
+                  {navItems.map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => {
+                        setSidebarOpen(false);
+                        if (item.path) navigate(item.path);
+                      }}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
+                    >
+                      <item.icon className="w-5 h-5" />
+                      <span className="text-sm">{item.label}</span>
+                    </button>
+                  ))}
+                </nav>
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Desktop Left Sidebar */}
         {!isMobile && (
-          <div className="absolute top-6 right-6">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ListTodo className="w-4 h-4" />
-                  Tasks
-                  <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
-                    1
-                  </span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-96">
-                <TasksPopoverContent />
-              </PopoverContent>
-            </Popover>
-          </div>
+          <motion.aside
+            initial={false}
+            animate={{ width: desktopSidebarOpen ? 200 : 56 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="border-r border-border p-3 flex flex-col gap-2 overflow-hidden"
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
+              className="mb-4 self-start"
+            >
+              {desktopSidebarOpen ? (
+                <PanelLeftClose className="w-5 h-5" />
+              ) : (
+                <PanelLeft className="w-5 h-5" />
+              )}
+            </Button>
+
+            {navItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => item.path && navigate(item.path)}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
+                title={!desktopSidebarOpen ? item.label : undefined}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <AnimatePresence>
+                  {desktopSidebarOpen && (
+                    <motion.span
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: 'auto' }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="text-sm overflow-hidden"
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+            ))}
+          </motion.aside>
         )}
 
-        {/* Ambient glow */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: 'radial-gradient(circle at 50% 50%, hsl(var(--primary) / 0.08), transparent 50%)',
-          }}
-        />
+        {/* Center - Voice Button */}
+        <main className="flex-1 flex flex-col items-center justify-center relative">
+          {/* Ambient glow */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'radial-gradient(circle at 50% 50%, hsl(var(--primary) / 0.08), transparent 50%)',
+            }}
+          />
 
-        <div className="relative flex flex-col items-center justify-center gap-8">
-          {/* Logo tagline */}
-          <div className="text-center space-y-2 max-w-md px-4">
-            <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
-              Speak your problem.
-            </h1>
-            <p className="text-lg md:text-xl text-muted-foreground">
-              Agents handle it. Start to finish.
-            </p>
-          </div>
+          <motion.div 
+            className="relative flex flex-col items-center justify-center gap-8"
+            animate={{ 
+              y: isActive ? -80 : 0 
+            }}
+            transition={{ type: 'spring', damping: 20, stiffness: 150 }}
+          >
+            {/* Logo tagline - hidden when active */}
+            <AnimatePresence>
+              {!isActive && (
+                <motion.div 
+                  className="text-center space-y-1 max-w-md px-4"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <h1 className="text-xl md:text-2xl font-semibold text-foreground">
+                    Speak your problem.
+                  </h1>
+                  <p className="text-lg md:text-xl text-muted-foreground">
+                    Agents handle it.
+                  </p>
+                  <p className="text-lg md:text-xl text-muted-foreground">
+                    Start to finish.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
-        </div>
-      </main>
+            <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
+          </motion.div>
+        </main>
+      </div>
     </div>
   );
 };
