@@ -40,6 +40,14 @@ export function useVapiAgent({
         console.log('✅ Vapi call started');
         setStatus('listening');
         setIsActive(true);
+        
+        // Ensure audio output is enabled and at full volume
+        try {
+          vapi.setMuted(false);
+          console.log('🔊 Audio unmuted');
+        } catch (e) {
+          console.warn('Could not set muted state:', e);
+        }
       });
 
       vapi.on('call-end', () => {
