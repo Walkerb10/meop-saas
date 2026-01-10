@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut, Plus, Trash2 } from 'lucide-react';
+import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut, Plus, Trash2, FileText, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
@@ -10,6 +10,8 @@ import { useSequences } from '@/hooks/useSequences';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 import {
   Select,
   SelectContent,
@@ -63,6 +65,14 @@ const ELEVENLABS_WEBHOOKS = [
   },
 ];
 
+interface WebhookLog {
+  id: string;
+  role: string;
+  content: string;
+  raw_payload: Json;
+  created_at: string;
+}
+
 const Settings = () => {
   const { sequences, addSequence, updateSequence, deleteSequence } = useSequences();
   const { signOut, user } = useAuth();
@@ -72,6 +82,11 @@ const Settings = () => {
   });
   const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
   
+  // Webhook logs state
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+  
   // n8n Tools state
   const [n8nTools, setN8nTools] = useState<N8nTool[]>(() => {
     const saved = localStorage.getItem('n8nTools');
@@ -79,6 +94,33 @@ const Settings = () => {
   });
   const [newTool, setNewTool] = useState({ title: '', webhookUrl: '', description: '' });
   const [showAddN8nForm, setShowAddN8nForm] = useState(false);
+
+  const fetchWebhookLogs = async () => {
+    setLogsLoading(true);
+    const { data, error } = await supabase
+      .from('conversation_transcripts')
+      .select('id, role, content, raw_payload, created_at')
+      .not('raw_payload', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    
+    if (!error && data) {
+      setWebhookLogs(data);
+    }
+    setLogsLoading(false);
+  };
+
+  const toggleLogExpanded = (id: string) => {
+    setExpandedLogs(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     localStorage.setItem('n8nTools', JSON.stringify(n8nTools));
@@ -133,10 +175,14 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="webhooks" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
+          <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="webhooks" className="gap-2">
               <Webhook className="w-4 h-4" />
               <span className="hidden sm:inline">Webhooks</span>
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="gap-2" onClick={fetchWebhookLogs}>
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">Logs</span>
             </TabsTrigger>
             <TabsTrigger value="voice" className="gap-2">
               <Volume2 className="w-4 h-4" />
@@ -311,6 +357,88 @@ const Settings = () => {
                   </motion.div>
                 )}
               </div>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="logs">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">Webhook Logs</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Inspect raw payloads received from ElevenLabs and other tools.
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" onClick={fetchWebhookLogs} disabled={logsLoading}>
+                  <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+
+              {webhookLogs.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-lg">
+                  <FileText className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                  <p>No webhook logs yet</p>
+                  <p className="text-sm mt-1">Click the Logs tab to load recent payloads</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {webhookLogs.map((log) => {
+                    const isExpanded = expandedLogs.has(log.id);
+                    const isToolCall = log.raw_payload && typeof log.raw_payload === 'object' && 
+                      ('message_content' in (log.raw_payload as object) || 'frequency' in (log.raw_payload as object));
+                    
+                    return (
+                      <div
+                        key={log.id}
+                        className={`rounded-lg border bg-card overflow-hidden ${isToolCall ? 'border-primary/50' : 'border-border'}`}
+                      >
+                        <button
+                          onClick={() => toggleLogExpanded(log.id)}
+                          className="w-full p-3 flex items-center justify-between text-left hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {isExpanded ? (
+                              <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                  isToolCall 
+                                    ? 'bg-primary/10 text-primary' 
+                                    : log.role === 'user' 
+                                    ? 'bg-blue-500/10 text-blue-500'
+                                    : 'bg-muted text-muted-foreground'
+                                }`}>
+                                  {isToolCall ? 'TOOL' : log.role}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(log.created_at).toLocaleString()}
+                                </span>
+                              </div>
+                              <p className="text-sm truncate mt-1">{log.content.substring(0, 80)}...</p>
+                            </div>
+                          </div>
+                        </button>
+                        
+                        {isExpanded && (
+                          <div className="border-t border-border p-3 bg-muted/30">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">Raw Payload:</p>
+                            <pre className="text-xs bg-background p-3 rounded-md overflow-x-auto max-h-64 overflow-y-auto">
+                              {JSON.stringify(log.raw_payload, null, 2)}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
           </TabsContent>
 
