@@ -1,10 +1,78 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+type AutomationType = "text" | "slack" | "discord" | "email";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const KNOWN_AUTOMATION_TYPES = new Set<AutomationType>(["text", "slack", "discord", "email"]);
+
+function asString(value: unknown): string | null {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return String(value);
+  return null;
+}
+
+function isKnownAutomationType(value: unknown): value is AutomationType {
+  return typeof value === "string" && KNOWN_AUTOMATION_TYPES.has(value as AutomationType);
+}
+
+function normalizeChannelName(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.startsWith("#") ? trimmed.slice(1).trim() : trimmed;
+}
+
+function normalizeTimeTo24h(value: unknown): string | null {
+  const raw = asString(value);
+  if (!raw) return null;
+
+  const s = raw.trim().toLowerCase();
+  if (!s) return null;
+
+  // HH:mm (24h)
+  const m24 = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (m24) {
+    const hh = Number(m24[1]);
+    const mm = Number(m24[2]);
+    if (Number.isFinite(hh) && Number.isFinite(mm) && hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59) {
+      return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    }
+  }
+
+  // h(:mm)? am/pm
+  const m12 = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
+  if (m12) {
+    let hh = Number(m12[1]);
+    const mm = Number(m12[2] ?? "00");
+    const period = String(m12[3]).toLowerCase();
+
+    if (!(hh >= 1 && hh <= 12) || !(mm >= 0 && mm <= 59)) return null;
+
+    if (period === "pm" && hh !== 12) hh += 12;
+    if (period === "am" && hh === 12) hh = 0;
+
+    return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  }
+
+  return null;
+}
+
+function formatTime12h(time24: string): string {
+  const normalized = normalizeTimeTo24h(time24) ?? time24;
+  const m = normalized.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return time24;
+
+  const hh = Number(m[1]);
+  const mm = m[2];
+  const period = hh >= 12 ? "PM" : "AM";
+  const displayH = ((hh + 11) % 12) + 1;
+  return `${displayH}:${mm} ${period}`;
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -22,51 +90,133 @@ serve(async (req) => {
 
   // Check if this is a tool call (has scheduling fields from automation tool)
   if (body.message_content && body.frequency && body.scheduled_time) {
-    // Determine the automation type from the payload
-    const automationType = body.automation_type || body.channel || body.type || 'text';
-    const channel = body.channel || body.slack_channel || body.discord_channel || null;
-    
-    console.log(`📱 Automation tool detected! Type: ${automationType}, Channel: ${channel}`);
-    
-    // Build human-readable trigger label
-    const triggerLabel = body.frequency === 'weekly' 
-      ? `Every ${body.day_of_week || 'week'} at ${body.scheduled_time}`
-      : body.frequency === 'monthly'
-      ? `Monthly on day ${body.day_of_month || 1} at ${body.scheduled_time}`
-      : body.frequency === 'one_time'
-      ? `One-time on ${body.one_time_date} at ${body.scheduled_time}`
-      : `Daily at ${body.scheduled_time}`;
+    const rawType = asString(body.automation_type ?? body.automationType);
+    const rawActionType = asString(body.action_type ?? body.actionType);
 
-    // Determine action type and label based on automation type
-    let actionType = 'send_text';
-    let actionLabel = `Send text: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`;
-    let automationName = `Text: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`;
+    const rawChannel = asString(body.channel ?? body.channel_name ?? body.channelName);
+    const slackChannelRaw = asString(body.slack_channel ?? body.slackChannel);
+    const discordChannelRaw = asString(body.discord_channel ?? body.discordChannel);
 
-    if (automationType === 'slack' || body.slack_channel) {
-      actionType = 'send_slack';
-      actionLabel = `Post to #${channel || 'general'}: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`;
-      automationName = `Slack: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`;
-    } else if (automationType === 'discord' || body.discord_channel) {
-      actionType = 'send_discord';
-      actionLabel = `Post to #${channel || 'general'}: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`;
-      automationName = `Discord: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`;
-    } else if (automationType === 'email' || body.email_to) {
-      actionType = 'send_email';
-      actionLabel = `Email to ${body.email_to || 'recipient'}: "${body.message_content.substring(0, 40)}${body.message_content.length > 40 ? '...' : ''}"`;
-      automationName = `Email: ${body.message_content.substring(0, 30)}${body.message_content.length > 30 ? '...' : ''}`;
+    const emailToRaw = asString(body.email_to ?? body.emailTo ?? body.to);
+    const emailSubjectRaw = asString(body.email_subject ?? body.emailSubject ?? body.subject);
+
+    const typeCandidate = (rawType ?? "").toLowerCase().trim();
+    const actionTypeCandidate = (rawActionType ?? "").toLowerCase().trim();
+    const channelCandidate = (rawChannel ?? "").toLowerCase().trim();
+
+    let automationType: AutomationType = "text";
+
+    if (isKnownAutomationType(typeCandidate)) {
+      automationType = typeCandidate as AutomationType;
+    } else if (actionTypeCandidate === "slack_message" || actionTypeCandidate === "send_slack") {
+      automationType = "slack";
+    } else if (actionTypeCandidate === "discord_message" || actionTypeCandidate === "send_discord") {
+      automationType = "discord";
+    } else if (actionTypeCandidate === "send_email") {
+      automationType = "email";
+    } else if (isKnownAutomationType(channelCandidate)) {
+      // Some tool payloads overload `channel` as the destination type (e.g. "slack")
+      automationType = channelCandidate as AutomationType;
+    } else if (slackChannelRaw) {
+      automationType = "slack";
+    } else if (discordChannelRaw) {
+      automationType = "discord";
+    } else if (emailToRaw) {
+      automationType = "email";
     }
+
+    const targetChannel =
+      automationType === "slack"
+        ? normalizeChannelName(
+            slackChannelRaw ??
+              (rawChannel && !isKnownAutomationType(channelCandidate) ? rawChannel : null)
+          ) ?? "general"
+        : automationType === "discord"
+        ? normalizeChannelName(
+            discordChannelRaw ??
+              (rawChannel && !isKnownAutomationType(channelCandidate) ? rawChannel : null)
+          ) ?? "general"
+        : null;
+
+    const normalizedTime = normalizeTimeTo24h(body.scheduled_time) ?? asString(body.scheduled_time) ?? "";
+    const timeLabel = normalizedTime ? formatTime12h(normalizedTime) : String(body.scheduled_time ?? "");
+
+    const dayOfWeek = asString(body.day_of_week ?? body.dayOfWeek);
+    const dayOfMonthRaw = asString(body.day_of_month ?? body.dayOfMonth);
+    const oneTimeDate = asString(body.one_time_date ?? body.oneTimeDate);
+
+    console.log(
+      `📱 Automation tool detected! type=${automationType} channel=${targetChannel ?? "(n/a)"} time=${normalizedTime}`
+    );
+
+    // Build human-readable trigger label (12-hour time)
+    const triggerLabel =
+      body.frequency === "weekly"
+        ? `Every ${dayOfWeek || "week"} at ${timeLabel}`
+        : body.frequency === "monthly"
+        ? `Monthly on day ${dayOfMonthRaw || 1} at ${timeLabel}`
+        : body.frequency === "one_time"
+        ? `One-time on ${oneTimeDate || "(date)"} at ${timeLabel}`
+        : `Daily at ${timeLabel}`;
+
+    const msg = asString(body.message_content) ?? "";
+    const short40 = `${msg.substring(0, 40)}${msg.length > 40 ? "..." : ""}`;
+    const short30 = `${msg.substring(0, 30)}${msg.length > 30 ? "..." : ""}`;
+
+    // Action config must match what the Scheduled Actions UI expects
+    let actionConfig: Record<string, unknown>;
+    let actionLabel: string;
+    let automationName: string;
+
+    if (automationType === "slack") {
+      actionConfig = {
+        action_type: "slack_message",
+        channel: targetChannel,
+        message: msg,
+      };
+      actionLabel = `Slack #${targetChannel}: "${short40}"`;
+      automationName = `Slack: ${short30}`;
+    } else if (automationType === "discord") {
+      actionConfig = {
+        action_type: "discord_message",
+        discord_channel: targetChannel,
+        message: msg,
+      };
+      actionLabel = `Discord #${targetChannel}: "${short40}"`;
+      automationName = `Discord: ${short30}`;
+    } else if (automationType === "email") {
+      actionConfig = {
+        action_type: "send_email",
+        to: emailToRaw || "",
+        subject: emailSubjectRaw || "",
+        message: msg,
+      };
+      actionLabel = `Email to ${emailToRaw || "recipient"}: "${short40}"`;
+      automationName = `Email: ${short30}`;
+    } else {
+      actionConfig = {
+        action_type: "send_text",
+        message: msg,
+        phone: asString(body.phone_number ?? body.phone) ?? null,
+      };
+      actionLabel = `Send text: "${short40}"`;
+      automationName = `Text: ${short30}`;
+    }
+
+    const n8nWebhookUrl =
+      asString(body.n8n_webhook_url ?? body.n8nWebhookUrl ?? body.webhook_url ?? body.webhookUrl) ?? null;
 
     // Create automation with properly formatted steps for UI display
     const automationData = {
       name: automationName,
-      description: `Scheduled ${automationType}: "${body.message_content}"`,
-      trigger_type: body.frequency === 'one_time' ? 'one_time' : 'scheduled',
+      description: `Scheduled ${automationType}: "${msg}"`,
+      trigger_type: body.frequency === "one_time" ? "one_time" : "schedule",
       trigger_config: {
         frequency: body.frequency,
-        time: body.scheduled_time,
-        day_of_week: body.day_of_week || null,
-        day_of_month: body.day_of_month || null,
-        one_time_date: body.one_time_date || null,
+        scheduled_time: normalizedTime || null,
+        day_of_week: dayOfWeek || null,
+        day_of_month: dayOfMonthRaw ? Number(dayOfMonthRaw) : null,
+        one_time_date: oneTimeDate || null,
       },
       steps: [
         {
@@ -78,17 +228,13 @@ serve(async (req) => {
           id: crypto.randomUUID(),
           type: "action",
           label: actionLabel,
-          config: {
-            action_type: actionType,
-            message: body.message_content,
-            phone: body.phone_number || null,
-            channel: channel,
-            email_to: body.email_to || null,
-          },
+          config: actionConfig,
         },
       ],
-      is_active: body.frequency !== 'one_time', // One-time starts inactive
+      n8n_webhook_url: n8nWebhookUrl,
+      is_active: body.frequency !== "one_time", // One-time starts inactive
     };
+
 
     const { data, error } = await supabase.from("automations").insert(automationData).select().single();
 
