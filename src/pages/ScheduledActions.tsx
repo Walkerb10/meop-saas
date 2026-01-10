@@ -71,7 +71,7 @@ function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst:
   );
 }
 
-type AutomationType = 'text' | 'research' | 'email' | 'slack';
+type AutomationType = 'text' | 'research' | 'email' | 'slack' | 'discord';
 type FrequencyType = 'one_time' | 'daily' | 'weekly' | 'monthly';
 
 interface AutomationFormData {
@@ -87,6 +87,8 @@ interface AutomationFormData {
   emailSubject: string;
   // Slack specific
   slackChannel: string;
+  // Discord specific
+  discordChannel: string;
   // Scheduling
   frequency: FrequencyType;
   time: string;
@@ -102,6 +104,7 @@ const AUTOMATION_TYPES = [
   { id: 'research' as const, label: 'Research', icon: Search, description: 'AI-powered research via Perplexity' },
   { id: 'email' as const, label: 'Send Email', icon: Mail, description: 'Send email via Gmail webhook' },
   { id: 'slack' as const, label: 'Slack Message', icon: Hash, description: 'Post to Slack channel' },
+  { id: 'discord' as const, label: 'Discord Message', icon: Hash, description: 'Post to Discord channel' },
 ];
 
 // Helper to extract data from automation steps
@@ -116,6 +119,7 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
   if (config?.action_type === 'research') type = 'research';
   else if (config?.action_type === 'send_email') type = 'email';
   else if (config?.action_type === 'slack_message') type = 'slack';
+  else if (config?.action_type === 'discord_message') type = 'discord';
   
   // Extract message
   const message = (config?.message as string) || '';
@@ -134,6 +138,9 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
   // Extract slack fields
   const slackChannel = (config?.channel as string) || '';
   
+  // Extract discord fields
+  const discordChannel = (config?.discord_channel as string) || '';
+
   // Parse trigger - check if it was one_time (inactive with no schedule indicator)
   let frequency: FrequencyType = 'daily';
   let time = '09:00';
@@ -161,7 +168,7 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
     if (dayMatch) dayOfMonth = dayMatch[1];
   }
   
-  return { type, message, researchQuery, researchOutputFormat, customOutputFormat, emailTo, emailSubject, slackChannel, frequency, time, dayOfWeek, dayOfMonth };
+  return { type, message, researchQuery, researchOutputFormat, customOutputFormat, emailTo, emailSubject, slackChannel, discordChannel, frequency, time, dayOfWeek, dayOfMonth };
 }
 
 const ScheduledActions = () => {
@@ -179,6 +186,7 @@ const ScheduledActions = () => {
     emailTo: '',
     emailSubject: '',
     slackChannel: '',
+    discordChannel: '',
     frequency: 'daily',
     time: '09:00',
     dayOfWeek: 'Monday',
@@ -310,6 +318,8 @@ const ScheduledActions = () => {
         return `Email to: ${formData.emailTo || '(enter email)'}`;
       case 'slack':
         return `Slack #${formData.slackChannel || '(enter channel)'}`;
+      case 'discord':
+        return `Discord #${formData.discordChannel || '(enter channel)'}`;
       default:
         return formData.message 
           ? `Send text: "${formData.message.substring(0, 40)}${formData.message.length > 40 ? '...' : ''}"` 
@@ -347,6 +357,13 @@ const ScheduledActions = () => {
         actionConfig = {
           action_type: 'slack_message',
           channel: formData.slackChannel,
+          message: formData.message,
+        };
+        break;
+      case 'discord':
+        actionConfig = {
+          action_type: 'discord_message',
+          discord_channel: formData.discordChannel,
           message: formData.message,
         };
         break;
@@ -390,6 +407,8 @@ const ScheduledActions = () => {
         return formData.emailTo.trim().length > 0 && formData.message.trim().length > 0;
       case 'slack':
         return formData.slackChannel.trim().length > 0 && formData.message.trim().length > 0;
+      case 'discord':
+        return formData.discordChannel.trim().length > 0 && formData.message.trim().length > 0;
       default:
         return formData.message.trim().length > 0;
     }
@@ -511,6 +530,7 @@ const ScheduledActions = () => {
       emailTo: '',
       emailSubject: '',
       slackChannel: '',
+      discordChannel: '',
       frequency: 'daily',
       time: '09:00',
       dayOfWeek: 'Monday',
@@ -539,6 +559,7 @@ const ScheduledActions = () => {
       emailTo: extracted.emailTo || '',
       emailSubject: extracted.emailSubject || '',
       slackChannel: extracted.slackChannel || '',
+      discordChannel: extracted.discordChannel || '',
       frequency: extracted.frequency || 'daily',
       time: extracted.time || '09:00',
       dayOfWeek: extracted.dayOfWeek || 'Monday',
@@ -722,6 +743,32 @@ const ScheduledActions = () => {
                 <label className="text-sm font-medium mb-1.5 block">Message</label>
                 <Textarea
                   placeholder="Slack message..."
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
+
+          {formData.type === 'discord' && (
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Channel</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">#</span>
+                  <Input
+                    placeholder="general"
+                    value={formData.discordChannel}
+                    onChange={(e) => setFormData({ ...formData, discordChannel: e.target.value })}
+                    className="pl-7"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Message</label>
+                <Textarea
+                  placeholder="Discord message..."
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   rows={3}
