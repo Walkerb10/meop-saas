@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
-import { AgentStatus } from '@/hooks/useElevenLabsAgent';
+import { AgentStatus } from '@/hooks/useVapiAgent';
 
 interface AgentVoiceButtonProps {
   status: AgentStatus;
