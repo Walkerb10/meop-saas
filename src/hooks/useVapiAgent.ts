@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import Vapi from '@vapi-ai/web';
 
 export type AgentStatus = 'idle' | 'connecting' | 'listening' | 'speaking';
 
@@ -11,32 +12,13 @@ interface UseVapiAgentOptions {
 const VAPI_PUBLIC_KEY = '2ae7fd34-1277-4b62-bebe-b995ec39222e';
 const VAPI_ASSISTANT_ID = '9526dfda-7749-42f3-af9c-0dfec7fdd6cd';
 
-// Declare Vapi types for TypeScript
-declare global {
-  interface Window {
-    vapiSDK: {
-      run: (config: { apiKey: string; assistant: string; config?: Record<string, unknown> }) => VapiInstance;
-    };
-    vapiSDKLoaded?: boolean;
-  }
-}
-
-interface VapiInstance {
-  start: () => Promise<void>;
-  stop: () => void;
-  on: (event: string, callback: (...args: unknown[]) => void) => void;
-  off: (event: string, callback: (...args: unknown[]) => void) => void;
-  isMuted: () => boolean;
-  setMuted: (muted: boolean) => void;
-}
-
 export function useVapiAgent({
   onTranscript,
   onError,
 }: UseVapiAgentOptions = {}) {
   const [status, setStatus] = useState<AgentStatus>('idle');
   const [isActive, setIsActive] = useState(false);
-  const vapiRef = useRef<VapiInstance | null>(null);
+  const vapiRef = useRef<Vapi | null>(null);
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
 
@@ -48,15 +30,10 @@ export function useVapiAgent({
 
   // Initialize Vapi instance
   useEffect(() => {
-    const initVapi = () => {
-      if (typeof window !== 'undefined' && window.vapiSDK && !vapiRef.current) {
-        console.log('🎙️ Initializing Vapi with SDK...');
-        vapiRef.current = window.vapiSDK.run({
-          apiKey: VAPI_PUBLIC_KEY,
-          assistant: VAPI_ASSISTANT_ID,
-        });
+    if (!vapiRef.current) {
+      console.log('🎙️ Initializing Vapi SDK...');
+      vapiRef.current = new Vapi(VAPI_PUBLIC_KEY);
 
-      // Set up event listeners
       const vapi = vapiRef.current;
 
       vapi.on('call-start', () => {
@@ -81,49 +58,28 @@ export function useVapiAgent({
         setStatus('listening');
       });
 
-      vapi.on('message', (message: unknown) => {
+      vapi.on('message', (message) => {
         console.log('📨 Vapi message:', message);
-        const msg = message as Record<string, unknown>;
 
-        // Handle transcript messages
-        if (msg.type === 'transcript') {
-          const transcript = msg.transcript as string;
-          const role = msg.transcriptType === 'final' 
-            ? (msg.role === 'user' ? 'user' : 'assistant')
-            : null;
+        // Handle transcript messages - only final transcripts to avoid duplicates
+        if (message.type === 'transcript' && message.transcriptType === 'final') {
+          const transcript = message.transcript;
+          const role = message.role === 'user' ? 'user' : 'assistant';
           
-          if (role && transcript && onTranscriptRef.current) {
+          if (transcript && onTranscriptRef.current) {
             console.log(`🎤 ${role} said: ${transcript}`);
             onTranscriptRef.current(transcript, role);
           }
         }
-        // Note: We only use transcript events, not conversation-update, to avoid duplicates
       });
 
-      vapi.on('error', (error: unknown) => {
+      vapi.on('error', (error) => {
         console.error('❌ Vapi error:', error);
         setStatus('idle');
         setIsActive(false);
         const errorMessage = error instanceof Error ? error.message : 'Connection failed';
         onErrorRef.current?.(errorMessage);
       });
-      }
-    };
-
-    // Check if SDK is already loaded
-    if (window.vapiSDKLoaded && window.vapiSDK) {
-      initVapi();
-    } else {
-      // Wait for SDK to load
-      const checkInterval = setInterval(() => {
-        if (window.vapiSDKLoaded && window.vapiSDK) {
-          clearInterval(checkInterval);
-          initVapi();
-        }
-      }, 100);
-
-      // Cleanup interval after 10 seconds
-      setTimeout(() => clearInterval(checkInterval), 10000);
     }
 
     return () => {
@@ -135,16 +91,7 @@ export function useVapiAgent({
 
   const start = useCallback(async () => {
     if (!vapiRef.current) {
-      // Try to initialize if not ready
-      if (typeof window !== 'undefined' && window.vapiSDK) {
-        vapiRef.current = window.vapiSDK.run({
-          apiKey: VAPI_PUBLIC_KEY,
-          assistant: VAPI_ASSISTANT_ID,
-        });
-      } else {
-        onErrorRef.current?.('Vapi SDK not loaded yet. Please wait a moment and try again.');
-        return;
-      }
+      vapiRef.current = new Vapi(VAPI_PUBLIC_KEY);
     }
 
     if (isActive) {
@@ -161,8 +108,8 @@ export function useVapiAgent({
       permissionStream.getTracks().forEach((t) => t.stop());
       console.log('✅ Microphone permission granted');
 
-      console.log('📞 Starting Vapi call...');
-      await vapiRef.current.start();
+      console.log('📞 Starting Vapi call with assistant:', VAPI_ASSISTANT_ID);
+      await vapiRef.current.start(VAPI_ASSISTANT_ID);
     } catch (error) {
       console.error('❌ Failed to start Vapi call:', error);
       setStatus('idle');
