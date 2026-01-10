@@ -7,8 +7,9 @@ interface UseVapiAgentOptions {
   onError?: (error: string) => void;
 }
 
-// Vapi public key
+// Vapi public key and assistant ID
 const VAPI_PUBLIC_KEY = '2ae7fd34-1277-4b62-bebe-b995ec39222e';
+const VAPI_ASSISTANT_ID = '9526dfda-7749-42f3-af9c-0dfec7fdd6cd';
 
 // Declare Vapi type for TypeScript
 declare global {
@@ -145,9 +146,8 @@ export function useVapiAgent({
       permissionStream.getTracks().forEach((t) => t.stop());
       console.log('✅ Microphone permission granted');
 
-      console.log('📞 Starting Vapi call...');
-      // Start without assistant ID - uses the default assistant configured in Vapi dashboard
-      await vapiRef.current.start();
+      console.log('📞 Starting Vapi call with assistant:', VAPI_ASSISTANT_ID);
+      await vapiRef.current.start(VAPI_ASSISTANT_ID);
     } catch (error) {
       console.error('❌ Failed to start Vapi call:', error);
       setStatus('idle');
