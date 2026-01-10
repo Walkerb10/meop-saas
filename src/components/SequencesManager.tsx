@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Trash2, Edit2, Webhook, Save, X, Copy, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, Webhook, Save, X, Copy, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Sequence } from '@/types/sequence';
 
 interface SequencesManagerProps {
@@ -16,10 +17,23 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [newSequence, setNewSequence] = useState({
     name: '',
     description: '',
   });
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const supabaseUrl = useMemo(() => {
     return import.meta.env.VITE_SUPABASE_URL || '';
@@ -140,10 +154,10 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="border border-border rounded-lg p-4 bg-card"
+                className="border border-border rounded-lg bg-card overflow-hidden"
               >
                 {editingId === sequence.id ? (
-                  <div className="space-y-3">
+                  <div className="p-4 space-y-3">
                     <div>
                       <label className="text-xs font-medium text-muted-foreground mb-1 block">Title</label>
                       <Input
@@ -169,19 +183,26 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <h4 className="text-sm font-semibold text-foreground">
-                          {sequence.name}
-                        </h4>
-                        {sequence.description && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {sequence.description}
-                          </p>
+                  <Collapsible open={expandedIds.has(sequence.id)} onOpenChange={() => toggleExpanded(sequence.id)}>
+                    <div className="flex items-center justify-between p-3 gap-3">
+                      <CollapsibleTrigger className="flex items-center gap-2 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity">
+                        {expandedIds.has(sequence.id) ? (
+                          <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                         )}
-                      </div>
-                      <div className="flex items-center gap-1">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-sm font-semibold text-foreground truncate">
+                            {sequence.name}
+                          </h4>
+                          {sequence.description && !expandedIds.has(sequence.id) && (
+                            <p className="text-xs text-muted-foreground truncate mt-0.5">
+                              {sequence.description}
+                            </p>
+                          )}
+                        </div>
+                      </CollapsibleTrigger>
+                      <div className="flex items-center gap-1 shrink-0">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -201,34 +222,44 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
                       </div>
                     </div>
                     
-                    {/* Generated Webhook URL */}
-                    <div className="bg-muted/50 rounded-md p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-muted-foreground">Webhook URL</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2 text-xs gap-1"
-                          onClick={() => copyWebhookUrl(sequence.id)}
-                        >
-                          {copiedId === sequence.id ? (
-                            <>
-                              <Check className="w-3 h-3 text-green-500" />
-                              Copied
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              Copy
-                            </>
-                          )}
-                        </Button>
+                    <CollapsibleContent>
+                      <div className="px-3 pb-3 space-y-3">
+                        {sequence.description && (
+                          <p className="text-xs text-muted-foreground pl-6">
+                            {sequence.description}
+                          </p>
+                        )}
+                        
+                        {/* Generated Webhook URL */}
+                        <div className="bg-muted/50 rounded-md p-3 space-y-2 ml-6">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-muted-foreground">Webhook URL</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2 text-xs gap-1"
+                              onClick={() => copyWebhookUrl(sequence.id)}
+                            >
+                              {copiedId === sequence.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-green-500" />
+                                  Copied
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  Copy
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <code className="text-xs bg-background px-2 py-1.5 rounded text-muted-foreground break-all block">
+                            {generateWebhookUrl(sequence.id)}
+                          </code>
+                        </div>
                       </div>
-                      <code className="text-xs bg-background px-2 py-1.5 rounded text-muted-foreground break-all block">
-                        {generateWebhookUrl(sequence.id)}
-                      </code>
-                    </div>
-                  </div>
+                    </CollapsibleContent>
+                  </Collapsible>
                 )}
               </motion.div>
             ))}
