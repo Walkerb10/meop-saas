@@ -175,10 +175,10 @@ const Index = () => {
               <Button 
                 size="icon" 
                 variant="ghost"
-                className={`shrink-0 h-9 w-9 rounded-full transition-colors ${
+                className={`shrink-0 h-9 w-9 rounded-full transition-all border-2 ${
                   textInput.trim() 
-                    ? 'text-primary hover:bg-primary/10' 
-                    : 'text-muted-foreground hover:bg-muted'
+                    ? 'text-primary border-primary hover:bg-primary/10' 
+                    : 'text-muted-foreground border-muted-foreground/30 hover:bg-muted'
                 }`}
                 disabled={!textInput.trim()}
               >

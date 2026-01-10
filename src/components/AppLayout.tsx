@@ -214,27 +214,27 @@ export function AppLayout({
             <div />
           )}
 
-          {/* Right side - Tasks button if enabled */}
-          {showTasksButton && tasksContent ? (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="gap-2">
-                  <ListTodo className="w-4 h-4" />
-                  Tasks
-                  {taskCount > 0 && (
-                    <span className="bg-primary text-white text-xs px-1.5 py-0.5 rounded-full">
-                      {taskCount}
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 md:w-96">
-                {tasksContent}
-              </PopoverContent>
-            </Popover>
-          ) : (
-            <div />
-          )}
+          {/* Right side - Tasks button always visible */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 border-border hover:border-primary/50"
+              >
+                <ListTodo className="w-4 h-4" />
+                Tasks
+                {taskCount > 0 && (
+                  <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
+                    {taskCount}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80 md:w-96">
+              {tasksContent || <div className="text-sm text-muted-foreground">No active tasks</div>}
+            </PopoverContent>
+          </Popover>
         </header>
 
         {/* Spacer for fixed header */}
