@@ -239,38 +239,64 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      {/* Desktop Left Sidebar - Navigation */}
+      {/* Desktop Left Sidebar - Fixed icon bar + expandable nav */}
       {!isMobile && (
-        <motion.aside
-          initial={false}
-          animate={{ width: desktopSidebarOpen ? 192 : 56 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="border-r border-border p-3 flex flex-col gap-2 overflow-hidden"
-        >
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
-            className="mb-4 self-end"
-          >
-            {desktopSidebarOpen ? (
-              <PanelLeftClose className="w-5 h-5" />
-            ) : (
-              <PanelLeft className="w-5 h-5" />
-            )}
-          </Button>
-
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              onClick={() => item.path && navigate(item.path)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
+        <div className="flex">
+          {/* Fixed icon bar - always visible */}
+          <div className="w-14 border-r border-border p-3 flex flex-col items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
+              className="mb-4"
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {desktopSidebarOpen && <span className="text-sm">{item.label}</span>}
-            </button>
-          ))}
-        </motion.aside>
+              {desktopSidebarOpen ? (
+                <PanelLeftClose className="w-5 h-5" />
+              ) : (
+                <PanelLeft className="w-5 h-5" />
+              )}
+            </Button>
+
+            {navItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => {
+                  if (!desktopSidebarOpen) setDesktopSidebarOpen(true);
+                  if (item.path) navigate(item.path);
+                }}
+                className="flex items-center justify-center w-10 h-10 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                title={item.label}
+              >
+                <item.icon className="w-5 h-5" />
+              </button>
+            ))}
+          </div>
+
+          {/* Expandable sidebar content */}
+          <AnimatePresence>
+            {desktopSidebarOpen && (
+              <motion.aside
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: 160, opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="border-r border-border overflow-hidden"
+              >
+                <div className="p-3 pt-16 flex flex-col gap-2 w-40">
+                  {navItems.map((item) => (
+                    <button
+                      key={item.label}
+                      onClick={() => item.path && navigate(item.path)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
+                    >
+                      <span className="text-sm">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </motion.aside>
+            )}
+          </AnimatePresence>
+        </div>
       )}
 
       {/* Center - Voice Button */}
@@ -303,9 +329,18 @@ const Index = () => {
           }}
         />
 
-        <div className="relative flex items-center justify-center">
-          <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
+        <div className="relative flex flex-col items-center justify-center gap-8">
+          {/* Logo tagline */}
+          <div className="text-center space-y-2 max-w-md px-4">
+            <h1 className="text-2xl md:text-3xl font-semibold text-foreground">
+              Speak your problem.
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground">
+              Agents handle it. Start to finish.
+            </p>
+          </div>
 
+          <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
         </div>
       </main>
     </div>
