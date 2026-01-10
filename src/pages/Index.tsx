@@ -62,6 +62,7 @@ const Index = () => {
   const [textInput, setTextInput] = useState('');
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [inputFocused, setInputFocused] = useState(false);
+  const [hasStartedChat, setHasStartedChat] = useState(false);
   const { toast } = useToast();
 
   // Fetch running executions for tasks
@@ -110,18 +111,40 @@ const Index = () => {
     [toast]
   );
 
-  const { status, isActive, toggle } = useElevenLabsAgent({
+  const { status, isActive, toggle, stop } = useElevenLabsAgent({
     onTranscript: handleTranscript,
     onError: handleError,
   });
 
+  // Track when chat has started
+  useEffect(() => {
+    if (isActive && !hasStartedChat) {
+      setHasStartedChat(true);
+    }
+  }, [isActive, hasStartedChat]);
+
+  const handleNewChat = useCallback(() => {
+    // Stop current conversation if active
+    if (isActive) {
+      stop();
+    }
+    // Clear messages and reset state
+    setMessages([]);
+    setHasStartedChat(false);
+  }, [isActive, stop]);
+
   const runningCount = executions.filter(e => e.status === 'running').length;
+
+  // Show tagline only if we haven't started a chat yet
+  const showTagline = !hasStartedChat;
 
   return (
     <AppLayout 
       showTasksButton 
       tasksContent={<TasksPopoverContent executions={executions} />}
       taskCount={runningCount}
+      showNewChatButton={hasStartedChat}
+      onNewChat={handleNewChat}
     >
       <div className="flex-1 flex flex-col relative h-full overflow-hidden">
         {/* Ambient glow */}
@@ -134,88 +157,65 @@ const Index = () => {
 
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Top section - tagline fades, mic stays */}
+          {/* Top section - tagline and mic */}
           <div className="flex flex-col items-center pt-8">
-            {/* Tagline - fades out when active */}
-            <AnimatePresence>
-              {!isActive && (
-                <motion.div 
-                  className="text-center space-y-1 max-w-md px-4 mb-8"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Speak your problem.
-                  </p>
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Agents handle it.
-                  </p>
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Start to finish.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Tagline - only shows before first chat */}
+            {showTagline && (
+              <div className="text-center space-y-1 max-w-md px-4 mb-8">
+                <p className="text-xl md:text-2xl font-semibold text-foreground">
+                  Speak your problem.
+                </p>
+                <p className="text-xl md:text-2xl font-semibold text-foreground">
+                  Agents handle it.
+                </p>
+                <p className="text-xl md:text-2xl font-semibold text-foreground">
+                  Start to finish.
+                </p>
+              </div>
+            )}
 
-            {/* Voice button - ONE button, doesn't move */}
+            {/* Voice button - size based on whether chat has started */}
             <AgentVoiceButton 
               status={status} 
               isActive={isActive} 
               onToggle={toggle} 
-              size={isActive ? 'small' : 'normal'} 
+              size={hasStartedChat ? 'small' : 'normal'} 
             />
             
             {/* Start speaking hint */}
-            <AnimatePresence>
-              {isActive && messages.length === 0 && (
-                <motion.p 
-                  className="text-muted-foreground text-sm mt-4"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
-                  Start speaking...
-                </motion.p>
-              )}
-            </AnimatePresence>
+            {hasStartedChat && messages.length === 0 && (
+              <p className="text-muted-foreground text-sm mt-4">
+                Start speaking...
+              </p>
+            )}
           </div>
 
-          {/* Messages area - appears below mic when active */}
-          <AnimatePresence>
-            {isActive && messages.length > 0 && (
-              <motion.div 
-                className="flex-1 overflow-y-auto px-4 py-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                <div className="max-w-2xl mx-auto space-y-4">
-                  {messages.map((msg) => (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          {/* Messages area - shows when we have messages */}
+          {messages.length > 0 && (
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="max-w-2xl mx-auto space-y-4">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-foreground'
+                      }`}
                     >
-                      <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                          msg.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-secondary text-foreground'
-                        }`}
-                      >
-                        <p className="text-sm">{msg.content}</p>
-                        <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                          {format(msg.timestamp, 'h:mm a')}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                      <p className="text-sm">{msg.content}</p>
+                      <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        {format(msg.timestamp, 'h:mm a')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Bottom text input */}
