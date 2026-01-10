@@ -10,8 +10,6 @@ import {
   FileSpreadsheet,
   FileText,
   Send,
-  Plus,
-  Mic,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -167,35 +165,25 @@ const Index = () => {
         {/* Bottom text input - ChatGPT style */}
         <div className="p-4 bg-background/80 backdrop-blur-sm">
           <div className="max-w-3xl mx-auto">
-            <div className="relative flex items-center bg-secondary/50 rounded-2xl border border-border focus-within:border-primary/50 transition-colors">
-              <Button 
-                size="icon" 
-                variant="ghost" 
-                className="shrink-0 ml-1 h-9 w-9 rounded-full hover:bg-muted"
-              >
-                <Plus className="w-5 h-5" />
-              </Button>
+            <div className="relative flex items-center bg-secondary/50 rounded-full border border-border focus-within:border-primary/50 transition-colors px-4">
               <input
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
                 placeholder="Message..."
-                className="flex-1 bg-transparent py-3 px-2 text-sm outline-none placeholder:text-muted-foreground"
+                className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
               />
               <Button 
                 size="icon" 
-                variant="ghost" 
-                className="shrink-0 h-9 w-9 rounded-full hover:bg-muted mr-1"
+                variant="ghost"
+                className={`shrink-0 h-9 w-9 rounded-full transition-colors ${
+                  textInput.trim() 
+                    ? 'text-primary hover:bg-primary/10' 
+                    : 'text-muted-foreground hover:bg-muted'
+                }`}
+                disabled={!textInput.trim()}
               >
-                <Mic className="w-5 h-5" />
+                <Send className="w-4 h-4" />
               </Button>
-              {textInput.trim() && (
-                <Button 
-                  size="icon" 
-                  className="shrink-0 h-9 w-9 rounded-full mr-1"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-              )}
             </div>
           </div>
         </div>

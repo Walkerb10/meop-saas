@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Loader2 } from 'lucide-react';
 import { AgentStatus } from '@/hooks/useElevenLabsAgent';
 
@@ -111,15 +111,24 @@ export function AgentVoiceButton({ status, isActive, onToggle }: AgentVoiceButto
         )}
       </motion.button>
 
-      {/* Status label */}
+      {/* Status label with animation */}
       <motion.div
         className="absolute -bottom-10 text-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
-        <span className="text-sm font-medium text-muted-foreground">
-          {isConnecting ? 'Connecting...' : isSpeaking ? 'Speaking' : isListening ? 'Listening...' : 'Tap to talk'}
-        </span>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={isActive ? 'stop' : 'talk'}
+            className="text-sm font-medium text-muted-foreground inline-block"
+            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.9 }}
+            transition={{ duration: 0.2, ease: 'easeOut' }}
+          >
+            {isConnecting ? 'Connecting...' : isSpeaking ? 'Speaking' : isListening ? 'Listening...' : isActive ? 'Tap to stop' : 'Tap to talk'}
+          </motion.span>
+        </AnimatePresence>
       </motion.div>
     </div>
   );
