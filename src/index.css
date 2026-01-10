@@ -15,7 +15,7 @@
     --popover: 220 20% 7%;
     --popover-foreground: 210 20% 95%;
 
-    --primary: 217 82% 33%;
+    --primary: 217 74% 56%;
     --primary-foreground: 210 20% 98%;
 
     --secondary: 220 15% 12%;
@@ -24,7 +24,7 @@
     --muted: 220 15% 15%;
     --muted-foreground: 215 15% 55%;
 
-    --accent: 217 70% 45%;
+    --accent: 217 60% 50%;
     --accent-foreground: 210 20% 98%;
 
     --destructive: 0 70% 50%;
@@ -32,24 +32,24 @@
 
     --border: 220 15% 15%;
     --input: 220 15% 12%;
-    --ring: 217 82% 33%;
+    --ring: 217 74% 56%;
 
     --radius: 0.75rem;
 
     /* Custom tokens */
-    --glow-primary: 217 82% 33%;
-    --glow-secondary: 217 70% 45%;
+    --glow-primary: 217 74% 56%;
+    --glow-secondary: 217 60% 50%;
     --glass-bg: 220 20% 8% / 0.8;
     --glass-border: 220 15% 20% / 0.5;
     
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 82% 33%), hsl(217 70% 45%));
+    --gradient-primary: linear-gradient(135deg, hsl(217 74% 56%), hsl(217 60% 50%));
     --gradient-dark: linear-gradient(180deg, hsl(220 20% 6%), hsl(220 20% 3%));
-    --gradient-glow: radial-gradient(circle, hsl(217 82% 33% / 0.15), transparent 70%);
+    --gradient-glow: radial-gradient(circle, hsl(217 74% 56% / 0.15), transparent 70%);
     
     /* Shadows */
-    --shadow-glow: 0 0 60px hsl(217 82% 33% / 0.3);
-    --shadow-glow-intense: 0 0 100px hsl(217 82% 33% / 0.5);
+    --shadow-glow: 0 0 60px hsl(217 74% 56% / 0.3);
+    --shadow-glow-intense: 0 0 100px hsl(217 74% 56% / 0.5);
     --shadow-glass: 0 8px 32px hsl(0 0% 0% / 0.3);
   }
 
@@ -113,11 +113,11 @@
   /* Animations */
   @keyframes pulse-glow {
     0%, 100% {
-      box-shadow: 0 0 60px hsl(217 82% 33% / 0.3), 0 0 120px hsl(217 82% 33% / 0.1);
+      box-shadow: 0 0 60px hsl(217 74% 56% / 0.3), 0 0 120px hsl(217 74% 56% / 0.1);
       transform: scale(1);
     }
     50% {
-      box-shadow: 0 0 80px hsl(217 82% 33% / 0.5), 0 0 160px hsl(217 82% 33% / 0.2);
+      box-shadow: 0 0 80px hsl(217 74% 56% / 0.5), 0 0 160px hsl(217 74% 56% / 0.2);
       transform: scale(1.02);
     }
   }
@@ -125,11 +125,11 @@
   @keyframes speaking-pulse {
     0%, 100% {
       transform: scale(1);
-      box-shadow: 0 0 60px hsl(217 82% 33% / 0.4);
+      box-shadow: 0 0 60px hsl(217 74% 56% / 0.4);
     }
     50% {
       transform: scale(1.08);
-      box-shadow: 0 0 100px hsl(217 82% 33% / 0.6);
+      box-shadow: 0 0 100px hsl(217 74% 56% / 0.6);
     }
   }
 
@@ -242,7 +242,7 @@
 
   .task-card:hover {
     @apply border-primary/30;
-    box-shadow: 0 0 30px hsl(217 82% 33% / 0.1);
+    box-shadow: 0 0 30px hsl(217 74% 56% / 0.1);
   }
 
   /* Sequence node */
@@ -268,7 +268,7 @@
   }
 
   .glow-text {
-    text-shadow: 0 0 20px hsl(217 82% 33% / 0.5);
+    text-shadow: 0 0 20px hsl(217 74% 56% / 0.5);
   }
 
   .scrollbar-hide {

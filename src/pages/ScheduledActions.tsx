@@ -1,16 +1,21 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, Menu, X, LayoutDashboard, CalendarClock, Settings, PanelLeftClose, PanelLeft, Zap } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Menu, X, LayoutDashboard, CalendarClock, Settings, PanelLeftClose, PanelLeft, Zap, ChevronRight, ArrowLeft, User } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep, Task } from '@/types/agent';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
 import { TasksPanel } from '@/components/TasksPanel';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-const navItems = [
+const mainNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
-  { icon: Clock, label: 'Executions', path: undefined },
+  { icon: Clock, label: 'Executions', path: '/executions' },
+];
+
+const bottomNavItems = [
+  { icon: User, label: 'Profile', path: '/profile' },
+  { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 const demoScheduledActions: ScheduledAction[] = [
@@ -50,7 +55,7 @@ const demoTask: Task = {
   createdAt: new Date(),
 };
 
-function ActionStepNode({ step }: { step: ScheduledActionStep }) {
+function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst: boolean }) {
   const getIcon = () => {
     switch (step.type) {
       case 'trigger':
@@ -74,12 +79,22 @@ function ActionStepNode({ step }: { step: ScheduledActionStep }) {
   };
 
   return (
-    <div className={`rounded-lg border p-3 ${getTypeColor()}`}>
-      <div className="flex items-center gap-2">
-        {getIcon()}
-        <span className="text-sm font-medium text-foreground">{step.label}</span>
+    <div className="flex flex-col items-center">
+      {!isFirst && (
+        <div className="flex flex-col items-center py-2">
+          <div className="w-px h-4 bg-border" />
+          <ArrowDown className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
+      <div className={`rounded-lg border p-4 w-full ${getTypeColor()}`}>
+        <div className="flex items-center gap-3">
+          {getIcon()}
+          <div>
+            <span className="text-sm font-medium text-foreground">{step.label}</span>
+            <p className="text-xs text-muted-foreground capitalize">{step.type}</p>
+          </div>
+        </div>
       </div>
-      <span className="text-xs text-muted-foreground capitalize mt-1">{step.type}</span>
     </div>
   );
 }
@@ -88,6 +103,7 @@ const ScheduledActions = () => {
   const [tasksOpen, setTasksOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [selectedAutomation, setSelectedAutomation] = useState<ScheduledAction | null>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -100,7 +116,9 @@ const ScheduledActions = () => {
             <Menu className="w-6 h-6" />
           </Button>
 
-          <h1 className="text-lg font-semibold text-foreground">Automations</h1>
+          <h1 className="text-lg font-semibold text-foreground">
+            {selectedAutomation ? selectedAutomation.name : 'Automations'}
+          </h1>
 
           <Button
             variant="ghost"
@@ -142,7 +160,7 @@ const ScheduledActions = () => {
               </div>
 
               <nav className="flex flex-col gap-2 flex-1">
-                {navItems.map((item) => (
+                {mainNavItems.map((item) => (
                   <button
                     key={item.label}
                     onClick={() => {
@@ -161,14 +179,21 @@ const ScheduledActions = () => {
                 ))}
               </nav>
 
-              {/* Settings at bottom */}
-              <div className="border-t border-border pt-4 mt-4">
-                <button
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left w-full"
-                >
-                  <Settings className="w-5 h-5" />
-                  <span className="text-sm">Settings</span>
-                </button>
+              {/* Settings and Profile at bottom */}
+              <div className="border-t border-border pt-4 mt-4 space-y-2">
+                {bottomNavItems.map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      setSidebarOpen(false);
+                      if (item.path) navigate(item.path);
+                    }}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left w-full"
+                  >
+                    <item.icon className="w-5 h-5" />
+                    <span className="text-sm">{item.label}</span>
+                  </button>
+                ))}
               </div>
             </motion.aside>
           </>
@@ -181,7 +206,7 @@ const ScheduledActions = () => {
           initial={false}
           animate={{ width: desktopSidebarOpen ? 192 : 56 }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="border-r border-border p-3 flex flex-col gap-2 overflow-hidden flex-shrink-0"
+          className="border-r border-border p-3 flex flex-col gap-2 overflow-hidden flex-shrink-0 h-screen"
         >
           <Button
             variant="ghost"
@@ -196,7 +221,7 @@ const ScheduledActions = () => {
             )}
           </Button>
 
-          {navItems.map((item) => (
+          {mainNavItems.map((item) => (
             <button
               key={item.label}
               onClick={() => item.path && navigate(item.path)}
@@ -211,25 +236,42 @@ const ScheduledActions = () => {
             </button>
           ))}
 
-          {/* Settings at bottom */}
-          <div className="mt-auto border-t border-border pt-3">
-            <button
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap w-full"
-            >
-              <Settings className="w-5 h-5 flex-shrink-0" />
-              {desktopSidebarOpen && <span className="text-sm">Settings</span>}
-            </button>
+          {/* Settings and Profile at bottom */}
+          <div className="mt-auto border-t border-border pt-3 space-y-2">
+            {bottomNavItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => item.path && navigate(item.path)}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap w-full"
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {desktopSidebarOpen && <span className="text-sm">{item.label}</span>}
+              </button>
+            ))}
           </div>
         </motion.aside>
       )}
 
       {/* Main Content */}
-      <main className={`flex-1 ${isMobile ? 'pt-20' : ''} pb-8 px-4`}>
-        <div className="max-w-4xl mx-auto">
+      <main className={`flex-1 ${isMobile ? 'pt-20' : ''} pb-8 px-4 overflow-y-auto`}>
+        <div className="max-w-3xl mx-auto">
           {/* Desktop header with title and tasks */}
           {!isMobile && (
             <div className="flex items-center justify-between py-6">
-              <h1 className="text-2xl font-bold text-foreground">Automations</h1>
+              <div className="flex items-center gap-3">
+                {selectedAutomation && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedAutomation(null)}
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </Button>
+                )}
+                <h1 className="text-2xl font-bold text-foreground">
+                  {selectedAutomation ? selectedAutomation.name : 'Automations'}
+                </h1>
+              </div>
               <Button
                 variant="outline"
                 size="sm"
@@ -244,61 +286,108 @@ const ScheduledActions = () => {
             </div>
           )}
 
-          <div className="grid gap-6 md:grid-cols-2">
-            {demoScheduledActions.map((action, index) => (
+          {/* Mobile back button */}
+          {isMobile && selectedAutomation && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedAutomation(null)}
+              className="mb-4 gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Automations
+            </Button>
+          )}
+
+          <AnimatePresence mode="wait">
+            {!selectedAutomation ? (
+              /* Automations List View */
               <motion.div
-                key={action.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="rounded-xl border border-border bg-card p-5"
+                key="list"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-3"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-foreground">{action.name}</h3>
+                {demoScheduledActions.map((action, index) => (
+                  <motion.button
+                    key={action.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    onClick={() => setSelectedAutomation(action)}
+                    className="w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/30 hover:bg-card/80 transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-1">
+                          <h3 className="font-semibold text-foreground truncate">{action.name}</h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                            action.isActive 
+                              ? 'bg-green-400/10 text-green-400'
+                              : 'bg-secondary text-muted-foreground'
+                          }`}>
+                            {action.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        {action.description && (
+                          <p className="text-sm text-muted-foreground">{action.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {action.steps.length} steps • Trigger: {action.steps[0]?.label}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-4" />
+                    </div>
+                  </motion.button>
+                ))}
+              </motion.div>
+            ) : (
+              /* Sequence Detail View */
+              <motion.div
+                key="detail"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="space-y-6"
+              >
+                {/* Status and description */}
+                <div className="flex items-center gap-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    action.isActive 
+                    selectedAutomation.isActive 
                       ? 'bg-green-400/10 text-green-400'
                       : 'bg-secondary text-muted-foreground'
                   }`}>
-                    {action.isActive ? 'Active' : 'Inactive'}
+                    {selectedAutomation.isActive ? 'Active' : 'Inactive'}
                   </span>
+                  {selectedAutomation.description && (
+                    <p className="text-sm text-muted-foreground">{selectedAutomation.description}</p>
+                  )}
                 </div>
-                
-                {action.description && (
-                  <p className="text-sm text-muted-foreground mb-4">{action.description}</p>
-                )}
-                
-                {/* Steps visualization */}
-                <div className="space-y-0">
-                  {action.steps.map((step, stepIndex) => (
-                    <div key={step.id}>
-                      <ActionStepNode step={step} />
-                      {stepIndex < action.steps.length - 1 && (
-                        <div className="flex justify-center py-1">
-                          <ArrowDown className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                  ))}
+
+                {/* Sequence visualization */}
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-4">Sequence Flow</h3>
+                  <div className="space-y-0">
+                    {selectedAutomation.steps.map((step, index) => (
+                      <ActionStepNode key={step.id} step={step} isFirst={index === 0} />
+                    ))}
+                  </div>
                 </div>
 
                 {/* Test button */}
-                <div className="mt-4 pt-4 border-t border-border">
-                  <Button 
-                    size="sm" 
-                    className="w-full gap-2"
-                    onClick={() => {
-                      // TODO: Trigger test execution
-                      console.log('Testing automation:', action.name);
-                    }}
-                  >
-                    <Zap className="w-4 h-4" />
-                    Test Automation
-                  </Button>
-                </div>
+                <Button 
+                  className="w-full gap-2"
+                  onClick={() => {
+                    console.log('Testing automation:', selectedAutomation.name);
+                  }}
+                >
+                  <Zap className="w-4 h-4" />
+                  Test Automation
+                </Button>
               </motion.div>
-            ))}
-          </div>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
