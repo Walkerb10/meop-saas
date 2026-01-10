@@ -26,7 +26,21 @@
 
   <body>
     <div id="root"></div>
-    <script src='https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/vapi-public.js'></script>
+    <script>
+      var vapiInstance = null;
+      (function (d, t) {
+        var g = document.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+        g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
+        g.defer = true;
+        g.async = true;
+        s.parentNode.insertBefore(g, s);
+        g.onload = function () {
+          window.vapiSDKLoaded = true;
+          console.log('✅ Vapi SDK loaded');
+        };
+      })(document, "script");
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -11,15 +11,18 @@ interface UseVapiAgentOptions {
 const VAPI_PUBLIC_KEY = '2ae7fd34-1277-4b62-bebe-b995ec39222e';
 const VAPI_ASSISTANT_ID = '9526dfda-7749-42f3-af9c-0dfec7fdd6cd';
 
-// Declare Vapi type for TypeScript
+// Declare Vapi types for TypeScript
 declare global {
   interface Window {
-    Vapi: new (publicKey: string) => VapiInstance;
+    vapiSDK: {
+      run: (config: { apiKey: string; assistant: string; config?: Record<string, unknown> }) => VapiInstance;
+    };
+    vapiSDKLoaded?: boolean;
   }
 }
 
 interface VapiInstance {
-  start: (assistantId?: string) => Promise<void>;
+  start: () => Promise<void>;
   stop: () => void;
   on: (event: string, callback: (...args: unknown[]) => void) => void;
   off: (event: string, callback: (...args: unknown[]) => void) => void;
@@ -45,9 +48,13 @@ export function useVapiAgent({
 
   // Initialize Vapi instance
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.Vapi && !vapiRef.current) {
-      console.log('🎙️ Initializing Vapi...');
-      vapiRef.current = new window.Vapi(VAPI_PUBLIC_KEY);
+    const initVapi = () => {
+      if (typeof window !== 'undefined' && window.vapiSDK && !vapiRef.current) {
+        console.log('🎙️ Initializing Vapi with SDK...');
+        vapiRef.current = window.vapiSDK.run({
+          apiKey: VAPI_PUBLIC_KEY,
+          assistant: VAPI_ASSISTANT_ID,
+        });
 
       // Set up event listeners
       const vapi = vapiRef.current;
@@ -112,6 +119,23 @@ export function useVapiAgent({
         const errorMessage = error instanceof Error ? error.message : 'Connection failed';
         onErrorRef.current?.(errorMessage);
       });
+      }
+    };
+
+    // Check if SDK is already loaded
+    if (window.vapiSDKLoaded && window.vapiSDK) {
+      initVapi();
+    } else {
+      // Wait for SDK to load
+      const checkInterval = setInterval(() => {
+        if (window.vapiSDKLoaded && window.vapiSDK) {
+          clearInterval(checkInterval);
+          initVapi();
+        }
+      }, 100);
+
+      // Cleanup interval after 10 seconds
+      setTimeout(() => clearInterval(checkInterval), 10000);
     }
 
     return () => {
@@ -124,10 +148,13 @@ export function useVapiAgent({
   const start = useCallback(async () => {
     if (!vapiRef.current) {
       // Try to initialize if not ready
-      if (typeof window !== 'undefined' && window.Vapi) {
-        vapiRef.current = new window.Vapi(VAPI_PUBLIC_KEY);
+      if (typeof window !== 'undefined' && window.vapiSDK) {
+        vapiRef.current = window.vapiSDK.run({
+          apiKey: VAPI_PUBLIC_KEY,
+          assistant: VAPI_ASSISTANT_ID,
+        });
       } else {
-        onErrorRef.current?.('Vapi SDK not loaded');
+        onErrorRef.current?.('Vapi SDK not loaded yet. Please wait a moment and try again.');
         return;
       }
     }
@@ -146,8 +173,8 @@ export function useVapiAgent({
       permissionStream.getTracks().forEach((t) => t.stop());
       console.log('✅ Microphone permission granted');
 
-      console.log('📞 Starting Vapi call with assistant:', VAPI_ASSISTANT_ID);
-      await vapiRef.current.start(VAPI_ASSISTANT_ID);
+      console.log('📞 Starting Vapi call...');
+      await vapiRef.current.start();
     } catch (error) {
       console.error('❌ Failed to start Vapi call:', error);
       setStatus('idle');
