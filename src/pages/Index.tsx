@@ -175,18 +175,19 @@ const Index = () => {
                 exit={{ opacity: 0 }}
               >
                 {/* Top bar with mic */}
-                <div className="p-4 flex justify-center">
+                <div className="pt-4 pb-2 flex flex-col items-center">
                   <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} size="small" />
+                  {messages.length === 0 && (
+                    <p className="text-muted-foreground text-sm mt-3">
+                      Start speaking to begin the conversation...
+                    </p>
+                  )}
                 </div>
 
                 {/* Messages area */}
                 <div className="flex-1 overflow-y-auto px-4 pb-4">
                   <div className="max-w-2xl mx-auto space-y-4">
-                    {messages.length === 0 ? (
-                      <div className="text-center py-12 text-muted-foreground text-sm">
-                        Start speaking to begin the conversation...
-                      </div>
-                    ) : (
+                    {messages.length > 0 && (
                       messages.map((msg) => (
                         <motion.div
                           key={msg.id}
