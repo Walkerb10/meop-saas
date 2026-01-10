@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      automations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          n8n_webhook_url: string | null
+          name: string
+          steps: Json
+          trigger_config: Json | null
+          trigger_type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          n8n_webhook_url?: string | null
+          name: string
+          steps?: Json
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          n8n_webhook_url?: string | null
+          name?: string
+          steps?: Json
+          trigger_config?: Json | null
+          trigger_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       conversation_transcripts: {
         Row: {
           content: string

@@ -1,38 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2 } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/AppLayout';
-
-const demoScheduledActions: ScheduledAction[] = [
-  {
-    id: '1',
-    name: 'Short Form Content Maker',
-    description: 'Daily AI news content generation',
-    isActive: true,
-    createdAt: new Date(),
-    steps: [
-      { id: '1-1', type: 'trigger', label: '8:00 AM Daily' },
-      { id: '1-2', type: 'action', label: 'Fetch AI News' },
-      { id: '1-3', type: 'action', label: 'Generate Short Form Content' },
-      { id: '1-4', type: 'action', label: 'Post to Social Channels' },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Lead Pipeline Updated',
-    description: 'CRM lead won automation',
-    isActive: true,
-    createdAt: new Date(),
-    steps: [
-      { id: '2-1', type: 'trigger', label: 'CRM Lead Status → Won' },
-      { id: '2-2', type: 'condition', label: 'Check Lead Type' },
-      { id: '2-3', type: 'action', label: 'Send Onboarding Form' },
-      { id: '2-4', type: 'action', label: 'Notify Account Manager' },
-    ],
-  },
-];
+import { useAutomations } from '@/hooks/useAutomations';
+import { toast } from 'sonner';
 
 function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst: boolean }) {
   const getIcon = () => {
@@ -80,6 +53,32 @@ function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst:
 
 const ScheduledActions = () => {
   const [selectedAutomation, setSelectedAutomation] = useState<ScheduledAction | null>(null);
+  const [executing, setExecuting] = useState(false);
+  const { automations, loading, executeAutomation, deleteAutomation } = useAutomations();
+
+  const handleExecute = async () => {
+    if (!selectedAutomation) return;
+    
+    setExecuting(true);
+    try {
+      await executeAutomation(selectedAutomation.id);
+      toast.success('Automation executed successfully');
+    } catch (err) {
+      toast.error('Failed to execute automation');
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const handleDelete = async (automationId: string) => {
+    try {
+      await deleteAutomation(automationId);
+      setSelectedAutomation(null);
+      toast.success('Automation deleted');
+    } catch (err) {
+      toast.error('Failed to delete automation');
+    }
+  };
 
   return (
     <AppLayout>
@@ -95,7 +94,7 @@ const ScheduledActions = () => {
               <ArrowLeft className="w-5 h-5" />
             </Button>
           )}
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-semibold">
               {selectedAutomation ? selectedAutomation.name : 'Automations'}
             </h1>
@@ -105,6 +104,16 @@ const ScheduledActions = () => {
               </p>
             )}
           </div>
+          {selectedAutomation && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => handleDelete(selectedAutomation.id)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-5 h-5" />
+            </Button>
+          )}
         </div>
 
         <AnimatePresence mode="wait">
@@ -117,38 +126,56 @@ const ScheduledActions = () => {
               exit={{ opacity: 0, x: -20 }}
               className="space-y-3"
             >
-              {demoScheduledActions.map((action, index) => (
-                <motion.button
-                  key={action.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  onClick={() => setSelectedAutomation(action)}
-                  className="w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/30 hover:bg-card/80 transition-all group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="font-semibold text-foreground truncate">{action.name}</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                          action.isActive 
-                            ? 'bg-green-400/10 text-green-400'
-                            : 'bg-secondary text-muted-foreground'
-                        }`}>
-                          {action.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      {action.description && (
-                        <p className="text-sm text-muted-foreground">{action.description}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground mt-2">
-                        {action.steps.length} steps • Trigger: {action.steps[0]?.label}
-                      </p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-4" />
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : automations.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
+                    <Zap className="w-8 h-8 text-muted-foreground" />
                   </div>
-                </motion.button>
-              ))}
+                  <p className="text-muted-foreground">
+                    No automations yet. Talk to the agent to create one!
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Try saying: "Create a sequence to text me daily at 9am with the weather"
+                  </p>
+                </div>
+              ) : (
+                automations.map((action, index) => (
+                  <motion.button
+                    key={action.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    onClick={() => setSelectedAutomation(action)}
+                    className="w-full text-left rounded-xl border border-border bg-card p-4 hover:border-primary/30 hover:bg-card/80 transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-1">
+                          <h3 className="font-semibold text-foreground truncate">{action.name}</h3>
+                          <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                            action.isActive 
+                              ? 'bg-green-400/10 text-green-400'
+                              : 'bg-secondary text-muted-foreground'
+                          }`}>
+                            {action.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        {action.description && (
+                          <p className="text-sm text-muted-foreground">{action.description}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {action.steps.length} steps{action.steps[0] && ` • Trigger: ${action.steps[0].label}`}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-4" />
+                    </div>
+                  </motion.button>
+                ))
+              )}
             </motion.div>
           ) : (
             /* Sequence Detail View */
@@ -174,24 +201,33 @@ const ScheduledActions = () => {
               </div>
 
               {/* Sequence visualization */}
-              <div className="rounded-xl border border-border bg-card p-6">
-                <h3 className="text-sm font-medium text-muted-foreground mb-4">Sequence Flow</h3>
-                <div className="space-y-0">
-                  {selectedAutomation.steps.map((step, index) => (
-                    <ActionStepNode key={step.id} step={step} isFirst={index === 0} />
-                  ))}
+              {selectedAutomation.steps.length > 0 ? (
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-4">Sequence Flow</h3>
+                  <div className="space-y-0">
+                    {selectedAutomation.steps.map((step, index) => (
+                      <ActionStepNode key={step.id} step={step} isFirst={index === 0} />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="rounded-xl border border-border bg-card p-6 text-center">
+                  <p className="text-sm text-muted-foreground">No steps defined for this automation</p>
+                </div>
+              )}
 
               {/* Test button */}
               <Button 
                 className="w-full gap-2"
-                onClick={() => {
-                  console.log('Testing automation:', selectedAutomation.name);
-                }}
+                onClick={handleExecute}
+                disabled={executing}
               >
-                <Zap className="w-4 h-4" />
-                Test Automation
+                {executing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                {executing ? 'Executing...' : 'Execute Automation'}
               </Button>
             </motion.div>
           )}
