@@ -1,15 +1,13 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { VoiceButton } from '@/components/VoiceButton';
 import { useVoiceChat } from '@/hooks/useVoiceChat';
-import { useSequences } from '@/hooks/useSequences';
 import { Message, Task, ScheduledAction } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
-import { SequencesManager } from '@/components/SequencesManager';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   LayoutDashboard,
-  MessageSquare,
   User,
   Clock,
   Menu,
@@ -24,38 +22,17 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 
-const VOICES = [
-  { id: 'Roger', name: 'Roger', description: 'Deep & confident' },
-  { id: 'Sarah', name: 'Sarah', description: 'Warm & friendly' },
-  { id: 'Laura', name: 'Laura', description: 'Professional & clear' },
-  { id: 'Charlie', name: 'Charlie', description: 'Casual & relaxed' },
-  { id: 'George', name: 'George', description: 'British & refined' },
-  { id: 'Callum', name: 'Callum', description: 'Scottish accent' },
-  { id: 'Liam', name: 'Liam', description: 'Young & energetic' },
-  { id: 'Alice', name: 'Alice', description: 'Soft & gentle' },
-  { id: 'Matilda', name: 'Matilda', description: 'Warm & expressive' },
-  { id: 'Jessica', name: 'Jessica', description: 'Bright & engaging' },
-  { id: 'Eric', name: 'Eric', description: 'Calm & reassuring' },
-  { id: 'Brian', name: 'Brian', description: 'Authoritative' },
-];
-
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
-  { icon: Clock, label: 'Executions', path: undefined },
-  { icon: User, label: 'Profile', path: undefined },
+  { icon: Clock, label: 'Executions', path: '/executions' },
+  { icon: User, label: 'Profile', path: '/profile' },
+  { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 // Demo-only data (kept here to match the current demo approach)
@@ -154,14 +131,13 @@ function TasksPopoverContent() {
 }
 
 const Index = () => {
-  const [selectedVoice, setSelectedVoice] = useState('Sarah');
   const [messages, setMessages] = useState<Message[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
-  const { sequences, addSequence, updateSequence, deleteSequence } = useSequences();
+  const navigate = useNavigate();
+  const selectedVoice = localStorage.getItem('selectedVoice') || 'Sarah';
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages((prev) => [
@@ -250,7 +226,7 @@ const Index = () => {
                     key={item.label}
                     onClick={() => {
                       setSidebarOpen(false);
-                      if (item.path) window.location.href = item.path;
+                      if (item.path) navigate(item.path);
                     }}
                     className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left"
                   >
@@ -259,43 +235,6 @@ const Index = () => {
                   </button>
                 ))}
               </nav>
-
-              {/* Settings at bottom */}
-              <div className="border-t border-border pt-4 mt-4">
-                <button
-                  onClick={() => setSettingsOpen(!settingsOpen)}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left w-full"
-                >
-                  <Settings className="w-5 h-5" />
-                  <span className="text-sm">Settings</span>
-                </button>
-
-                {settingsOpen && (
-                  <div className="mt-3 px-3 space-y-4">
-                    <div>
-                      <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
-                      <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isActive}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {VOICES.map((voice) => (
-                            <SelectItem key={voice.id} value={voice.id}>
-                              {voice.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <SequencesManager
-                      sequences={sequences}
-                      onAdd={addSequence}
-                      onUpdate={updateSequence}
-                      onDelete={deleteSequence}
-                    />
-                  </div>
-                )}
-              </div>
             </motion.aside>
           </>
         )}
@@ -325,50 +264,13 @@ const Index = () => {
           {navItems.map((item) => (
             <button
               key={item.label}
-              onClick={() => item.path && (window.location.href = item.path)}
+              onClick={() => item.path && navigate(item.path)}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap"
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
               {desktopSidebarOpen && <span className="text-sm">{item.label}</span>}
             </button>
           ))}
-
-          {/* Settings at bottom */}
-          <div className="mt-auto border-t border-border pt-3">
-            <button
-              onClick={() => setSettingsOpen(!settingsOpen)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-left whitespace-nowrap w-full"
-            >
-              <Settings className="w-5 h-5 flex-shrink-0" />
-              {desktopSidebarOpen && <span className="text-sm">Settings</span>}
-            </button>
-
-            {settingsOpen && desktopSidebarOpen && (
-              <div className="mt-3 px-3 space-y-4">
-                <div>
-                  <label className="text-xs text-muted-foreground mb-2 block">Voice</label>
-                  <Select value={selectedVoice} onValueChange={setSelectedVoice} disabled={isActive}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VOICES.map((voice) => (
-                        <SelectItem key={voice.id} value={voice.id}>
-                          {voice.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <SequencesManager
-                  sequences={sequences}
-                  onAdd={addSequence}
-                  onUpdate={updateSequence}
-                  onDelete={deleteSequence}
-                />
-              </div>
-            )}
-          </div>
         </motion.aside>
       )}
 
