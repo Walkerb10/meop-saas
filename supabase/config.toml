@@ -24,5 +24,5 @@ verify_jwt = false
 [functions.webhook-create-automation]
 verify_jwt = false
 
-[functions.webhook-n8n-trigger]
+[functions.elevenlabs-webhook]
 verify_jwt = false
