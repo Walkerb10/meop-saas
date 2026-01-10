@@ -19,7 +19,9 @@ import {
   ListTodo,
   FileSpreadsheet,
   FileText,
+  Send,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -134,10 +136,10 @@ const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [textInput, setTextInput] = useState('');
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const selectedVoice = localStorage.getItem('selectedVoice') || 'Sarah';
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages((prev) => [
@@ -292,7 +294,7 @@ const Index = () => {
         </header>
 
         {/* Center - Voice Button */}
-        <main className="flex-1 flex flex-col items-center justify-center relative">
+        <main className="flex-1 flex flex-col relative">
           {/* Ambient glow */}
           <div
             className="absolute inset-0 pointer-events-none"
@@ -301,38 +303,56 @@ const Index = () => {
             }}
           />
 
-          <motion.div 
-            className="relative flex flex-col items-center justify-center gap-8"
-            animate={{ 
-              y: isActive ? -80 : 0 
-            }}
-            transition={{ type: 'spring', damping: 20, stiffness: 150 }}
-          >
-            {/* Logo tagline - hidden when active */}
-            <AnimatePresence>
-              {!isActive && (
-                <motion.div 
-                  className="text-center space-y-1 max-w-md px-4"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Speak your problem.
-                  </p>
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Agents handle it.
-                  </p>
-                  <p className="text-xl md:text-2xl font-semibold text-foreground">
-                    Start to finish.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+          {/* Main content area */}
+          <div className="flex-1 flex items-center justify-center">
+            <motion.div 
+              className="relative flex flex-col items-center justify-center gap-8"
+              animate={{ 
+                y: isActive ? -80 : 0 
+              }}
+              transition={{ type: 'spring', damping: 20, stiffness: 150 }}
+            >
+              {/* Logo tagline - hidden when active */}
+              <AnimatePresence>
+                {!isActive && (
+                  <motion.div 
+                    className="text-center space-y-1 max-w-md px-4"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <p className="text-xl md:text-2xl font-semibold text-foreground">
+                      Speak your problem.
+                    </p>
+                    <p className="text-xl md:text-2xl font-semibold text-foreground">
+                      Agents handle it.
+                    </p>
+                    <p className="text-xl md:text-2xl font-semibold text-foreground">
+                      Start to finish.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-            <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
-          </motion.div>
+              <AgentVoiceButton status={status} isActive={isActive} onToggle={toggle} />
+            </motion.div>
+          </div>
+
+          {/* Bottom text input */}
+          <div className="p-4 border-t border-border bg-background/80 backdrop-blur-sm">
+            <div className="max-w-2xl mx-auto flex gap-2">
+              <Input
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Type a message..."
+                className="flex-1 bg-secondary/50"
+              />
+              <Button size="icon" variant="default" className="shrink-0">
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </main>
       </div>
     </div>
