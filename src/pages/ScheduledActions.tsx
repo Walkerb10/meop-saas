@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, ListTodo, Menu, X, LayoutDashboard, CalendarClock, Settings, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Menu, X, LayoutDashboard, CalendarClock, Settings, PanelLeftClose, PanelLeft, Zap } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep, Task } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -106,9 +106,9 @@ const ScheduledActions = () => {
             variant="ghost"
             size="sm"
             onClick={() => setTasksOpen(true)}
-            className="gap-2"
+            className="gap-1"
           >
-            <ListTodo className="w-4 h-4" />
+            <span className="text-sm">Tasks</span>
             <span className="bg-primary/20 text-primary text-xs px-1.5 py-0.5 rounded-full">
               1
             </span>
@@ -236,7 +236,6 @@ const ScheduledActions = () => {
                 onClick={() => setTasksOpen(true)}
                 className="gap-2"
               >
-                <ListTodo className="w-4 h-4" />
                 Tasks
                 <span className="bg-primary text-primary-foreground text-xs px-1.5 py-0.5 rounded-full">
                   1
@@ -281,6 +280,21 @@ const ScheduledActions = () => {
                       )}
                     </div>
                   ))}
+                </div>
+
+                {/* Test button */}
+                <div className="mt-4 pt-4 border-t border-border">
+                  <Button 
+                    size="sm" 
+                    className="w-full gap-2"
+                    onClick={() => {
+                      // TODO: Trigger test execution
+                      console.log('Testing automation:', action.name);
+                    }}
+                  >
+                    <Zap className="w-4 h-4" />
+                    Test Automation
+                  </Button>
                 </div>
               </motion.div>
             ))}
