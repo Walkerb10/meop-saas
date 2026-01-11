@@ -39,26 +39,11 @@ const VOICES = [
   { id: 'Brian', name: 'Brian', description: 'Authoritative' },
 ];
 
-const ELEVENLABS_WEBHOOKS = [
+const VAPI_WEBHOOKS = [
   {
-    name: 'Conversation Webhook',
-    description: 'Receives transcripts and events from ElevenLabs conversations',
-    path: 'elevenlabs-webhook',
-  },
-  {
-    name: 'Conversation Token',
-    description: 'Generates signed URLs for starting agent conversations',
-    path: 'elevenlabs-conversation-token',
-  },
-  {
-    name: 'Text-to-Speech',
-    description: 'Converts text to speech audio',
-    path: 'elevenlabs-tts',
-  },
-  {
-    name: 'Speech-to-Text',
-    description: 'Converts audio to text transcripts',
-    path: 'elevenlabs-stt',
+    name: 'Automation Webhook',
+    description: 'Receives tool calls from Vapi to create automations',
+    path: 'vapi-webhook',
   },
 ];
 
@@ -232,16 +217,16 @@ const Settings = () => {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-8"
             >
-              {/* ElevenLabs Webhooks Section */}
+              {/* Vapi Webhooks Section */}
               <div className="space-y-4">
                 <div>
-                  <h2 className="text-lg font-semibold mb-2">ElevenLabs Webhooks</h2>
+                  <h2 className="text-lg font-semibold mb-2">Vapi Webhooks</h2>
                   <p className="text-sm text-muted-foreground">
-                    Use these endpoints to integrate with ElevenLabs agent tools and callbacks.
+                    Use these endpoints to integrate with Vapi agent tools and callbacks.
                   </p>
                 </div>
                 <div className="grid gap-3">
-                  {ELEVENLABS_WEBHOOKS.map((webhook) => (
+                  {VAPI_WEBHOOKS.map((webhook) => (
                     <div
                       key={webhook.path}
                       className="flex items-center justify-between p-4 rounded-lg border border-border bg-card"

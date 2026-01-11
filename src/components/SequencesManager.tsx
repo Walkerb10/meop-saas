@@ -55,7 +55,7 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
   };
 
   const generateWebhookUrl = (sequenceId: string) => {
-    return `${supabaseUrl}/functions/v1/elevenlabs-webhook?sequence_id=${sequenceId}`;
+    return `${supabaseUrl}/functions/v1/vapi-webhook?sequence_id=${sequenceId}`;
   };
 
   const copyWebhookUrl = (sequenceId: string) => {
