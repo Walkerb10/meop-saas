@@ -35,6 +35,21 @@ const OUTPUT_FORMATS: Record<string, string> = {
 4. WHAT YOU CAN DO: How to apply this info in your life`,
 };
 
+function normalizeOutputFormatKey(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim().toLowerCase();
+  if (!v) return null;
+
+  // Accept both keys and human labels
+  if (v === "summary" || v.includes("summary") || v.includes("brief")) return "summary";
+  if (v === "detailed" || v.includes("detailed") || v.includes("report")) return "detailed";
+  if (v === "bullets" || v.includes("bullet")) return "bullets";
+  if (v === "actionable" || v.includes("actionable") || v.includes("next step")) return "actionable";
+  if (v === "problem" || v.includes("problem framework") || v.includes("framework")) return "problem";
+
+  return null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -65,13 +80,16 @@ serve(async (req) => {
 
     // Determine the format instructions
     let formatInstructions = "";
-    if (output_format) {
+
+    const normalizedOutputFormat = normalizeOutputFormatKey(output_format) ?? output_format;
+
+    if (typeof normalizedOutputFormat === "string" && normalizedOutputFormat.trim()) {
       // Check if it's a known format key or custom format text
-      if (OUTPUT_FORMATS[output_format]) {
-        formatInstructions = OUTPUT_FORMATS[output_format];
-      } else if (output_format.length > 20) {
+      if (OUTPUT_FORMATS[normalizedOutputFormat]) {
+        formatInstructions = OUTPUT_FORMATS[normalizedOutputFormat];
+      } else if (normalizedOutputFormat.length > 20) {
         // Treat as custom format instructions
-        formatInstructions = `Format your response following these instructions:\n${output_format}`;
+        formatInstructions = `Format your response following these instructions:\n${normalizedOutputFormat}`;
       }
     }
 
