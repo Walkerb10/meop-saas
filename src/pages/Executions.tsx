@@ -273,6 +273,7 @@ const Executions = () => {
     const PlatformIcon = platform.icon;
     const started = formatDateTime(selectedExecution.started_at);
     const completed = selectedExecution.completed_at ? formatDateTime(selectedExecution.completed_at) : null;
+    const isResearch = platform.name.includes('Research');
 
     return (
       <AppLayout>
@@ -288,8 +289,13 @@ const Executions = () => {
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               <div className="flex-1">
-                <h1 className="text-xl font-semibold">{selectedExecution.sequence_name}</h1>
-                <p className="text-sm text-muted-foreground">Execution Details</p>
+                <div className="flex items-center gap-2">
+                  <PlatformIcon className="w-5 h-5 text-primary" />
+                  <h1 className="text-xl font-semibold">{selectedExecution.sequence_name}</h1>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Ran at {started.time} on {started.date}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <StatusIcon status={selectedExecution.status} size="lg" />
@@ -299,116 +305,101 @@ const Executions = () => {
               </div>
             </div>
 
-            {/* Main Info Card */}
-            <div className="rounded-xl border border-border bg-card p-6 space-y-6">
-              {/* Timing Section */}
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-3">Timing</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="rounded-lg bg-secondary/30 p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Started</p>
-                    <p className="text-sm font-medium">{started.time}</p>
-                    <p className="text-xs text-muted-foreground">{started.date}</p>
-                  </div>
-                  <div className="rounded-lg bg-secondary/30 p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Completed</p>
-                    {completed ? (
-                      <>
-                        <p className="text-sm font-medium">{completed.time}</p>
-                        <p className="text-xs text-muted-foreground">{completed.date}</p>
-                      </>
-                    ) : (
-                      <p className="text-sm font-medium text-primary">In progress...</p>
-                    )}
-                  </div>
-                  <div className="rounded-lg bg-secondary/30 p-4">
-                    <p className="text-xs text-muted-foreground mb-1">Duration</p>
-                    <p className="text-sm font-medium">
-                      {selectedExecution.status === 'running' 
-                        ? 'Running...' 
-                        : formatDuration(selectedExecution.duration_ms)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Platform & Destination */}
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-3">Destination</h3>
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-secondary/30">
-                  <PlatformIcon className="w-5 h-5 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium">{platform.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedExecution.workflow_id 
-                        ? `Workflow: ${selectedExecution.workflow_id}` 
-                        : 'Internal execution'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Source Automation */}
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-3">Source Automation</h3>
+            {/* Source Automation - Prominent placement */}
+            {(loadingAutomation || linkedAutomation) && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                 {loadingAutomation ? (
-                  <div className="flex items-center gap-2 p-4 rounded-lg bg-secondary/30">
+                  <div className="flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm text-muted-foreground">Finding automation...</span>
+                    <span className="text-sm text-muted-foreground">Finding source automation...</span>
                   </div>
-                ) : linkedAutomation ? (
-                  <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/30">
-                    <div>
-                      <p className="text-sm font-medium">{linkedAutomation.name}</p>
-                      <p className="text-xs text-muted-foreground">Click to edit this automation</p>
+                ) : linkedAutomation && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <PlatformIcon className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{linkedAutomation.name}</p>
+                        <p className="text-xs text-muted-foreground">Source Automation</p>
+                      </div>
                     </div>
                     <Button variant="outline" size="sm" onClick={handleEditAutomation} className="gap-2">
                       <Pencil className="w-3.5 h-3.5" />
-                      Edit
+                      Edit Automation
                     </Button>
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-lg bg-secondary/30 text-sm text-muted-foreground">
-                    No linked automation found (may have been deleted or renamed)
                   </div>
                 )}
               </div>
+            )}
 
-              {/* Error Message */}
-              {selectedExecution.error_message && (
-                <div>
-                  <h3 className="text-sm font-medium text-destructive mb-3">Error</h3>
-                  <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-                    <p className="text-sm text-destructive">{selectedExecution.error_message}</p>
-                  </div>
+            {/* OUTPUT FIRST - The main result */}
+            {selectedExecution.output_data && (
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="px-6 py-4 border-b border-border bg-muted/30">
+                  <h3 className="font-medium">
+                    {isResearch ? '📊 Research Results' : 'Output'}
+                  </h3>
                 </div>
-              )}
+                <div className="p-6">
+                  {isResearchOutput(selectedExecution.output_data) ? (
+                    <ResearchOutput data={selectedExecution.output_data} />
+                  ) : (
+                    <pre className="text-sm overflow-auto max-h-96 whitespace-pre-wrap">
+                      {JSON.stringify(selectedExecution.output_data, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {selectedExecution.error_message && (
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
+                <h3 className="text-sm font-medium text-destructive mb-2">Error</h3>
+                <p className="text-sm text-destructive">{selectedExecution.error_message}</p>
+              </div>
+            )}
+
+            {/* Execution Details - Collapsible secondary info */}
+            <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+              <h3 className="font-medium">Execution Details</h3>
+              
+              {/* Timing Section */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="rounded-lg bg-secondary/30 p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Started</p>
+                  <p className="text-sm font-medium">{started.time}</p>
+                  <p className="text-xs text-muted-foreground">{started.date}</p>
+                </div>
+                <div className="rounded-lg bg-secondary/30 p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Completed</p>
+                  {completed ? (
+                    <>
+                      <p className="text-sm font-medium">{completed.time}</p>
+                      <p className="text-xs text-muted-foreground">{completed.date}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm font-medium text-primary">In progress...</p>
+                  )}
+                </div>
+                <div className="rounded-lg bg-secondary/30 p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Duration</p>
+                  <p className="text-sm font-medium">
+                    {selectedExecution.status === 'running' 
+                      ? 'Running...' 
+                      : formatDuration(selectedExecution.duration_ms)}
+                  </p>
+                </div>
+              </div>
 
               {/* Input Data */}
               {selectedExecution.input_data && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Input Data</h3>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-3">Input Data</h4>
                   <pre className="p-4 rounded-lg bg-secondary/30 text-xs overflow-auto max-h-48">
                     {JSON.stringify(selectedExecution.input_data, null, 2)}
                   </pre>
-                </div>
-              )}
-
-              {/* Output Data */}
-              {selectedExecution.output_data && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                    {isResearchOutput(selectedExecution.output_data) ? 'Research Results' : 'Output Data'}
-                  </h3>
-                  {isResearchOutput(selectedExecution.output_data) ? (
-                    <div className="p-4 rounded-lg bg-secondary/30 overflow-auto max-h-96">
-                      <ResearchOutput data={selectedExecution.output_data} />
-                    </div>
-                  ) : (
-                    <pre className="p-4 rounded-lg bg-secondary/30 text-xs overflow-auto max-h-48">
-                      {JSON.stringify(selectedExecution.output_data, null, 2)}
-                    </pre>
-                  )}
                 </div>
               )}
             </div>
@@ -494,61 +485,84 @@ const Executions = () => {
               </p>
             </div>
           ) : (
-            <div className="rounded-lg border border-border overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left p-3 text-sm font-medium">Automation</th>
-                    <th className="text-left p-3 text-sm font-medium">Status</th>
-                    <th className="text-left p-3 text-sm font-medium hidden sm:table-cell">Started</th>
-                    <th className="text-left p-3 text-sm font-medium">Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredExecutions.map((execution, index) => (
-                    <motion.tr
-                      key={execution.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.03 }}
-                      className="border-t border-border hover:bg-muted/30 transition-colors cursor-pointer"
-                      onClick={() => handleSelectExecution(execution)}
-                    >
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          {(() => {
-                            const platform = detectPlatform(execution);
-                            const PlatformIcon = platform.icon;
-                            return <PlatformIcon className="w-4 h-4 text-muted-foreground" />;
-                          })()}
-                          <div>
-                            <p className="text-sm font-medium">{execution.sequence_name}</p>
-                            {execution.requires_human_review && (
-                              <span className="text-xs text-yellow-500">Needs review</span>
-                            )}
+            <div className="space-y-3">
+              {filteredExecutions.map((execution, index) => {
+                const platform = detectPlatform(execution);
+                const PlatformIcon = platform.icon;
+                const isResearch = platform.name.includes('Research');
+                const hasOutput = !!execution.output_data;
+                const outputPreview = isResearchOutput(execution.output_data) 
+                  ? execution.output_data.content.slice(0, 150) + (execution.output_data.content.length > 150 ? '...' : '')
+                  : null;
+                
+                return (
+                  <motion.div
+                    key={execution.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                    className="rounded-xl border border-border bg-card hover:border-primary/30 transition-all cursor-pointer overflow-hidden"
+                    onClick={() => handleSelectExecution(execution)}
+                  >
+                    {/* Card Header */}
+                    <div className="p-4 flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        isResearch ? 'bg-blue-500/10' : 'bg-primary/10'
+                      }`}>
+                        <PlatformIcon className={`w-5 h-5 ${isResearch ? 'text-blue-500' : 'text-primary'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="font-medium truncate">{execution.sequence_name}</h3>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <StatusIcon status={execution.status} />
+                            <span className="text-xs capitalize text-muted-foreground">
+                              {execution.status.replace('_', ' ')}
+                            </span>
                           </div>
                         </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-2">
-                          <StatusIcon status={execution.status} />
-                          <span className="text-sm capitalize">{execution.status.replace('_', ' ')}</span>
-                        </div>
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground hidden sm:table-cell">
-                        {new Date(execution.started_at).toLocaleTimeString()}
-                      </td>
-                      <td className="p-3 text-sm text-muted-foreground">
-                        {execution.status === 'running' ? (
-                          <span className="text-primary">In progress...</span>
-                        ) : (
-                          formatDuration(execution.duration_ms)
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {new Date(execution.started_at).toLocaleString()} 
+                          {execution.duration_ms && ` • ${formatDuration(execution.duration_ms)}`}
+                        </p>
+                        {execution.requires_human_review && (
+                          <span className="inline-block mt-1 text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded">
+                            Needs review
+                          </span>
                         )}
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
+                      </div>
+                    </div>
+                    
+                    {/* Output Preview - Show for completed executions with output */}
+                    {hasOutput && execution.status === 'completed' && (
+                      <div className="px-4 pb-4">
+                        <div className="rounded-lg bg-muted/50 p-3">
+                          {outputPreview ? (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {outputPreview}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Output available - click to view
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Error Preview */}
+                    {execution.error_message && (
+                      <div className="px-4 pb-4">
+                        <div className="rounded-lg bg-destructive/10 p-3">
+                          <p className="text-sm text-destructive line-clamp-1">
+                            {execution.error_message}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </motion.div>
