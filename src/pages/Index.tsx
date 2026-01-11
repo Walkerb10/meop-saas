@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentVoiceButton } from '@/components/AgentVoiceButton';
 import { AppLayout } from '@/components/AppLayout';
@@ -100,6 +100,12 @@ const Index = () => {
   const [conversationId, setConversationId] = useState(() => generateConversationId());
   const { toast } = useToast();
   const { tasks } = useTasks();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages((prev) => {
@@ -242,6 +248,8 @@ const Index = () => {
                     </div>
                   </div>
                 ))}
+                {/* Scroll anchor */}
+                <div ref={messagesEndRef} />
               </div>
             </div>
           )}
