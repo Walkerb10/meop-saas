@@ -83,7 +83,7 @@ function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst:
 }
 
 type AutomationType = 'text' | 'research' | 'email' | 'slack' | 'discord';
-type FrequencyType = 'one_time' | 'daily' | 'weekly' | 'monthly';
+type FrequencyType = 'one_time' | 'daily' | 'weekly' | 'monthly' | 'custom' | 'every_x_days';
 
 interface AutomationFormData {
   name: string;
@@ -105,6 +105,9 @@ interface AutomationFormData {
   time: string;
   dayOfWeek: string;
   dayOfMonth: string;
+  // Custom scheduling
+  customDate: string; // YYYY-MM-DD format
+  everyXDays: string; // Number of days
   webhookUrl: string;
 }
 
@@ -157,6 +160,8 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
   let time = '09:00';
   let dayOfWeek = 'Monday';
   let dayOfMonth = '1';
+  let customDate = '';
+  let everyXDays = '7';
   
   const timeMatch = label.match(/at\s+(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
   if (timeMatch) {
@@ -177,9 +182,18 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
     frequency = 'monthly';
     const dayMatch = label.match(/day\s+(\d+)/i);
     if (dayMatch) dayOfMonth = dayMatch[1];
+  } else if (label.toLowerCase().includes('every') && label.toLowerCase().includes('days')) {
+    frequency = 'every_x_days';
+    const daysMatch = label.match(/every\s+(\d+)\s+days/i);
+    if (daysMatch) everyXDays = daysMatch[1];
+  } else if (label.toLowerCase().includes('on ') && label.match(/\d{4}-\d{2}-\d{2}|[A-Z][a-z]+ \d+/)) {
+    frequency = 'custom';
+    // Try to extract date
+    const dateMatch = label.match(/on\s+(\d{4}-\d{2}-\d{2})/i);
+    if (dateMatch) customDate = dateMatch[1];
   }
   
-  return { type, message, researchQuery, researchOutputFormat, customOutputFormat, emailTo, emailSubject, slackChannel, discordChannel, frequency, time, dayOfWeek, dayOfMonth };
+  return { type, message, researchQuery, researchOutputFormat, customOutputFormat, emailTo, emailSubject, slackChannel, discordChannel, frequency, time, dayOfWeek, dayOfMonth, customDate, everyXDays };
 }
 
 const ScheduledActions = () => {
@@ -202,6 +216,8 @@ const ScheduledActions = () => {
     time: '09:00',
     dayOfWeek: 'Monday',
     dayOfMonth: '1',
+    customDate: '',
+    everyXDays: '7',
     webhookUrl: '',
   });
   const [enhancingQuery, setEnhancingQuery] = useState(false);
@@ -317,8 +333,24 @@ const ScheduledActions = () => {
       return `Every ${formData.dayOfWeek} at ${timeFormatted} ${tzAbbr}`;
     } else if (formData.frequency === 'monthly') {
       return `Monthly on day ${formData.dayOfMonth} at ${timeFormatted} ${tzAbbr}`;
+    } else if (formData.frequency === 'custom') {
+      const dateStr = formData.customDate 
+        ? new Date(formData.customDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '(select date)';
+      return `On ${dateStr} at ${timeFormatted} ${tzAbbr}`;
+    } else if (formData.frequency === 'every_x_days') {
+      return `Every ${formData.everyXDays} days at ${timeFormatted} ${tzAbbr}`;
     }
     return `Daily at ${timeFormatted} ${tzAbbr}`;
+  };
+
+  // Format multiple emails for display
+  const formatEmailRecipients = (emails: string): string => {
+    if (!emails) return '(enter email)';
+    const emailList = emails.split(/[,;]\s*/).filter(e => e.trim());
+    if (emailList.length === 0) return '(enter email)';
+    if (emailList.length === 1) return emailList[0].trim();
+    return emailList.map(e => e.trim()).join(', ');
   };
 
   const buildActionLabel = () => {
@@ -326,7 +358,7 @@ const ScheduledActions = () => {
       case 'research':
         return `Research: "${formData.researchQuery.substring(0, 30)}${formData.researchQuery.length > 30 ? '...' : ''}"`;
       case 'email':
-        return `Email to: ${formData.emailTo || '(enter email)'}`;
+        return `Email to: ${formatEmailRecipients(formData.emailTo)}`;
       case 'slack':
         return `Slack #${formData.slackChannel || '(enter channel)'}`;
       case 'discord':
@@ -400,9 +432,11 @@ const ScheduledActions = () => {
       case 'research':
         return `Research: "${formData.researchQuery}"`;
       case 'email':
-        return `Email to ${formData.emailTo}: "${formData.emailSubject}"`;
+        return `Email to ${formatEmailRecipients(formData.emailTo)}: "${formData.emailSubject}"`;
       case 'slack':
         return `Slack #${formData.slackChannel}: "${formData.message}"`;
+      case 'discord':
+        return `Discord #${formData.discordChannel}: "${formData.message}"`;
       default:
         return `Scheduled text: "${formData.message}"`;
     }
@@ -468,6 +502,10 @@ const ScheduledActions = () => {
         triggerConfig.day_of_week = formData.dayOfWeek;
       } else if (formData.frequency === 'monthly') {
         triggerConfig.day_of_month = parseInt(formData.dayOfMonth);
+      } else if (formData.frequency === 'custom') {
+        triggerConfig.custom_date = formData.customDate;
+      } else if (formData.frequency === 'every_x_days') {
+        triggerConfig.every_x_days = parseInt(formData.everyXDays);
       }
 
       // One-time executions start as inactive
@@ -546,6 +584,8 @@ const ScheduledActions = () => {
       time: '09:00',
       dayOfWeek: 'Monday',
       dayOfMonth: '1',
+      customDate: '',
+      everyXDays: '7',
       webhookUrl: '',
     });
   };
@@ -575,6 +615,8 @@ const ScheduledActions = () => {
       time: extracted.time || '09:00',
       dayOfWeek: extracted.dayOfWeek || 'Monday',
       dayOfMonth: extracted.dayOfMonth || '1',
+      customDate: extracted.customDate || '',
+      everyXDays: extracted.everyXDays || '7',
       webhookUrl: '',
     });
     setIsEditing(true);
@@ -804,6 +846,8 @@ const ScheduledActions = () => {
                   <SelectItem value="daily">Daily</SelectItem>
                   <SelectItem value="weekly">Weekly</SelectItem>
                   <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="every_x_days">Every X Days</SelectItem>
+                  <SelectItem value="custom">Specific Date</SelectItem>
                 </SelectContent>
               </Select>
               {formData.frequency === 'one_time' && (
@@ -856,6 +900,37 @@ const ScheduledActions = () => {
                 value={formData.dayOfMonth}
                 onChange={(e) => setFormData({ ...formData, dayOfMonth: e.target.value })}
               />
+            </div>
+          )}
+
+          {formData.frequency === 'every_x_days' && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Every how many days?</label>
+              <Input
+                type="number"
+                min="1"
+                max="365"
+                value={formData.everyXDays}
+                onChange={(e) => setFormData({ ...formData, everyXDays: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Run every {formData.everyXDays || '...'} day(s)
+              </p>
+            </div>
+          )}
+
+          {formData.frequency === 'custom' && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">Select Date</label>
+              <Input
+                type="date"
+                value={formData.customDate}
+                onChange={(e) => setFormData({ ...formData, customDate: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Run once on this specific date
+              </p>
             </div>
           )}
 

@@ -143,21 +143,33 @@ serve(async (req) => {
 
     const dayOfWeek = asString(body.day_of_week ?? body.dayOfWeek);
     const dayOfMonthRaw = asString(body.day_of_month ?? body.dayOfMonth);
-    const oneTimeDate = asString(body.one_time_date ?? body.oneTimeDate);
+    const oneTimeDate = asString(body.one_time_date ?? body.oneTimeDate ?? body.custom_date ?? body.customDate);
+    const everyXDays = asString(body.every_x_days ?? body.everyXDays);
 
     console.log(
       `📱 Automation tool detected! type=${automationType} channel=${targetChannel ?? "(n/a)"} time=${normalizedTime}`
     );
 
     // Build human-readable trigger label (12-hour time)
-    const triggerLabel =
-      body.frequency === "weekly"
-        ? `Every ${dayOfWeek || "week"} at ${timeLabel}`
-        : body.frequency === "monthly"
-        ? `Monthly on day ${dayOfMonthRaw || 1} at ${timeLabel}`
-        : body.frequency === "one_time"
-        ? `One-time on ${oneTimeDate || "(date)"} at ${timeLabel}`
-        : `Daily at ${timeLabel}`;
+    let triggerLabel: string;
+    if (body.frequency === "weekly") {
+      triggerLabel = `Every ${dayOfWeek || "week"} at ${timeLabel}`;
+    } else if (body.frequency === "monthly") {
+      triggerLabel = `Monthly on day ${dayOfMonthRaw || 1} at ${timeLabel}`;
+    } else if (body.frequency === "one_time") {
+      triggerLabel = `One-time execution (manual)`;
+    } else if (body.frequency === "custom" && oneTimeDate) {
+      const dateFormatted = new Date(oneTimeDate + "T12:00:00").toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      triggerLabel = `On ${dateFormatted} at ${timeLabel}`;
+    } else if (body.frequency === "every_x_days" && everyXDays) {
+      triggerLabel = `Every ${everyXDays} days at ${timeLabel}`;
+    } else {
+      triggerLabel = `Daily at ${timeLabel}`;
+    }
 
     const msg = asString(body.message_content) ?? "";
     const short40 = `${msg.substring(0, 40)}${msg.length > 40 ? "..." : ""}`;
@@ -216,7 +228,8 @@ serve(async (req) => {
         scheduled_time: normalizedTime || null,
         day_of_week: dayOfWeek || null,
         day_of_month: dayOfMonthRaw ? Number(dayOfMonthRaw) : null,
-        one_time_date: oneTimeDate || null,
+        custom_date: oneTimeDate || null,
+        every_x_days: everyXDays ? Number(everyXDays) : null,
       },
       steps: [
         {
@@ -232,7 +245,7 @@ serve(async (req) => {
         },
       ],
       n8n_webhook_url: n8nWebhookUrl,
-      is_active: body.frequency !== "one_time", // One-time starts inactive
+      is_active: body.frequency !== "one_time" && body.frequency !== "custom", // One-time and custom start inactive
     };
 
 
