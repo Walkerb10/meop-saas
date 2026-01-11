@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
 import { AppLayout } from '@/components/AppLayout';
+import { VoiceSettings } from '@/components/VoiceSettings';
 import { useSequences } from '@/hooks/useSequences';
 import { useN8nTools } from '@/hooks/useN8nTools';
 import { useAuth } from '@/hooks/useAuth';
@@ -62,21 +63,29 @@ const Settings = () => {
       return p.automation_type;
     }
     
+    // Check for message_content + frequency = scheduling tool call
+    if (p.message_content && p.frequency && p.scheduled_time) {
+      // Detect type from other fields
+      if (p.slack_channel || String(p.channel || '').toLowerCase() === 'slack') return 'schedule_slack';
+      if (p.discord_channel) return 'schedule_discord';
+      if (p.email_content || p.recipient_emails) return 'schedule_email';
+      return 'schedule_text';
+    }
+    
+    // Check for research_topic = research scheduling
+    if (p.research_topic && p.frequency) return 'schedule_research';
+    
     // Check for known tool signatures
     if (p.tool_name && typeof p.tool_name === 'string') return p.tool_name;
     if (p.research_topic) return 'research';
-    if (p.message_content && p.frequency) {
-      // Detect type from other fields
-      if (p.slack_channel || String(p.channel || '').toLowerCase() === 'slack') return 'slack';
-      if (p.discord_channel) return 'discord';
-      if (p.email_content || p.recipient_emails) return 'email';
-      return 'text';
-    }
-    if (p.type === 'user_transcript' || p.type === 'user_transcription') return null; // chat
-    if (p.type === 'agent_response') return null; // chat
-    if (p.webhook_url || p.n8n_webhook) return 'n8n_trigger';
     if (p.research_query || p.query) return 'research';
+    if (p.webhook_url || p.n8n_webhook) return 'n8n_trigger';
     if (p.phone_number && p.message) return 'send_text';
+    
+    // Chat transcripts - return null (not tool calls)
+    if (p.type === 'user_transcript' || p.type === 'user_transcription') return null;
+    if (p.type === 'agent_response') return null;
+    if (p.source === 'vapi' && (p.role || p.transcript || p.text)) return null;
     
     return null;
   };
@@ -85,7 +94,13 @@ const Settings = () => {
   const isVapiToolCall = (payload: Json): boolean => {
     if (!payload || typeof payload !== 'object') return false;
     const p = payload as Record<string, unknown>;
-    return !!(p.automation_type || p.research_topic || (p.message_content && p.frequency));
+    // Must have scheduling fields OR explicit tool indicators
+    return !!(
+      (p.message_content && p.frequency && p.scheduled_time) ||
+      (p.research_topic && p.frequency) ||
+      p.automation_type ||
+      p.tool_name
+    );
   };
 
   // Get all unique tool names for filter
@@ -532,18 +547,7 @@ const Settings = () => {
           </TabsContent>
 
           <TabsContent value="voice">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-6"
-            >
-              <div>
-                <h2 className="text-lg font-semibold mb-2">Voice Settings</h2>
-                <p className="text-sm text-muted-foreground">
-                  Voice configuration is managed in your Vapi dashboard.
-                </p>
-              </div>
-            </motion.div>
+            <VoiceSettings />
           </TabsContent>
 
           <TabsContent value="notifications">
