@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Sparkles } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Sparkles, Info } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,65 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+
+// Output format definitions with their actual structure
+const OUTPUT_FORMATS = {
+  summary: {
+    label: 'Summary',
+    description: 'Brief overview',
+    format: `A concise 2-3 paragraph summary covering:
+• Key findings
+• Main takeaways
+• Brief conclusion`,
+  },
+  detailed: {
+    label: 'Detailed Report',
+    description: 'In-depth analysis',
+    format: `Comprehensive report with sections:
+1. Executive Summary
+2. Background & Context
+3. Key Findings (detailed)
+4. Analysis & Implications
+5. Recommendations
+6. Sources & References`,
+  },
+  bullets: {
+    label: 'Bullet Points',
+    description: 'Quick scannable list',
+    format: `• 5-10 key bullet points
+• Each point is 1-2 sentences
+• Most important information first
+• Action items highlighted`,
+  },
+  actionable: {
+    label: 'Actionable Insights',
+    description: 'What to do next',
+    format: `Focus on practical next steps:
+1. Immediate Actions (do today)
+2. Short-term Actions (this week)
+3. Strategic Considerations
+4. Risks to Watch`,
+  },
+  storytelling: {
+    label: 'Story Framework',
+    description: 'Problem → Solution narrative',
+    format: `Structured narrative format:
+1. PROBLEM: What's the issue/challenge?
+2. CONTEXT: Why does this matter now?
+3. WHY YOU SHOULD CARE: Impact & implications
+4. SOLUTION: What can be done about it?`,
+  },
+  custom: {
+    label: 'Custom Format...',
+    description: 'Define your own',
+    format: '',
+  },
+};
 
 function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst: boolean }) {
   const getIcon = () => {
@@ -150,11 +209,11 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
   const message = (config?.message as string) || '';
   
   // Extract research fields
-  const researchQuery = (config?.query as string) || '';
+  const researchQuery = (config?.query as string) || (config?.research_query as string) || '';
   const rawOutputFormat = (config?.output_format as string) || 'summary';
-  const isCustomFormat = !['summary', 'detailed', 'bullets', 'actionable'].includes(rawOutputFormat);
-  const researchOutputFormat = isCustomFormat ? 'custom' : rawOutputFormat;
-  const customOutputFormat = isCustomFormat ? rawOutputFormat : '';
+  const isKnownFormat = ['summary', 'detailed', 'bullets', 'actionable', 'storytelling'].includes(rawOutputFormat);
+  const researchOutputFormat = isKnownFormat ? rawOutputFormat : 'custom';
+  const customOutputFormat = isKnownFormat ? '' : rawOutputFormat;
   
   // Extract email fields
   const emailTo = (config?.to as string) || '';
@@ -703,7 +762,7 @@ const ScheduledActions = () => {
             <>
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-sm font-medium">Research Query</label>
+                  <label className="text-sm font-medium">Research Prompt</label>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -727,7 +786,26 @@ const ScheduledActions = () => {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Output Format</label>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <label className="text-sm font-medium">Output Format</label>
+                  {formData.researchOutputFormat !== 'custom' && OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS] && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground">
+                          <Info className="w-3.5 h-3.5" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-3" align="start">
+                        <div className="space-y-2">
+                          <p className="font-medium text-sm">{OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.label}</p>
+                          <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-secondary/50 rounded p-2">
+                            {OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.format}
+                          </pre>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
                 <Select 
                   value={formData.researchOutputFormat} 
                   onValueChange={(v) => setFormData({ ...formData, researchOutputFormat: v, customOutputFormat: v === 'custom' ? formData.customOutputFormat : '' })}
@@ -736,11 +814,11 @@ const ScheduledActions = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="summary">Summary (brief overview)</SelectItem>
-                    <SelectItem value="detailed">Detailed (in-depth analysis)</SelectItem>
-                    <SelectItem value="bullets">Bullet Points</SelectItem>
-                    <SelectItem value="actionable">Actionable Insights</SelectItem>
-                    <SelectItem value="custom">Custom Format...</SelectItem>
+                    {Object.entries(OUTPUT_FORMATS).map(([key, val]) => (
+                      <SelectItem key={key} value={key}>
+                        {val.label} ({val.description})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -748,10 +826,15 @@ const ScheduledActions = () => {
                 <div>
                   <label className="text-sm font-medium mb-1.5 block">Custom Output Format</label>
                   <Textarea
-                    placeholder="Describe how you want the output formatted. e.g., 'Provide a table comparing the top 5 options with pros/cons columns'"
+                    placeholder={`Define the exact structure you want, e.g.:
+• 3 bullet points max
+• Each bullet: finding + why it matters
+• End with 1 action item
+
+Or: Table with columns: Topic | Key Insight | Source`}
                     value={formData.customOutputFormat}
                     onChange={(e) => setFormData({ ...formData, customOutputFormat: e.target.value })}
-                    rows={2}
+                    rows={4}
                   />
                 </div>
               )}
@@ -945,19 +1028,6 @@ const ScheduledActions = () => {
             </div>
           )}
 
-          <div>
-            <label className="text-sm font-medium mb-1.5 block">n8n Webhook URL (optional)</label>
-            <Input
-              placeholder="https://your-n8n.com/webhook/..."
-              value={formData.webhookUrl}
-              onChange={(e) => setFormData({ ...formData, webhookUrl: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              {formData.type === 'research' 
-                ? 'Research is done internally via Perplexity. Webhook optional for forwarding results.'
-                : 'When executed, this webhook will be called with the action payload'}
-            </p>
-          </div>
         </div>
       </div>
 
