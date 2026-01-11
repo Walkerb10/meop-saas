@@ -52,6 +52,15 @@ function DiscordIcon({ className }: { className?: string }) {
   );
 }
 
+// Slack icon component  
+function SlackIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+    </svg>
+  );
+}
+
 // Output length options
 const OUTPUT_LENGTHS = {
   brief: { label: 'Brief', description: '1-2 paragraphs' },
@@ -159,6 +168,7 @@ function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst:
 }
 
 type AutomationType = 'text' | 'research' | 'email' | 'slack' | 'discord';
+type FilterType = 'all' | AutomationType;
 type FrequencyType = 'one_time' | 'daily' | 'weekly' | 'monthly' | 'custom' | 'every_x_days';
 
 interface AutomationFormData {
@@ -191,10 +201,11 @@ interface AutomationFormData {
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const AUTOMATION_TYPES = [
+  { id: 'all' as const, label: 'All', icon: Zap, description: 'All automations', color: 'bg-muted text-foreground border-border' },
   { id: 'text' as const, label: 'Text', icon: MessageSquare, description: 'Send SMS via n8n webhook', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
   { id: 'research' as const, label: 'Research', icon: Search, description: 'AI-powered research via Perplexity', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
   { id: 'email' as const, label: 'Email', icon: Mail, description: 'Send email via Gmail webhook', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
-  { id: 'slack' as const, label: 'Slack', icon: Hash, description: 'Post to Slack channel', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
+  { id: 'slack' as const, label: 'Slack', icon: SlackIcon, description: 'Post to Slack channel', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
   { id: 'discord' as const, label: 'Discord', icon: DiscordIcon, description: 'Post to Discord channel', color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' },
 ];
 
@@ -315,8 +326,14 @@ const ScheduledActions = () => {
   const [pendingActivation, setPendingActivation] = useState<ScheduledAction | null>(null);
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<FilterType>('all');
   
   const { automations, loading, executeAutomation, deleteAutomation, createAutomation, updateAutomation } = useAutomations();
+  
+  // Filtered automations based on type filter
+  const filteredAutomations = typeFilter === 'all' 
+    ? automations 
+    : automations.filter(a => getAutomationTypeFromSteps(a.steps) === typeFilter);
   const { formatTime, getTimezoneAbbr } = useTimezone();
 
   const handleExecute = async () => {
@@ -743,13 +760,13 @@ const ScheduledActions = () => {
         <div>
           <label className="text-sm font-medium mb-2 block">Automation Type</label>
           <div className="grid grid-cols-2 gap-2">
-            {AUTOMATION_TYPES.map((type) => {
+            {AUTOMATION_TYPES.filter(t => t.id !== 'all').map((type) => {
               const Icon = type.icon;
               const isSelected = formData.type === type.id;
               return (
                 <button
                   key={type.id}
-                  onClick={() => setFormData({ ...formData, type: type.id })}
+                  onClick={() => setFormData({ ...formData, type: type.id as AutomationType })}
                   className={`flex items-center gap-3 p-3 rounded-lg border transition-all text-left ${
                     isSelected 
                       ? 'border-primary bg-primary/10' 
@@ -1130,82 +1147,117 @@ Or: Table with columns: Topic | Key Insight | Source`}
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto p-6">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
-          {(selectedAutomation || showCreateForm) && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleBack}
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          )}
-          <div className="flex-1">
-            <h1 className="text-xl font-semibold">
-              {showCreateForm ? 'Create Automation' : isEditing ? 'Edit Automation' : selectedAutomation ? selectedAutomation.name : 'Automations'}
-            </h1>
-            {!selectedAutomation && !showCreateForm && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Manage your automated workflows
-              </p>
-            )}
-          </div>
-          {selectedAutomation && !isEditing && (
-            <div className="flex gap-2">
+      <div className="max-w-3xl mx-auto flex flex-col h-full">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-10 bg-background pt-6 px-6 pb-4 border-b border-border">
+          <div className="flex items-center gap-3">
+            {(selectedAutomation || showCreateForm) && (
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={startEditing}
-                className="text-muted-foreground hover:text-foreground"
+                onClick={handleBack}
               >
-                <Pencil className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete automation?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete "{selectedAutomation.name}" and cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => handleDelete(selectedAutomation.id)}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+            )}
+            <div className="flex-1">
+              <h1 className="text-xl font-semibold">
+                {showCreateForm ? 'Create Automation' : isEditing ? 'Edit Automation' : selectedAutomation ? selectedAutomation.name : 'Automations'}
+              </h1>
+              {!selectedAutomation && !showCreateForm && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Manage your automated workflows
+                </p>
+              )}
             </div>
-          )}
+            {selectedAutomation && !isEditing && (
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={startEditing}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Pencil className="w-5 h-5" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete automation?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete "{selectedAutomation.name}" and cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => handleDelete(selectedAutomation.id)}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
+            {!selectedAutomation && !showCreateForm && (
+              <Button onClick={() => setShowCreateForm(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                New
+              </Button>
+            )}
+          </div>
+          
+          {/* Type Filters - only show in list view */}
           {!selectedAutomation && !showCreateForm && (
-            <Button onClick={() => setShowCreateForm(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              New
-            </Button>
+            <div className="flex gap-2 mt-4 overflow-x-auto pb-1">
+              {AUTOMATION_TYPES.map((type) => {
+                const Icon = type.icon;
+                const isActive = typeFilter === type.id;
+                const count = type.id === 'all' 
+                  ? automations.length 
+                  : automations.filter(a => getAutomationTypeFromSteps(a.steps) === type.id).length;
+                
+                return (
+                  <button
+                    key={type.id}
+                    onClick={() => setTypeFilter(type.id as FilterType)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-all ${
+                      isActive 
+                        ? 'border-primary bg-primary/10 text-primary' 
+                        : 'border-border bg-secondary/30 text-muted-foreground hover:text-foreground hover:border-primary/50'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {type.label}
+                    <span className={`ml-1 ${isActive ? 'text-primary' : 'text-muted-foreground'}`}>
+                      ({count})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        <AnimatePresence mode="wait">
-          {showCreateForm ? (
-            renderAutomationForm(false)
-          ) : isEditing && selectedAutomation ? (
-            renderAutomationForm(true)
-          ) : !selectedAutomation ? (
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <AnimatePresence mode="wait">
+            {showCreateForm ? (
+              renderAutomationForm(false)
+            ) : isEditing && selectedAutomation ? (
+              renderAutomationForm(true)
+            ) : !selectedAutomation ? (
             /* Automations List View */
             <motion.div
               key="list"
@@ -1218,26 +1270,28 @@ Or: Table with columns: Topic | Key Insight | Source`}
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : automations.length === 0 ? (
+              ) : filteredAutomations.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
                     <Zap className="w-8 h-8 text-muted-foreground" />
                   </div>
                   <p className="text-muted-foreground">
-                    No automations yet.
+                    {automations.length === 0 ? 'No automations yet.' : 'No matching automations.'}
                   </p>
                   <p className="text-sm text-muted-foreground mt-2 mb-4">
-                    Create one manually or talk to the agent!
+                    {automations.length === 0 ? 'Create one manually or talk to the agent!' : 'Try a different filter.'}
                   </p>
-                  <Button onClick={() => setShowCreateForm(true)} className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Create Automation
-                  </Button>
+                  {automations.length === 0 && (
+                    <Button onClick={() => setShowCreateForm(true)} className="gap-2">
+                      <Plus className="w-4 h-4" />
+                      Create Automation
+                    </Button>
+                  )}
                 </div>
               ) : (
-                automations.map((action, index) => {
+                filteredAutomations.map((action, index) => {
                   const automationType = getAutomationTypeFromSteps(action.steps);
-                  const typeConfig = AUTOMATION_TYPES.find(t => t.id === automationType) || AUTOMATION_TYPES[0];
+                  const typeConfig = AUTOMATION_TYPES.find(t => t.id === automationType) || AUTOMATION_TYPES[1];
                   const TypeIcon = typeConfig.icon;
                   
                   return (
@@ -1377,7 +1431,8 @@ Or: Table with columns: Topic | Key Insight | Source`}
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
 
         {/* Schedule Dialog for activating one-time automations */}
         <Dialog open={showScheduleDialog} onOpenChange={(open) => {
