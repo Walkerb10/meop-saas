@@ -104,6 +104,11 @@ serve(async (req) => {
   if ((messageContent || isEmailAutomation) && body.frequency && body.scheduled_time) {
     const rawType = asString(body.automation_type ?? body.automationType);
     const rawActionType = asString(body.action_type ?? body.actionType);
+    
+    // Vapi sends tool name in various fields - check all of them
+    const toolName = asString(
+      body.toolName ?? body.tool_name ?? body.name ?? body.function_name ?? body.functionName
+    )?.toLowerCase() ?? "";
 
     const rawChannel = asString(body.channel ?? body.channel_name ?? body.channelName);
     const slackChannelRaw = asString(body.slack_channel ?? body.slackChannel);
@@ -118,8 +123,15 @@ serve(async (req) => {
 
     let automationType: AutomationType = "text";
 
-    // Auto-detect email if we have email-specific fields
-    if (isEmailAutomation) {
+    // Auto-detect based on tool name first (most reliable from Vapi)
+    if (toolName.includes("slack")) {
+      automationType = "slack";
+    } else if (toolName.includes("discord")) {
+      automationType = "discord";
+    } else if (toolName.includes("email")) {
+      automationType = "email";
+    // Then check explicit automation_type field
+    } else if (isEmailAutomation) {
       automationType = "email";
     } else if (isKnownAutomationType(typeCandidate)) {
       automationType = typeCandidate as AutomationType;
