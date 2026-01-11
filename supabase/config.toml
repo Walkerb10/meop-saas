@@ -3,18 +3,6 @@ project_id = "txhakmrteltbbabpvlmu"
 [functions.chat]
 verify_jwt = false
 
-[functions.elevenlabs-conversation-token]
-verify_jwt = false
-
-[functions.elevenlabs-scribe-token]
-verify_jwt = false
-
-[functions.elevenlabs-stt]
-verify_jwt = false
-
-[functions.elevenlabs-tts]
-verify_jwt = false
-
 [functions.webhook-research]
 verify_jwt = false
 
@@ -24,5 +12,11 @@ verify_jwt = false
 [functions.webhook-create-automation]
 verify_jwt = false
 
-[functions.elevenlabs-webhook]
+[functions.vapi-webhook]
+verify_jwt = false
+
+[functions.analyze-conversation]
+verify_jwt = false
+
+[functions.enhance-prompt]
 verify_jwt = false
