@@ -77,9 +77,21 @@ const Settings = () => {
     if (!payload || typeof payload !== 'object') return null;
     const p = payload as Record<string, unknown>;
     
+    // Check for explicit automation_type first (most reliable for Vapi)
+    if (p.automation_type && typeof p.automation_type === 'string') {
+      return p.automation_type;
+    }
+    
     // Check for known tool signatures
     if (p.tool_name && typeof p.tool_name === 'string') return p.tool_name;
-    if (p.message_content && p.frequency) return 'schedule_text';
+    if (p.research_topic) return 'research';
+    if (p.message_content && p.frequency) {
+      // Detect type from other fields
+      if (p.slack_channel || String(p.channel || '').toLowerCase() === 'slack') return 'slack';
+      if (p.discord_channel) return 'discord';
+      if (p.email_content || p.recipient_emails) return 'email';
+      return 'text';
+    }
     if (p.type === 'user_transcript' || p.type === 'user_transcription') return null; // chat
     if (p.type === 'agent_response') return null; // chat
     if (p.webhook_url || p.n8n_webhook) return 'n8n_trigger';
@@ -87,6 +99,13 @@ const Settings = () => {
     if (p.phone_number && p.message) return 'send_text';
     
     return null;
+  };
+
+  // Check if a log is a Vapi tool call (has automation fields)
+  const isVapiToolCall = (payload: Json): boolean => {
+    if (!payload || typeof payload !== 'object') return false;
+    const p = payload as Record<string, unknown>;
+    return !!(p.automation_type || p.research_topic || (p.message_content && p.frequency));
   };
 
   // Get all unique tool names for filter
@@ -102,6 +121,9 @@ const Settings = () => {
   // Filter logs based on selection
   const filteredLogs = useMemo(() => {
     if (logFilter === 'all') return webhookLogs;
+    if (logFilter === 'tools') {
+      return webhookLogs.filter(log => isVapiToolCall(log.raw_payload));
+    }
     if (logFilter === 'chat') {
       return webhookLogs.filter(log => !getToolName(log.raw_payload));
     }
@@ -437,7 +459,7 @@ const Settings = () => {
                 <div>
                   <h2 className="text-lg font-semibold mb-2">Webhook Logs</h2>
                   <p className="text-sm text-muted-foreground">
-                    Inspect raw payloads received from ElevenLabs and other tools.
+                    Inspect raw payloads received from Vapi tool calls and transcripts.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -447,6 +469,7 @@ const Settings = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Logs</SelectItem>
+                      <SelectItem value="tools">Tool Calls Only</SelectItem>
                       <SelectItem value="chat">Chat Only</SelectItem>
                       {availableTools.map(tool => (
                         <SelectItem key={tool} value={tool}>

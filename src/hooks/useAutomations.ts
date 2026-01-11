@@ -129,9 +129,11 @@ export function useAutomations() {
       try {
         // Determine how to execute based on action type
         if (actionType === 'research') {
-          // Call the research webhook
-          const query = (actionConfig.query as string) || (actionConfig.message as string) || automation.name;
-          const outputFormat = (actionConfig.output_format as string) || 'summary';
+          // Research query comes from research_query field in config (set by vapi-webhook from research_topic)
+          const query = (actionConfig.research_query as string) || (actionConfig.query as string) || (actionConfig.message as string) || automation.name;
+          const outputFormat = (actionConfig.output_format as string) || 'detailed report';
+          
+          console.log(`🔬 Executing research with query: "${query}" format: "${outputFormat}"`);
           
           const { data, error } = await supabase.functions.invoke('webhook-research', {
             body: { 
