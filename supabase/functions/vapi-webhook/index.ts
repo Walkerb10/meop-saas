@@ -16,6 +16,68 @@ const DEFAULT_CHANNELS = {
   discord: "admin",
 };
 
+// AI-optimize research prompt using Lovable AI
+async function optimizeResearchPrompt(
+  rawPrompt: string,
+  outputFormat: string,
+  targetWordCount: number
+): Promise<string> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  if (!LOVABLE_API_KEY) {
+    console.warn("LOVABLE_API_KEY not set, returning raw prompt");
+    return rawPrompt;
+  }
+
+  try {
+    const systemPrompt = `You are an expert research prompt engineer. Your job is to transform user requests into highly effective research prompts that will produce excellent results from a research AI.
+
+A great research prompt should:
+1. GOAL: Clearly state what the user wants to learn or accomplish
+2. SCOPE: Define boundaries (time period, geography, industry, etc.)
+3. OUTPUT FORMAT: Specify exactly how results should be structured
+4. KEY QUESTIONS: Break down the topic into specific questions to answer
+5. ACTIONABILITY: Request practical insights the reader can use
+
+Output format requested: ${outputFormat}
+Target length: ~${targetWordCount} words
+
+Transform the user's raw request into a professional, comprehensive research prompt. Output ONLY the optimized prompt, nothing else.`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: rawPrompt },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI optimization failed:", response.status);
+      return rawPrompt;
+    }
+
+    const data = await response.json();
+    const optimized = data.choices?.[0]?.message?.content?.trim();
+    
+    if (optimized && optimized.length > 20) {
+      console.log("✅ Research prompt optimized by AI");
+      return optimized;
+    }
+    
+    return rawPrompt;
+  } catch (e) {
+    console.error("AI optimization error:", e);
+    return rawPrompt;
+  }
+}
+
 function asString(value: unknown): string | null {
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
@@ -241,13 +303,26 @@ serve(async (req) => {
       automationName = `Email: ${short30}`;
     } else if (automationType === "research") {
       const outputFormat = asString(body.output_format ?? body.outputFormat) ?? "detailed report";
+      const targetWordCount = Number(body.target_word_count ?? body.targetWordCount) || 500;
+      
+      // Use research_body_info (the detailed context) for AI optimization
+      const researchBodyInfo = asString(body.research_body_info ?? body.researchBodyInfo) ?? "";
+      const rawResearchInput = researchBodyInfo || msg;
+      
+      // AI-optimize the research prompt
+      const optimizedQuery = await optimizeResearchPrompt(rawResearchInput, outputFormat, targetWordCount);
+      
       actionConfig = {
         action_type: "research",
-        research_query: msg,
+        research_query: optimizedQuery,
+        original_query: rawResearchInput,
         output_format: outputFormat,
+        target_word_count: targetWordCount,
       };
-      actionLabel = `Research: "${short40}"`;
-      automationName = `Research: ${short30}`;
+      
+      const queryShort40 = `${optimizedQuery.substring(0, 40)}${optimizedQuery.length > 40 ? "..." : ""}`;
+      actionLabel = `Research: "${queryShort40}"`;
+      automationName = `Research: ${msg.substring(0, 30)}${msg.length > 30 ? "..." : ""}`;
     } else {
       actionConfig = {
         action_type: "send_text",
