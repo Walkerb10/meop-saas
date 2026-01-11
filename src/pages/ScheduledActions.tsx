@@ -647,23 +647,22 @@ const ScheduledActions = () => {
 
   const buildTriggerLabel = () => {
     const timeFormatted = formatTime(formData.time);
-    const tzAbbr = getTimezoneAbbr();
     
     if (formData.frequency === 'one_time') {
       return 'One-time execution (manual)';
     } else if (formData.frequency === 'weekly') {
-      return `Every ${formData.dayOfWeek} at ${timeFormatted} ${tzAbbr}`;
+      return `Every ${formData.dayOfWeek} at ${timeFormatted}`;
     } else if (formData.frequency === 'monthly') {
-      return `Monthly on day ${formData.dayOfMonth} at ${timeFormatted} ${tzAbbr}`;
+      return `Monthly on day ${formData.dayOfMonth} at ${timeFormatted}`;
     } else if (formData.frequency === 'custom') {
       const dateStr = formData.customDate 
         ? new Date(formData.customDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '(select date)';
-      return `On ${dateStr} at ${timeFormatted} ${tzAbbr}`;
+      return `On ${dateStr} at ${timeFormatted}`;
     } else if (formData.frequency === 'every_x_days') {
-      return `Every ${formData.everyXDays} days at ${timeFormatted} ${tzAbbr}`;
+      return `Every ${formData.everyXDays} days at ${timeFormatted}`;
     }
-    return `Daily at ${timeFormatted} ${tzAbbr}`;
+    return `Daily at ${timeFormatted}`;
   };
 
   // Format multiple emails for display
@@ -693,6 +692,10 @@ const ScheduledActions = () => {
   };
 
   const buildSteps = (): ScheduledActionStep[] => {
+    return buildStepsWithQuery(formData.researchQuery);
+  };
+
+  const buildStepsWithQuery = (researchQuery: string): ScheduledActionStep[] => {
     const triggerStep: ScheduledActionStep = {
       id: crypto.randomUUID(),
       type: 'trigger',
@@ -704,7 +707,7 @@ const ScheduledActions = () => {
       case 'research':
         actionConfig = {
           action_type: 'research',
-          query: formData.researchQuery,
+          query: researchQuery,
           output_format: formData.researchOutputFormat,
           output_length: formData.researchOutputLength,
         };
@@ -789,6 +792,28 @@ const ScheduledActions = () => {
 
     setSaving(true);
     try {
+      // Auto-optimize research prompts before saving
+      let finalResearchQuery = formData.researchQuery;
+      if (formData.type === 'research' && formData.researchQuery.trim()) {
+        try {
+          const { data, error } = await supabase.functions.invoke('enhance-prompt', {
+            body: {
+              prompt: formData.researchQuery,
+              type: 'research',
+              output_format: formData.researchOutputFormat,
+              output_length: formData.researchOutputLength,
+            },
+          });
+          if (!error && data?.enhancedPrompt) {
+            finalResearchQuery = data.enhancedPrompt;
+            console.log('Research prompt auto-optimized');
+          }
+        } catch (e) {
+          console.warn('Failed to auto-optimize research prompt:', e);
+          // Continue with original prompt
+        }
+      }
+
       const triggerConfig: Record<string, unknown> = {
         frequency: formData.frequency,
         scheduled_time: formData.time,
@@ -812,7 +837,7 @@ const ScheduledActions = () => {
         description: getDescription(),
         triggerType: 'schedule',
         triggerConfig,
-        steps: buildSteps(),
+        steps: buildStepsWithQuery(finalResearchQuery),
         n8nWebhookUrl: formData.webhookUrl || undefined,
         isActive,
       });
@@ -1193,7 +1218,7 @@ const ScheduledActions = () => {
             {formData.frequency !== 'one_time' && (
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
-                  Time ({getTimezoneAbbr()})
+                  Time
                 </label>
                 <Input
                   type="time"
@@ -1647,7 +1672,7 @@ const ScheduledActions = () => {
                             </div>
                             {formData.frequency !== 'one_time' && (
                               <div>
-                                <label className="text-xs font-medium mb-1 block">Time ({getTimezoneAbbr()})</label>
+                                <label className="text-xs font-medium mb-1 block">Time</label>
                                 <Input
                                   type="time"
                                   value={formData.time}
@@ -1966,7 +1991,7 @@ const ScheduledActions = () => {
               
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
-                  Time ({getTimezoneAbbr()})
+                  Time
                 </label>
                 <Input
                   type="time"

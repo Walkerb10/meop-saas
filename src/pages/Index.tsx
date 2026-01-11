@@ -210,18 +210,20 @@ const Index = () => {
             )}
 
             {/* Voice button - stays connected during conversation */}
-            <AgentVoiceButton 
-              status={status} 
-              isActive={isActive} 
-              onToggle={toggle}
-              size={hasStartedChat ? 'small' : 'normal'}
-              inputVolume={inputVolume}
-              outputVolume={outputVolume}
-            />
+            <div className={hasStartedChat ? 'mb-6' : ''}>
+              <AgentVoiceButton 
+                status={status} 
+                isActive={isActive} 
+                onToggle={toggle}
+                size={hasStartedChat ? 'small' : 'normal'}
+                inputVolume={inputVolume}
+                outputVolume={outputVolume}
+              />
+            </div>
             
             {/* Start speaking hint */}
             {hasStartedChat && messages.length === 0 && (
-              <p className="text-muted-foreground text-sm mt-4">
+              <p className="text-muted-foreground text-sm mt-2">
                 Start speaking...
               </p>
             )}
