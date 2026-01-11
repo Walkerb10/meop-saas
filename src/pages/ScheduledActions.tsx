@@ -555,14 +555,14 @@ const ScheduledActions = () => {
     setExecuting(true);
     try {
       await executeAutomation(selectedAutomation.id);
-      toast.success('Execution started - redirecting to Executions');
-      // Navigate to executions page to show status
+      toast.success('Execution started');
       navigate('/executions');
     } catch (err) {
-      toast.error('Failed to execute automation');
+      toast.error('Failed to start execution');
       setExecuting(false);
     }
   };
+
 
   const handleDelete = async (automationId: string) => {
     try {
@@ -1926,12 +1926,8 @@ const ScheduledActions = () => {
                 onClick={handleExecute}
                 disabled={executing}
               >
-                {executing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Zap className="w-4 h-4" />
-                )}
-                {executing ? 'Executing...' : 'Execute Now'}
+                <Zap className="w-4 h-4" />
+                {executing ? 'Starting…' : 'Execute Now'}
               </Button>
             </motion.div>
           )}

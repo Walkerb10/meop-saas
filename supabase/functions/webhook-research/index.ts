@@ -42,15 +42,26 @@ serve(async (req) => {
   }
 
   try {
-    const { query, search_mode, recency, output_format } = await req.json();
+    const { query, search_mode, recency, output_format, output_length, execution_id } = await req.json();
     
     console.log("Research webhook called with query:", query);
+    console.log("Execution ID:", execution_id);
     console.log("Output format requested:", output_format);
+    console.log("Output length requested:", output_length);
     
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
     if (!PERPLEXITY_API_KEY) {
       throw new Error("PERPLEXITY_API_KEY is not configured");
     }
+
+    const parsedWordCount = (() => {
+      const n = typeof output_length === "number" ? output_length : parseInt(String(output_length || ""), 10);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    })();
+
+    const wordCountInstruction = parsedWordCount
+      ? `Aim for approximately ${parsedWordCount} words (±25).`
+      : "";
 
     // Determine the format instructions
     let formatInstructions = "";
@@ -64,10 +75,13 @@ serve(async (req) => {
       }
     }
 
-    // Build system prompt with format instructions
-    const systemPrompt = formatInstructions
-      ? `You are a deep research assistant. Provide comprehensive, well-sourced answers with citations. Focus on accuracy and depth.\n\n${formatInstructions}`
-      : "You are a deep research assistant. Provide comprehensive, well-sourced answers with citations. Focus on accuracy and depth.";
+    // Build system prompt with format + word count instructions
+    const baseSystemPrompt =
+      "You are a deep research assistant. Provide comprehensive, well-sourced answers with citations. Focus on accuracy and depth.";
+
+    const systemPrompt = [baseSystemPrompt, wordCountInstruction, formatInstructions]
+      .filter(Boolean)
+      .join("\n\n");
 
     // Build the request body for Perplexity
     const requestBody: Record<string, unknown> = {
@@ -113,12 +127,63 @@ serve(async (req) => {
     const data = await response.json();
     
     console.log("Perplexity response received, citations:", data.citations?.length || 0);
+
+    let content = data.choices?.[0]?.message?.content || "No response generated";
+    const citations = data.citations || [];
+
+    // Enforce requested formatting + approximate word count via Lovable AI (best-effort).
+    // If this fails for any reason, we still return the Perplexity output.
+    if (parsedWordCount && formatInstructions) {
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (LOVABLE_API_KEY) {
+        try {
+          console.log("Reformatting output to enforce format/length...");
+
+          const rewriteResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-3-flash-preview",
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "You are an expert editor. Rewrite the provided research into the requested format and target word count. Do not add new facts; do not invent sources; do not include URLs in the body. Output ONLY the rewritten content.",
+                },
+                {
+                  role: "user",
+                  content: `TARGET WORD COUNT: ~${parsedWordCount} (±25)\n\nFORMAT INSTRUCTIONS:\n${formatInstructions}\n\nSOURCE TEXT TO REWRITE:\n${content}`,
+                },
+              ],
+            }),
+          });
+
+          if (rewriteResp.ok) {
+            const rewriteData = await rewriteResp.json();
+            const rewritten = rewriteData.choices?.[0]?.message?.content;
+            if (typeof rewritten === "string" && rewritten.trim()) {
+              content = rewritten;
+            }
+          } else {
+            const t = await rewriteResp.text();
+            console.warn("Rewrite step failed:", rewriteResp.status, t);
+          }
+        } catch (e) {
+          console.warn("Rewrite step error (skipping):", e);
+        }
+      } else {
+        console.warn("LOVABLE_API_KEY not configured; skipping reformat step");
+      }
+    }
     
     // Format the response for ElevenLabs agent
     const result = {
       success: true,
-      content: data.choices?.[0]?.message?.content || "No response generated",
-      citations: data.citations || [],
+      content,
+      citations,
       model: data.model,
     };
 
