@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Sparkles, Info, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Info, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { AppLayout } from '@/components/AppLayout';
+import { AIEnhanceButton } from '@/components/AIEnhanceButton';
 import { useAutomations, DEFAULT_CHANNELS } from '@/hooks/useAutomations';
 import { useTimezone } from '@/hooks/useTimezone';
 import { toast } from 'sonner';
@@ -457,7 +458,7 @@ const ScheduledActions = () => {
     everyXDays: '7',
     webhookUrl: '',
   });
-  const [enhancingQuery, setEnhancingQuery] = useState(false);
+  // enhancingQuery state removed - now handled by AIEnhanceButton component
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const [pendingActivation, setPendingActivation] = useState<ScheduledAction | null>(null);
   const [saving, setSaving] = useState(false);
@@ -778,40 +779,7 @@ const ScheduledActions = () => {
     }
   };
 
-  const handleEnhanceQuery = async () => {
-    if (!formData.researchQuery.trim()) {
-      toast.error('Enter a query first');
-      return;
-    }
-    
-    setEnhancingQuery(true);
-    try {
-      // Get the output format and length for context
-      const outputFormat = OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.format || '';
-      const outputLength = `approximately ${formData.researchOutputLength} words`;
-      
-      const { data, error } = await supabase.functions.invoke('enhance-prompt', {
-        body: { 
-          prompt: formData.researchQuery, 
-          type: 'research',
-          output_format: outputFormat,
-          output_length: outputLength
-        }
-      });
-      
-      if (error) throw error;
-      
-      if (data?.enhancedPrompt) {
-        setFormData(prev => ({ ...prev, researchQuery: data.enhancedPrompt }));
-        toast.success('Prompt enhanced!');
-      }
-    } catch (err) {
-      console.error('Enhance error:', err);
-      toast.error('Failed to enhance prompt');
-    } finally {
-      setEnhancingQuery(false);
-    }
-  };
+  // handleEnhanceQuery removed - now handled by AIEnhanceButton component
 
   const handleCreate = async () => {
     if (!isFormValid()) {
@@ -1021,20 +989,15 @@ const ScheduledActions = () => {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-sm font-medium">Research Prompt</label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleEnhanceQuery}
-                    disabled={enhancingQuery || !formData.researchQuery.trim()}
-                    className="h-7 gap-1.5 text-xs text-primary hover:text-primary"
-                  >
-                    {enhancingQuery ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3.5 h-3.5" />
-                    )}
-                    Enhance with AI
-                  </Button>
+                  <AIEnhanceButton
+                    value={formData.researchQuery}
+                    onChange={(val) => setFormData({ ...formData, researchQuery: val })}
+                    type="research"
+                    context={{
+                      output_format: OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.format,
+                      output_length: `approximately ${formData.researchOutputLength} words`,
+                    }}
+                  />
                 </div>
                 <Textarea
                   placeholder="What do you want to research? e.g., Latest AI developments this week"
@@ -1730,16 +1693,15 @@ const ScheduledActions = () => {
                               <div>
                                 <div className="flex items-center justify-between mb-1">
                                   <label className="text-xs font-medium">Research Prompt</label>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleEnhanceQuery}
-                                    disabled={enhancingQuery}
-                                    className="h-6 gap-1 text-[10px] text-primary"
-                                  >
-                                    {enhancingQuery ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                    Enhance
-                                  </Button>
+                                  <AIEnhanceButton
+                                    value={formData.researchQuery}
+                                    onChange={(val) => setFormData({ ...formData, researchQuery: val })}
+                                    type="research"
+                                    context={{
+                                      output_format: OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.format,
+                                      output_length: `approximately ${formData.researchOutputLength} words`,
+                                    }}
+                                  />
                                 </div>
                                 <Textarea
                                   value={formData.researchQuery}
