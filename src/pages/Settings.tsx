@@ -303,9 +303,9 @@ const Settings = () => {
                 <div className="grid gap-3">
                   {[
                     { type: 'Text', url: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2', color: 'text-blue-500' },
-                    { type: 'Slack', url: 'https://walkerb.app.n8n.cloud/webhook/slack-messages', channel: 'all_bhva', color: 'text-purple-500' },
-                    { type: 'Discord', url: 'https://walkerb.app.n8n.cloud/webhook/discord-messages', channel: 'admin', color: 'text-indigo-500' },
-                    { type: 'Email', url: 'https://walkerb.app.n8n.cloud/webhook/send-email', color: 'text-green-500' },
+                    { type: 'Slack', url: 'https://walkerb.app.n8n.cloud/webhook/067d7cbd-f49b-4641-aaab-6cb65617cb68', channel: 'all_bhva', color: 'text-purple-500' },
+                    { type: 'Discord', url: 'https://walkerb.app.n8n.cloud/webhook/de3262c9-cf10-4ba9-bf0f-87ba31a1144c', channel: 'admin', color: 'text-indigo-500' },
+                    { type: 'Email', url: 'https://walkerb.app.n8n.cloud/webhook/0bad5a52-1f17-4c90-9ca2-6d4aee1661f7', color: 'text-green-500' },
                   ].map((webhook) => (
                     <div
                       key={webhook.type}
