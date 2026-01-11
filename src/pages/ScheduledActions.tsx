@@ -43,12 +43,29 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
+// Discord icon component
+function DiscordIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+    </svg>
+  );
+}
+
+// Output length options
+const OUTPUT_LENGTHS = {
+  brief: { label: 'Brief', description: '1-2 paragraphs' },
+  standard: { label: 'Standard', description: '3-5 paragraphs' },
+  detailed: { label: 'Detailed', description: 'Comprehensive coverage' },
+  exhaustive: { label: 'Exhaustive', description: 'Deep dive with all details' },
+};
+
 // Output format definitions with their actual structure
 const OUTPUT_FORMATS = {
   summary: {
     label: 'Summary',
     description: 'Brief overview',
-    format: `A concise 2-3 paragraph summary covering:
+    format: `A concise summary covering:
 • Key findings
 • Main takeaways
 • Brief conclusion`,
@@ -67,7 +84,7 @@ const OUTPUT_FORMATS = {
   bullets: {
     label: 'Bullet Points',
     description: 'Quick scannable list',
-    format: `• 5-10 key bullet points
+    format: `• Key bullet points
 • Each point is 1-2 sentences
 • Most important information first
 • Action items highlighted`,
@@ -151,6 +168,7 @@ interface AutomationFormData {
   // Research specific
   researchQuery: string;
   researchOutputFormat: string;
+  researchOutputLength: string;
   customOutputFormat: string;
   // Email specific
   emailTo: string;
@@ -177,7 +195,7 @@ const AUTOMATION_TYPES = [
   { id: 'research' as const, label: 'Research', icon: Search, description: 'AI-powered research via Perplexity', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
   { id: 'email' as const, label: 'Email', icon: Mail, description: 'Send email via Gmail webhook', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
   { id: 'slack' as const, label: 'Slack', icon: Hash, description: 'Post to Slack channel', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
-  { id: 'discord' as const, label: 'Discord', icon: Hash, description: 'Post to Discord channel', color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' },
+  { id: 'discord' as const, label: 'Discord', icon: DiscordIcon, description: 'Post to Discord channel', color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' },
 ];
 
 // Helper to get automation type from steps
@@ -214,6 +232,7 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
   const isKnownFormat = ['summary', 'detailed', 'bullets', 'actionable', 'problem'].includes(rawOutputFormat);
   const researchOutputFormat = isKnownFormat ? rawOutputFormat : 'custom';
   const customOutputFormat = isKnownFormat ? '' : rawOutputFormat;
+  const researchOutputLength = (config?.output_length as string) || 'standard';
   
   // Extract email fields
   const emailTo = (config?.to as string) || '';
@@ -263,7 +282,7 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
     if (dateMatch) customDate = dateMatch[1];
   }
   
-  return { type, message, researchQuery, researchOutputFormat, customOutputFormat, emailTo, emailSubject, slackChannel, discordChannel, frequency, time, dayOfWeek, dayOfMonth, customDate, everyXDays };
+  return { type, message, researchQuery, researchOutputFormat, researchOutputLength, customOutputFormat, emailTo, emailSubject, slackChannel, discordChannel, frequency, time, dayOfWeek, dayOfMonth, customDate, everyXDays };
 }
 
 const ScheduledActions = () => {
@@ -277,6 +296,7 @@ const ScheduledActions = () => {
     message: '',
     researchQuery: '',
     researchOutputFormat: 'summary',
+    researchOutputLength: 'standard',
     customOutputFormat: '',
     emailTo: '',
     emailSubject: '',
@@ -456,6 +476,7 @@ const ScheduledActions = () => {
           output_format: formData.researchOutputFormat === 'custom' 
             ? formData.customOutputFormat 
             : formData.researchOutputFormat,
+          output_length: formData.researchOutputLength,
         };
         break;
       case 'email':
@@ -537,16 +558,18 @@ const ScheduledActions = () => {
     
     setEnhancingQuery(true);
     try {
-      // Get the output format for context
+      // Get the output format and length for context
       const outputFormat = formData.researchOutputFormat === 'custom' 
         ? formData.customOutputFormat 
         : OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.format || '';
+      const outputLength = OUTPUT_LENGTHS[formData.researchOutputLength as keyof typeof OUTPUT_LENGTHS]?.description || 'standard';
       
       const { data, error } = await supabase.functions.invoke('enhance-prompt', {
         body: { 
           prompt: formData.researchQuery, 
           type: 'research',
-          output_format: outputFormat
+          output_format: outputFormat,
+          output_length: outputLength
         }
       });
       
@@ -654,6 +677,7 @@ const ScheduledActions = () => {
       message: '',
       researchQuery: '',
       researchOutputFormat: 'summary',
+      researchOutputLength: 'standard',
       customOutputFormat: '',
       emailTo: '',
       emailSubject: '',
@@ -685,6 +709,7 @@ const ScheduledActions = () => {
       message: extracted.message || '',
       researchQuery: extracted.researchQuery || '',
       researchOutputFormat: extracted.researchOutputFormat || 'summary',
+      researchOutputLength: extracted.researchOutputLength || 'standard',
       customOutputFormat: extracted.customOutputFormat || '',
       emailTo: extracted.emailTo || '',
       emailSubject: extracted.emailSubject || '',
@@ -794,6 +819,28 @@ const ScheduledActions = () => {
                   rows={3}
                 />
               </div>
+              
+              {/* Output Length Selector */}
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Output Length</label>
+                <Select 
+                  value={formData.researchOutputLength} 
+                  onValueChange={(v) => setFormData({ ...formData, researchOutputLength: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(OUTPUT_LENGTHS).map(([key, val]) => (
+                      <SelectItem key={key} value={key}>
+                        {val.label} - {val.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Output Format Selector */}
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <label className="text-sm font-medium">Output Format</label>

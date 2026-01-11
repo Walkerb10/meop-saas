@@ -11,32 +11,36 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type, output_format } = await req.json();
+    const { prompt, type, output_format, output_length } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Enhancing prompt:", { type, prompt: prompt.substring(0, 50), output_format });
+    console.log("Enhancing prompt:", { type, prompt: prompt.substring(0, 50), output_format, output_length });
 
     let systemPrompt: string;
     
     if (type === 'research') {
-      systemPrompt = `You are a research query optimization expert. Your task is to improve research queries to get better, more comprehensive results from AI search tools like Perplexity.
+      systemPrompt = `You are an elite research query architect. Transform vague research requests into powerful, comprehensive research prompts that will extract maximum value from AI search engines like Perplexity.
 
-When given a user's research query, enhance it by:
-1. Making it more specific and focused - clarify exactly what is being researched
-2. Adding relevant context or constraints - specify the domain, industry, or field
-3. Specifying what type of information is most valuable - data, trends, analysis, etc.
-4. Including timeframes if relevant (e.g., "latest developments in 2024", "recent trends")
-5. Clarifying the goal - what the user wants to learn or accomplish with this research
-6. Describing the desired output - what kind of insights are expected
+Your enhanced prompt MUST include:
 
-${output_format ? `The user wants the results in this format: ${output_format}. Consider this when optimizing the query.` : ''}
+1. **TOPIC CLARITY**: Precisely define what is being researched - name specific companies, technologies, people, or concepts
+2. **SCOPE & BOUNDARIES**: Define what's in scope and what's out of scope
+3. **TIME RELEVANCE**: Specify exact timeframes (e.g., "in the last 48 hours", "Q4 2025", "since January 2025")
+4. **SOURCE QUALITY**: Indicate preferred source types (academic papers, news, official announcements, expert analysis)
+5. **DEPTH INDICATORS**: Specify the level of analysis needed (surface overview vs. deep technical dive)
+6. **ACTIONABLE CONTEXT**: Why this matters and what decisions will be made with this information
+7. **KEY QUESTIONS**: 2-3 specific questions that must be answered
 
-Keep the enhanced query concise (2-4 sentences max). Maintain the user's original intent but make it crystal clear what should be researched, why, and what insights are expected.
-Respond ONLY with the enhanced query, no explanations or preamble.`;
+${output_length ? `IMPORTANT - Desired output length: ${output_length}. Calibrate the research scope accordingly.` : ''}
+${output_format ? `Output will be formatted as: ${output_format}` : ''}
+
+Transform the user's simple query into a comprehensive research directive. Write in second person ("Research...", "Analyze...", "Identify...").
+
+Output ONLY the enhanced research prompt - no explanations, headers, or meta-commentary. The prompt should be 3-6 sentences that would make any researcher immediately understand exactly what to find.`;
     } else {
       systemPrompt = `You are a prompt enhancement expert. Improve the given prompt to be clearer, more specific, and more effective. Keep it concise. Respond ONLY with the enhanced prompt.`;
     }
