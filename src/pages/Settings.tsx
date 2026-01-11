@@ -277,6 +277,60 @@ const Settings = () => {
               {/* Divider */}
               <div className="border-t border-border" />
 
+              {/* Automation Webhooks Section */}
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold mb-2">Automation Webhooks</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Default n8n webhook endpoints for each automation type.
+                  </p>
+                </div>
+                <div className="grid gap-3">
+                  {[
+                    { type: 'Text', url: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2', color: 'text-blue-500' },
+                    { type: 'Slack', url: 'https://walkerb.app.n8n.cloud/webhook/slack-messages', channel: 'all_bhva', color: 'text-purple-500' },
+                    { type: 'Discord', url: 'https://walkerb.app.n8n.cloud/webhook/discord-messages', channel: 'admin', color: 'text-indigo-500' },
+                    { type: 'Email', url: 'https://walkerb.app.n8n.cloud/webhook/send-email', color: 'text-green-500' },
+                  ].map((webhook) => (
+                    <div
+                      key={webhook.type}
+                      className="flex items-center justify-between p-4 rounded-lg border border-border bg-card"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className={`font-medium text-sm ${webhook.color}`}>{webhook.type}</h3>
+                          {webhook.channel && (
+                            <span className="text-xs bg-muted px-2 py-0.5 rounded">#{webhook.channel}</span>
+                          )}
+                        </div>
+                        <code className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground break-all mt-2 inline-block">
+                          {webhook.url}
+                        </code>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="ml-3 shrink-0"
+                        onClick={() => {
+                          navigator.clipboard.writeText(webhook.url);
+                          setCopiedWebhook(webhook.type);
+                          setTimeout(() => setCopiedWebhook(null), 2000);
+                        }}
+                      >
+                        {copiedWebhook === webhook.type ? (
+                          <Check className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t border-border" />
+
               {/* n8n Tools Section */}
               <div className="space-y-4">
                 <div>
