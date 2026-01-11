@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Sparkles, Info } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
@@ -64,6 +64,15 @@ function SlackIcon({ className }: { className?: string }) {
 
 // Default word count for research automations
 const DEFAULT_WORD_COUNT = '500';
+
+// Available channels for messaging platforms (will expand over time)
+const SLACK_CHANNELS = [
+  { value: 'all_bhva', label: 'all_bhva' },
+];
+
+const DISCORD_CHANNELS = [
+  { value: 'admin', label: 'admin' },
+];
 
 // Output format definitions with their actual structure
 const OUTPUT_FORMATS = {
@@ -358,15 +367,18 @@ const ScheduledActions = () => {
     : automations.filter(a => getAutomationTypeFromSteps(a.steps) === typeFilter);
   const { formatTime, getTimezoneAbbr } = useTimezone();
 
+  const navigate = useNavigate();
+
   const handleExecute = async () => {
     if (!selectedAutomation) return;
     setExecuting(true);
     try {
       await executeAutomation(selectedAutomation.id);
-      toast.success('Automation executed successfully');
+      toast.success('Execution started - redirecting to Executions');
+      // Navigate to executions page to show status
+      navigate('/executions');
     } catch (err) {
       toast.error('Failed to execute automation');
-    } finally {
       setExecuting(false);
     }
   };
@@ -942,15 +954,24 @@ const ScheduledActions = () => {
             <>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Channel</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">#</span>
-                  <Input
-                    placeholder={DEFAULT_CHANNELS.slack}
-                    value={formData.slackChannel}
-                    onChange={(e) => setFormData({ ...formData, slackChannel: e.target.value })}
-                    className="pl-7"
-                  />
-                </div>
+                <Select 
+                  value={formData.slackChannel || SLACK_CHANNELS[0].value} 
+                  onValueChange={(v) => setFormData({ ...formData, slackChannel: v })}
+                >
+                  <SelectTrigger>
+                    <div className="flex items-center gap-1">
+                      <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SLACK_CHANNELS.map((channel) => (
+                      <SelectItem key={channel.value} value={channel.value}>
+                        {channel.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Message</label>
@@ -968,15 +989,24 @@ const ScheduledActions = () => {
             <>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Channel</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">#</span>
-                  <Input
-                    placeholder={DEFAULT_CHANNELS.discord}
-                    value={formData.discordChannel}
-                    onChange={(e) => setFormData({ ...formData, discordChannel: e.target.value })}
-                    className="pl-7"
-                  />
-                </div>
+                <Select 
+                  value={formData.discordChannel || DISCORD_CHANNELS[0].value} 
+                  onValueChange={(v) => setFormData({ ...formData, discordChannel: v })}
+                >
+                  <SelectTrigger>
+                    <div className="flex items-center gap-1">
+                      <Hash className="w-3.5 h-3.5 text-muted-foreground" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DISCORD_CHANNELS.map((channel) => (
+                      <SelectItem key={channel.value} value={channel.value}>
+                        {channel.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Message</label>
