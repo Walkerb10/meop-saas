@@ -1,17 +1,26 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   Clock, 
   CheckCircle2, 
   XCircle, 
   Loader2, 
   AlertCircle,
-  RefreshCw 
+  RefreshCw,
+  ArrowLeft,
+  ExternalLink,
+  MessageSquare,
+  Search,
+  Mail,
+  Hash,
+  Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
+import { useTimezone } from '@/hooks/useTimezone';
 
 interface Execution {
   id: string;
@@ -28,18 +37,25 @@ interface Execution {
   notification_sent: boolean | null;
 }
 
-const StatusIcon = ({ status }: { status: string }) => {
+interface Automation {
+  id: string;
+  name: string;
+  steps: Json;
+}
+
+const StatusIcon = ({ status, size = 'sm' }: { status: string; size?: 'sm' | 'lg' }) => {
+  const sizeClass = size === 'lg' ? 'w-6 h-6' : 'w-4 h-4';
   switch (status) {
     case 'completed':
-      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+      return <CheckCircle2 className={`${sizeClass} text-green-500`} />;
     case 'failed':
-      return <XCircle className="w-4 h-4 text-destructive" />;
+      return <XCircle className={`${sizeClass} text-destructive`} />;
     case 'running':
-      return <Loader2 className="w-4 h-4 text-primary animate-spin" />;
+      return <Loader2 className={`${sizeClass} text-primary animate-spin`} />;
     case 'pending_review':
-      return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+      return <AlertCircle className={`${sizeClass} text-yellow-500`} />;
     default:
-      return <Clock className="w-4 h-4 text-muted-foreground" />;
+      return <Clock className={`${sizeClass} text-muted-foreground`} />;
   }
 };
 
@@ -52,9 +68,34 @@ const formatDuration = (ms: number | null): string => {
   return `${minutes}m ${seconds}s`;
 };
 
+// Detect platform from execution data
+const detectPlatform = (execution: Execution): { name: string; icon: typeof MessageSquare } => {
+  const input = execution.input_data as Record<string, unknown> | null;
+  const name = execution.sequence_name.toLowerCase();
+  
+  if (name.includes('research') || input?.action_type === 'research') {
+    return { name: 'Research (Perplexity)', icon: Search };
+  }
+  if (name.includes('email') || input?.action_type === 'send_email') {
+    return { name: 'Email', icon: Mail };
+  }
+  if (name.includes('slack') || input?.action_type === 'slack_message') {
+    return { name: 'Slack', icon: Hash };
+  }
+  if (name.includes('discord') || input?.action_type === 'discord_message') {
+    return { name: 'Discord', icon: Hash };
+  }
+  return { name: 'Text (SMS)', icon: MessageSquare };
+};
+
 const Executions = () => {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
+  const [linkedAutomation, setLinkedAutomation] = useState<Automation | null>(null);
+  const [loadingAutomation, setLoadingAutomation] = useState(false);
+  const { formatTime } = useTimezone();
+  const navigate = useNavigate();
 
   const fetchExecutions = async () => {
     const { data, error } = await supabase
@@ -67,6 +108,24 @@ const Executions = () => {
       setExecutions(data);
     }
     setLoading(false);
+  };
+
+  // Find linked automation by name match
+  const fetchLinkedAutomation = async (sequenceName: string) => {
+    setLoadingAutomation(true);
+    setLinkedAutomation(null);
+    
+    // Try exact match first, then partial
+    const { data } = await supabase
+      .from('automations')
+      .select('id, name, steps')
+      .or(`name.eq.${sequenceName},name.ilike.%${sequenceName.split(':')[0].trim()}%`)
+      .limit(1);
+    
+    if (data && data.length > 0) {
+      setLinkedAutomation(data[0] as Automation);
+    }
+    setLoadingAutomation(false);
   };
 
   useEffect(() => {
@@ -86,6 +145,179 @@ const Executions = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (selectedExecution) {
+      fetchLinkedAutomation(selectedExecution.sequence_name);
+    }
+  }, [selectedExecution]);
+
+  const handleSelectExecution = (execution: Execution) => {
+    setSelectedExecution(execution);
+  };
+
+  const handleBack = () => {
+    setSelectedExecution(null);
+    setLinkedAutomation(null);
+  };
+
+  const handleEditAutomation = () => {
+    if (linkedAutomation) {
+      navigate(`/scheduled-actions?edit=${linkedAutomation.id}`);
+    }
+  };
+
+  const formatDateTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return {
+      date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      time: formatTime(date.toTimeString().slice(0, 5)),
+    };
+  };
+
+  // Detail View
+  if (selectedExecution) {
+    const platform = detectPlatform(selectedExecution);
+    const PlatformIcon = platform.icon;
+    const started = formatDateTime(selectedExecution.started_at);
+    const completed = selectedExecution.completed_at ? formatDateTime(selectedExecution.completed_at) : null;
+
+    return (
+      <AppLayout>
+        <div className="max-w-4xl mx-auto p-6">
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="space-y-6"
+          >
+            {/* Header */}
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={handleBack}>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div className="flex-1">
+                <h1 className="text-xl font-semibold">{selectedExecution.sequence_name}</h1>
+                <p className="text-sm text-muted-foreground">Execution Details</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <StatusIcon status={selectedExecution.status} size="lg" />
+                <span className="text-lg font-medium capitalize">
+                  {selectedExecution.status.replace('_', ' ')}
+                </span>
+              </div>
+            </div>
+
+            {/* Main Info Card */}
+            <div className="rounded-xl border border-border bg-card p-6 space-y-6">
+              {/* Timing Section */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Timing</h3>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="rounded-lg bg-secondary/30 p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Started</p>
+                    <p className="text-sm font-medium">{started.time}</p>
+                    <p className="text-xs text-muted-foreground">{started.date}</p>
+                  </div>
+                  <div className="rounded-lg bg-secondary/30 p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Completed</p>
+                    {completed ? (
+                      <>
+                        <p className="text-sm font-medium">{completed.time}</p>
+                        <p className="text-xs text-muted-foreground">{completed.date}</p>
+                      </>
+                    ) : (
+                      <p className="text-sm font-medium text-primary">In progress...</p>
+                    )}
+                  </div>
+                  <div className="rounded-lg bg-secondary/30 p-4">
+                    <p className="text-xs text-muted-foreground mb-1">Duration</p>
+                    <p className="text-sm font-medium">
+                      {selectedExecution.status === 'running' 
+                        ? 'Running...' 
+                        : formatDuration(selectedExecution.duration_ms)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Platform & Destination */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Destination</h3>
+                <div className="flex items-center gap-3 p-4 rounded-lg bg-secondary/30">
+                  <PlatformIcon className="w-5 h-5 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">{platform.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedExecution.workflow_id 
+                        ? `Workflow: ${selectedExecution.workflow_id}` 
+                        : 'Internal execution'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Source Automation */}
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">Source Automation</h3>
+                {loadingAutomation ? (
+                  <div className="flex items-center gap-2 p-4 rounded-lg bg-secondary/30">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm text-muted-foreground">Finding automation...</span>
+                  </div>
+                ) : linkedAutomation ? (
+                  <div className="flex items-center justify-between p-4 rounded-lg bg-secondary/30">
+                    <div>
+                      <p className="text-sm font-medium">{linkedAutomation.name}</p>
+                      <p className="text-xs text-muted-foreground">Click to edit this automation</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleEditAutomation} className="gap-2">
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-lg bg-secondary/30 text-sm text-muted-foreground">
+                    No linked automation found (may have been deleted or renamed)
+                  </div>
+                )}
+              </div>
+
+              {/* Error Message */}
+              {selectedExecution.error_message && (
+                <div>
+                  <h3 className="text-sm font-medium text-destructive mb-3">Error</h3>
+                  <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <p className="text-sm text-destructive">{selectedExecution.error_message}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Input Data */}
+              {selectedExecution.input_data && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Input Data</h3>
+                  <pre className="p-4 rounded-lg bg-secondary/30 text-xs overflow-auto max-h-48">
+                    {JSON.stringify(selectedExecution.input_data, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* Output Data */}
+              {selectedExecution.output_data && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Output Data</h3>
+                  <pre className="p-4 rounded-lg bg-secondary/30 text-xs overflow-auto max-h-48">
+                    {JSON.stringify(selectedExecution.output_data, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // List View
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto p-6">
@@ -135,6 +367,7 @@ const Executions = () => {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.03 }}
                       className="border-t border-border hover:bg-muted/30 transition-colors cursor-pointer"
+                      onClick={() => handleSelectExecution(execution)}
                     >
                       <td className="p-3">
                         <div>
