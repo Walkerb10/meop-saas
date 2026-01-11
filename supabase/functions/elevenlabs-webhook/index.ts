@@ -218,6 +218,9 @@ serve(async (req) => {
     const n8nWebhookUrl =
       asString(body.n8n_webhook_url ?? body.n8nWebhookUrl ?? body.webhook_url ?? body.webhookUrl) ?? null;
 
+    // Get conversation_id if provided
+    const conversationId = asString(body.conversation_id ?? body.conversationId) ?? null;
+
     // Create automation with properly formatted steps for UI display
     const automationData = {
       name: automationName,
@@ -246,6 +249,7 @@ serve(async (req) => {
       ],
       n8n_webhook_url: n8nWebhookUrl,
       is_active: body.frequency !== "one_time" && body.frequency !== "custom", // One-time and custom start inactive
+      conversation_id: conversationId,
     };
 
 

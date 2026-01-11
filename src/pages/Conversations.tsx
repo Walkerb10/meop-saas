@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ChevronRight, ArrowLeft, Trash2, Loader2 } from 'lucide-react';
+import { MessageSquare, ChevronRight, ArrowLeft, Trash2, Loader2, User, Bot, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,17 +18,26 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
+interface ConversationMessage {
+  id: string;
+  role: string;
+  content: string;
+  created_at: string;
+}
+
+interface ConversationAutomation {
+  id: string;
+  name: string;
+  trigger_type: string;
+}
+
 interface ConversationGroup {
   conversation_id: string;
-  messages: {
-    id: string;
-    role: string;
-    content: string;
-    created_at: string;
-  }[];
+  messages: ConversationMessage[];
   lastMessage: string;
   lastTime: string;
   title?: string;
+  automations?: ConversationAutomation[];
 }
 
 const Conversations = () => {
@@ -56,14 +66,35 @@ const Conversations = () => {
 
   const fetchConversations = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch transcripts
+      const { data: transcripts, error: transcriptError } = await supabase
         .from('conversation_transcripts')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (transcriptError) throw transcriptError;
 
-      const grouped = (data || []).reduce((acc, msg) => {
+      // Fetch automations with conversation_id
+      const { data: automations } = await supabase
+        .from('automations')
+        .select('id, name, trigger_type, conversation_id')
+        .not('conversation_id', 'is', null);
+
+      // Group automations by conversation_id
+      const automationsByConv: Record<string, ConversationAutomation[]> = {};
+      (automations || []).forEach((auto) => {
+        const convId = (auto as any).conversation_id;
+        if (convId) {
+          if (!automationsByConv[convId]) automationsByConv[convId] = [];
+          automationsByConv[convId].push({
+            id: auto.id,
+            name: auto.name,
+            trigger_type: auto.trigger_type,
+          });
+        }
+      });
+
+      const grouped = (transcripts || []).reduce((acc, msg) => {
         const convId = msg.conversation_id || 'unknown';
         if (!acc[convId]) {
           acc[convId] = {
@@ -71,6 +102,7 @@ const Conversations = () => {
             messages: [],
             lastMessage: '',
             lastTime: '',
+            automations: automationsByConv[convId] || [],
           };
         }
         acc[convId].messages.push({
@@ -134,6 +166,19 @@ const Conversations = () => {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  // Helper to determine proper role display
+  const getRoleDisplay = (role: string): { label: string; isUser: boolean } => {
+    const lowerRole = role.toLowerCase();
+    if (lowerRole === 'user') {
+      return { label: 'You', isUser: true };
+    }
+    if (lowerRole === 'assistant' || lowerRole === 'agent' || lowerRole === 'ai') {
+      return { label: 'Assistant', isUser: false };
+    }
+    // For 'unknown' or other roles, try to guess based on content patterns
+    return { label: 'Assistant', isUser: false };
   };
 
   return (
@@ -243,9 +288,17 @@ const Conversations = () => {
                           <p className="text-sm text-muted-foreground truncate">
                             {conv.lastMessage.slice(0, 80)}{conv.lastMessage.length > 80 ? '...' : ''}
                           </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {conv.messages.length} messages
-                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs text-muted-foreground">
+                              {conv.messages.length} messages
+                            </span>
+                            {conv.automations && conv.automations.length > 0 && (
+                              <Badge variant="secondary" className="text-xs gap-1">
+                                <Zap className="w-3 h-3" />
+                                {conv.automations.length} automation{conv.automations.length > 1 ? 's' : ''}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                         <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-4" />
                       </div>
@@ -295,25 +348,67 @@ const Conversations = () => {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-4"
             >
-              {selectedConversation.messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                      msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-foreground'
-                    }`}
-                  >
-                    <p className="text-sm">{msg.content}</p>
-                    <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                      {format(new Date(msg.created_at), 'h:mm a')}
-                    </p>
+              {/* Automations created in this conversation */}
+              {selectedConversation.automations && selectedConversation.automations.length > 0 && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Zap className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">Automations created in this chat</span>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedConversation.automations.map((auto) => (
+                      <div key={auto.id} className="flex items-center gap-2 text-sm">
+                        <Badge variant="outline" className="text-xs">
+                          {auto.trigger_type}
+                        </Badge>
+                        <span className="text-foreground">{auto.name}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Messages */}
+              {selectedConversation.messages.map((msg) => {
+                const { label, isUser } = getRoleDisplay(msg.role);
+                
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {/* Avatar for assistant */}
+                    {!isUser && (
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Bot className="w-4 h-4 text-primary" />
+                      </div>
+                    )}
+                    
+                    <div
+                      className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                        isUser
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary text-foreground border border-border'
+                      }`}
+                    >
+                      <div className={`text-xs mb-1 font-medium ${isUser ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                        {label}
+                      </div>
+                      <p className="text-sm leading-relaxed">{msg.content}</p>
+                      <p className={`text-xs mt-2 ${isUser ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                        {format(new Date(msg.created_at), 'h:mm a')}
+                      </p>
+                    </div>
+                    
+                    {/* Avatar for user */}
+                    {isUser && (
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                        <User className="w-4 h-4 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </motion.div>
           )}
         </AnimatePresence>
