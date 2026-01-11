@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentVoiceButton } from '@/components/AgentVoiceButton';
 import { AppLayout } from '@/components/AppLayout';

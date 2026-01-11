@@ -3,6 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Json } from '@/integrations/supabase/types';
 
+// Default webhook URLs for different automation types
+const DEFAULT_WEBHOOKS = {
+  text: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
+  slack: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
+  discord: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
+  email: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
+};
+
 export function useAutomations() {
   const [automations, setAutomations] = useState<ScheduledAction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +33,7 @@ export function useAutomations() {
         isActive: row.is_active,
         createdAt: new Date(row.created_at),
         steps: Array.isArray(row.steps) ? (row.steps as unknown as ScheduledActionStep[]) : [],
+        n8nWebhookUrl: row.n8n_webhook_url || undefined,
       }));
 
       setAutomations(mapped);
@@ -85,45 +94,105 @@ export function useAutomations() {
       if (fetchError) throw fetchError;
       if (!automation) throw new Error('Automation not found');
 
+      // Extract action config
+      const steps = automation.steps as unknown as Array<{ type: string; config?: Record<string, unknown>; label?: string }>;
+      const actionStep = steps?.find((s) => s.type === 'action');
+      const actionConfig = (actionStep?.config || {}) as Record<string, unknown>;
+      const actionType = actionConfig.action_type as string || 'send_text';
+
       // Create an execution record
       const { data: execution, error: execError } = await supabase
         .from('executions')
         .insert({
           sequence_name: automation.name,
           status: 'running',
-          input_data: { automationId } as Json,
+          input_data: { automationId, actionType } as Json,
         })
         .select()
         .single();
 
       if (execError) throw execError;
 
-      // If there's an n8n webhook, call it
-      if (automation.n8n_webhook_url) {
-        try {
-          // Extract action config from the action step
-          const actionStep = (
-            automation.steps as unknown as Array<{ type: string; config?: Record<string, unknown> }>
-          )?.find((s) => s.type === 'action');
+      const startTime = Date.now();
 
-          const actionConfig = (actionStep?.config || {}) as Record<string, unknown>;
-          const configMessage = typeof actionConfig.message === 'string' ? actionConfig.message : null;
-          const message = configMessage?.trim() || automation.description || automation.name;
+      try {
+        // Determine how to execute based on action type
+        if (actionType === 'research') {
+          // Call the research webhook
+          const query = (actionConfig.query as string) || (actionConfig.message as string) || automation.name;
+          const outputFormat = (actionConfig.output_format as string) || 'summary';
+          
+          const { data, error } = await supabase.functions.invoke('webhook-research', {
+            body: { 
+              query, 
+              output_format: outputFormat,
+              execution_id: execution.id,
+            }
+          });
 
-          const response = await fetch(automation.n8n_webhook_url, {
+          if (error) throw error;
+
+          // Update with result
+          await supabase
+            .from('executions')
+            .update({
+              status: 'completed',
+              completed_at: new Date().toISOString(),
+              duration_ms: Date.now() - startTime,
+              output_data: data as Json,
+            })
+            .eq('id', execution.id);
+
+        } else {
+          // For text, email, slack, discord - send to n8n webhook
+          const webhookUrl = automation.n8n_webhook_url || DEFAULT_WEBHOOKS[actionType as keyof typeof DEFAULT_WEBHOOKS] || DEFAULT_WEBHOOKS.text;
+          
+          const message = (actionConfig.message as string) || automation.description || automation.name;
+          
+          // Build payload based on type
+          const payload: Record<string, unknown> = {
+            automation_name: automation.name,
+            execution_id: execution.id,
+            action_type: actionType,
+            message: message,
+          };
+
+          // Add type-specific fields
+          if (actionType === 'send_email') {
+            payload.to = actionConfig.to;
+            payload.subject = actionConfig.subject;
+            payload.email_to = actionConfig.to;
+            payload.email_subject = actionConfig.subject;
+          } else if (actionType === 'slack_message') {
+            payload.channel = actionConfig.channel;
+            payload.slack_channel = actionConfig.channel;
+          } else if (actionType === 'discord_message') {
+            payload.discord_channel = actionConfig.discord_channel;
+            payload.channel = actionConfig.discord_channel;
+          } else if (actionType === 'send_text') {
+            payload.phone = actionConfig.phone;
+          }
+
+          console.log(`📤 Sending ${actionType} to webhook:`, webhookUrl);
+          console.log('Payload:', JSON.stringify(payload, null, 2));
+
+          const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              automation_name: automation.name,
-              execution_id: execution.id,
-              action_type: actionConfig.action_type || null,
-              ...actionConfig,
-              message,
-            }),
+            body: JSON.stringify(payload),
           });
 
           if (!response.ok) {
-            throw new Error(`Webhook failed: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`Webhook failed (${response.status}): ${errorText}`);
+          }
+
+          let responseData = null;
+          try {
+            responseData = await response.json();
+          } catch {
+            // Response may not be JSON
+            responseData = { status: 'sent' };
           }
 
           // Update execution as completed
@@ -132,32 +201,24 @@ export function useAutomations() {
             .update({
               status: 'completed',
               completed_at: new Date().toISOString(),
-              duration_ms: Date.now() - new Date(execution.started_at).getTime(),
+              duration_ms: Date.now() - startTime,
+              output_data: responseData as Json,
             })
             .eq('id', execution.id);
-
-        } catch (webhookError) {
-          // Update execution as failed
-          await supabase
-            .from('executions')
-            .update({
-              status: 'failed',
-              completed_at: new Date().toISOString(),
-              error_message: webhookError instanceof Error ? webhookError.message : 'Unknown error',
-            })
-            .eq('id', execution.id);
-          throw webhookError;
         }
-      } else {
-        // No webhook, just mark as completed
+
+      } catch (execError) {
+        console.error('Execution error:', execError);
+        // Update execution as failed
         await supabase
           .from('executions')
           .update({
-            status: 'completed',
+            status: 'failed',
             completed_at: new Date().toISOString(),
-            duration_ms: 0,
+            error_message: execError instanceof Error ? execError.message : 'Unknown error',
           })
           .eq('id', execution.id);
+        throw execError;
       }
 
       // Update last_run_at
