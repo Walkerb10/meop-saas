@@ -61,13 +61,8 @@ function SlackIcon({ className }: { className?: string }) {
   );
 }
 
-// Word count presets for quick selection
-const WORD_COUNT_PRESETS = [
-  { value: '200', label: '~200 words (Brief)' },
-  { value: '500', label: '~500 words (Standard)' },
-  { value: '1000', label: '~1000 words (Detailed)' },
-  { value: '2000', label: '~2000 words (Comprehensive)' },
-];
+// Default word count for research automations
+const DEFAULT_WORD_COUNT = '500';
 
 // Output format definitions with their actual structure
 const OUTPUT_FORMATS = {
@@ -823,33 +818,15 @@ const ScheduledActions = () => {
               {/* Output Length - Word Count */}
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Target Word Count</label>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    min="100"
-                    max="5000"
-                    placeholder="500"
-                    value={formData.researchOutputLength}
-                    onChange={(e) => setFormData({ ...formData, researchOutputLength: e.target.value })}
-                    className="w-24"
-                  />
-                  <Select 
-                    value={WORD_COUNT_PRESETS.find(p => p.value === formData.researchOutputLength)?.value || 'custom'} 
-                    onValueChange={(v) => v !== 'custom' && setFormData({ ...formData, researchOutputLength: v })}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Quick select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WORD_COUNT_PRESETS.map((preset) => (
-                        <SelectItem key={preset.value} value={preset.value}>
-                          {preset.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">Approximate output length in words</p>
+                <Input
+                  type="number"
+                  min="100"
+                  max="10000"
+                  placeholder="500"
+                  value={formData.researchOutputLength}
+                  onChange={(e) => setFormData({ ...formData, researchOutputLength: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Approximate output length (e.g., 200 for brief, 500 for standard, 1000+ for detailed)</p>
               </div>
 
               {/* Output Format Selector */}
