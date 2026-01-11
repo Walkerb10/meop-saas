@@ -10,6 +10,12 @@ const corsHeaders = {
 
 const KNOWN_AUTOMATION_TYPES = new Set<AutomationType>(["text", "slack", "discord", "email"]);
 
+// Default channels for messaging platforms
+const DEFAULT_CHANNELS = {
+  slack: "all_bhva",
+  discord: "admin",
+};
+
 function asString(value: unknown): string | null {
   if (typeof value === "string") return value;
   if (typeof value === "number") return String(value);
@@ -130,12 +136,12 @@ serve(async (req) => {
         ? normalizeChannelName(
             slackChannelRaw ??
               (rawChannel && !isKnownAutomationType(channelCandidate) ? rawChannel : null)
-          ) ?? "general"
+          ) ?? DEFAULT_CHANNELS.slack
         : automationType === "discord"
         ? normalizeChannelName(
             discordChannelRaw ??
               (rawChannel && !isKnownAutomationType(channelCandidate) ? rawChannel : null)
-          ) ?? "general"
+          ) ?? DEFAULT_CHANNELS.discord
         : null;
 
     const normalizedTime = normalizeTimeTo24h(body.scheduled_time) ?? asString(body.scheduled_time) ?? "";
