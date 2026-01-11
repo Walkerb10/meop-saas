@@ -123,6 +123,86 @@ const OUTPUT_FORMATS = {
   },
 };
 
+// Interactive node component for sequence flow
+function InteractiveNode({ 
+  step, 
+  isFirst, 
+  isSelected, 
+  onClick 
+}: { 
+  step: ScheduledActionStep; 
+  isFirst: boolean; 
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const getIcon = () => {
+    switch (step.type) {
+      case 'trigger':
+        return <Clock className="w-4 h-4" />;
+      case 'condition':
+        return <GitBranch className="w-4 h-4" />;
+      case 'action':
+        return <Play className="w-4 h-4" />;
+    }
+  };
+
+  const getTypeStyles = () => {
+    if (isSelected) {
+      return step.type === 'trigger' 
+        ? 'border-primary bg-primary/10 ring-2 ring-primary/30' 
+        : 'border-green-500 bg-green-500/10 ring-2 ring-green-500/30';
+    }
+    return step.type === 'trigger'
+      ? 'border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10'
+      : 'border-green-400/30 bg-green-400/5 hover:border-green-400/50 hover:bg-green-400/10';
+  };
+
+  const getLabel = () => {
+    // For research, don't show the full prompt in the node
+    if (step.label.startsWith('Research:')) {
+      return 'Research Task';
+    }
+    // Keep other labels concise
+    if (step.label.length > 50) {
+      return step.label.substring(0, 47) + '...';
+    }
+    return step.label;
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      {!isFirst && (
+        <div className="flex flex-col items-center py-2">
+          <div className="w-px h-4 bg-border" />
+          <ArrowDown className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
+      <button
+        onClick={onClick}
+        className={`rounded-lg border p-4 w-full transition-all cursor-pointer ${getTypeStyles()}`}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-md ${
+            step.type === 'trigger' ? 'bg-primary/20 text-primary' : 'bg-green-500/20 text-green-500'
+          }`}>
+            {getIcon()}
+          </div>
+          <div className="flex-1 text-left">
+            <span className="text-sm font-medium text-foreground">{getLabel()}</span>
+            <p className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+              {step.type === 'trigger' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
+              {step.type === 'trigger' ? 'Trigger' : 'Action'}
+              <span className="text-muted-foreground/50 ml-1">· Click to edit</span>
+            </p>
+          </div>
+          <Pencil className="w-4 h-4 text-muted-foreground" />
+        </div>
+      </button>
+    </div>
+  );
+}
+
+// Simple non-interactive node for previews
 function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst: boolean }) {
   const getIcon = () => {
     switch (step.type) {
@@ -139,10 +219,10 @@ function ActionStepNode({ step, isFirst }: { step: ScheduledActionStep; isFirst:
     switch (step.type) {
       case 'trigger':
         return 'border-primary/30 bg-primary/5';
-      case 'condition':
-        return 'border-yellow-400/30 bg-yellow-400/5';
       case 'action':
         return 'border-green-400/30 bg-green-400/5';
+      default:
+        return 'border-yellow-400/30 bg-yellow-400/5';
     }
   };
 
@@ -329,8 +409,11 @@ const ScheduledActions = () => {
     started_at: string;
     completed_at: string | null;
     duration_ms: number | null;
+    output_data: unknown;
   }>>([]);
   const [loadingExecutions, setLoadingExecutions] = useState(false);
+  const [editingNode, setEditingNode] = useState<'trigger' | 'action' | null>(null);
+  const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
   
   const { automations, loading, executeAutomation, deleteAutomation, createAutomation, updateAutomation } = useAutomations();
   
@@ -381,7 +464,7 @@ const ScheduledActions = () => {
       try {
         const { data, error } = await supabase
           .from('executions')
-          .select('id, status, started_at, completed_at, duration_ms')
+          .select('id, status, started_at, completed_at, duration_ms, output_data')
           .eq('sequence_name', selectedAutomation.name)
           .order('started_at', { ascending: false })
           .limit(5);
@@ -1407,7 +1490,7 @@ const ScheduledActions = () => {
               )}
             </motion.div>
           ) : (
-            /* Automation Detail View */
+            /* Automation Detail View - Node-based editing */
             <motion.div
               key="detail"
               initial={{ opacity: 0, x: 20 }}
@@ -1415,26 +1498,21 @@ const ScheduledActions = () => {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              {/* Type Badge + Status toggle */}
+              {/* Status Toggle - Compact */}
               {(() => {
                 const automationType = getAutomationTypeFromSteps(selectedAutomation.steps);
                 const typeConfig = AUTOMATION_TYPES.find(t => t.id === automationType) || AUTOMATION_TYPES[0];
                 const TypeIcon = typeConfig.icon;
                 return (
-                  <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
-                    <div className="flex items-center gap-3">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${typeConfig.color}`}>
-                        <TypeIcon className="w-4 h-4" />
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${typeConfig.color}`}>
+                        <TypeIcon className="w-3 h-3" />
                         {typeConfig.label}
                       </span>
-                      <div>
-                        <p className="font-medium">
-                          {selectedAutomation.isActive ? 'Active' : 'Disabled'}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedAutomation.isActive ? 'Will run on schedule' : 'Will not run until enabled'}
-                        </p>
-                      </div>
+                      <span className={`text-sm ${selectedAutomation.isActive ? 'text-green-500' : 'text-muted-foreground'}`}>
+                        {selectedAutomation.isActive ? 'Active' : 'Disabled'}
+                      </span>
                     </div>
                     <Switch
                       checked={selectedAutomation.isActive}
@@ -1445,114 +1523,375 @@ const ScheduledActions = () => {
                 );
               })()}
 
-              {/* Description */}
-              {selectedAutomation.description && (
-                <p className="text-sm text-muted-foreground">{selectedAutomation.description}</p>
-              )}
-
-              {/* Sequence visualization */}
-              {selectedAutomation.steps.length > 0 ? (
-                <div className="rounded-xl border border-border bg-card p-6">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-4">Sequence Flow</h3>
-                  <div className="space-y-0">
-                    {selectedAutomation.steps.map((step, index) => (
-                      <ActionStepNode key={step.id} step={step} isFirst={index === 0} />
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-border bg-card p-6 text-center">
-                  <p className="text-sm text-muted-foreground">No steps defined for this automation</p>
-                </div>
-              )}
-
-              {/* Recent Executions */}
+              {/* Interactive Sequence Flow */}
               <div className="rounded-xl border border-border bg-card p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">Recent Executions</h3>
-                  {automationExecutions.length > 0 && (
+                  <h3 className="text-sm font-medium text-muted-foreground">Sequence Flow</h3>
+                  {editingNode && (
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="text-xs gap-1"
-                      onClick={() => navigate('/executions')}
+                      className="text-xs"
+                      onClick={() => setEditingNode(null)}
                     >
-                      View All <ExternalLink className="w-3 h-3" />
+                      Done Editing
                     </Button>
                   )}
                 </div>
+                
+                <div className="space-y-0">
+                  {selectedAutomation.steps.map((step, index) => (
+                    <div key={step.id}>
+                      <InteractiveNode
+                        step={step}
+                        isFirst={index === 0}
+                        isSelected={editingNode === step.type}
+                        onClick={() => {
+                          if (editingNode === step.type) {
+                            setEditingNode(null);
+                          } else {
+                            // Load form data and open editor for this node
+                            const extracted = extractFromSteps(selectedAutomation.steps, selectedAutomation.isActive);
+                            setFormData({
+                              name: selectedAutomation.name,
+                              type: extracted.type || 'text',
+                              message: extracted.message || '',
+                              researchQuery: extracted.researchQuery || '',
+                              researchOutputFormat: extracted.researchOutputFormat || 'summary',
+                              researchOutputLength: extracted.researchOutputLength || '500',
+                              emailTo: extracted.emailTo || '',
+                              emailSubject: extracted.emailSubject || '',
+                              slackChannel: extracted.slackChannel || '',
+                              discordChannel: extracted.discordChannel || '',
+                              frequency: extracted.frequency || 'daily',
+                              time: extracted.time || '09:00',
+                              dayOfWeek: extracted.dayOfWeek || 'Monday',
+                              dayOfMonth: extracted.dayOfMonth || '1',
+                              customDate: extracted.customDate || '',
+                              everyXDays: extracted.everyXDays || '7',
+                              webhookUrl: '',
+                            });
+                            setEditingNode(step.type as 'trigger' | 'action');
+                          }
+                        }}
+                      />
+                      
+                      {/* Inline Trigger Editor */}
+                      {editingNode === 'trigger' && step.type === 'trigger' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/20 space-y-3"
+                        >
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs font-medium mb-1 block">Frequency</label>
+                              <Select 
+                                value={formData.frequency} 
+                                onValueChange={(v) => setFormData({ ...formData, frequency: v as FrequencyType })}
+                              >
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="one_time">One-time</SelectItem>
+                                  <SelectItem value="daily">Daily</SelectItem>
+                                  <SelectItem value="weekly">Weekly</SelectItem>
+                                  <SelectItem value="monthly">Monthly</SelectItem>
+                                  <SelectItem value="every_x_days">Every X Days</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {formData.frequency !== 'one_time' && (
+                              <div>
+                                <label className="text-xs font-medium mb-1 block">Time ({getTimezoneAbbr()})</label>
+                                <Input
+                                  type="time"
+                                  value={formData.time}
+                                  onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                                  className="h-9"
+                                />
+                              </div>
+                            )}
+                          </div>
+                          {formData.frequency === 'weekly' && (
+                            <div>
+                              <label className="text-xs font-medium mb-1 block">Day</label>
+                              <Select value={formData.dayOfWeek} onValueChange={(v) => setFormData({ ...formData, dayOfWeek: v })}>
+                                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {DAYS_OF_WEEK.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          <Button 
+                            size="sm" 
+                            className="w-full gap-2"
+                            onClick={handleSaveEdit}
+                            disabled={saving}
+                          >
+                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                            Save Trigger
+                          </Button>
+                        </motion.div>
+                      )}
+                      
+                      {/* Inline Action Editor */}
+                      {editingNode === 'action' && step.type === 'action' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-4 p-4 rounded-lg bg-green-500/5 border border-green-500/20 space-y-3"
+                        >
+                          {formData.type === 'research' && (
+                            <>
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-xs font-medium">Research Prompt</label>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleEnhanceQuery}
+                                    disabled={enhancingQuery}
+                                    className="h-6 gap-1 text-[10px] text-primary"
+                                  >
+                                    {enhancingQuery ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                    Enhance
+                                  </Button>
+                                </div>
+                                <Textarea
+                                  value={formData.researchQuery}
+                                  onChange={(e) => setFormData({ ...formData, researchQuery: e.target.value })}
+                                  rows={3}
+                                  className="text-sm"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs font-medium mb-1 block">Word Count</label>
+                                  <Input
+                                    type="number"
+                                    value={formData.researchOutputLength}
+                                    onChange={(e) => setFormData({ ...formData, researchOutputLength: e.target.value })}
+                                    className="h-9"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs font-medium mb-1 block">Format</label>
+                                  <Select value={formData.researchOutputFormat} onValueChange={(v) => setFormData({ ...formData, researchOutputFormat: v })}>
+                                    <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      {Object.entries(OUTPUT_FORMATS).map(([k, v]) => (
+                                        <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                          {formData.type === 'text' && (
+                            <div>
+                              <label className="text-xs font-medium mb-1 block">Message</label>
+                              <Textarea
+                                value={formData.message}
+                                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                                rows={2}
+                              />
+                            </div>
+                          )}
+                          {formData.type === 'slack' && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium mb-1 block">Channel</label>
+                                <Select value={formData.slackChannel} onValueChange={(v) => setFormData({ ...formData, slackChannel: v })}>
+                                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {SLACK_CHANNELS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium mb-1 block">Message</label>
+                                <Textarea value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={2} />
+                              </div>
+                            </>
+                          )}
+                          {formData.type === 'discord' && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium mb-1 block">Channel</label>
+                                <Select value={formData.discordChannel} onValueChange={(v) => setFormData({ ...formData, discordChannel: v })}>
+                                  <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {DISCORD_CHANNELS.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium mb-1 block">Message</label>
+                                <Textarea value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={2} />
+                              </div>
+                            </>
+                          )}
+                          {formData.type === 'email' && (
+                            <>
+                              <div>
+                                <label className="text-xs font-medium mb-1 block">To</label>
+                                <Input value={formData.emailTo} onChange={(e) => setFormData({ ...formData, emailTo: e.target.value })} className="h-9" />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium mb-1 block">Subject</label>
+                                <Input value={formData.emailSubject} onChange={(e) => setFormData({ ...formData, emailSubject: e.target.value })} className="h-9" />
+                              </div>
+                              <div>
+                                <label className="text-xs font-medium mb-1 block">Message</label>
+                                <Textarea value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} rows={2} />
+                              </div>
+                            </>
+                          )}
+                          <Button 
+                            size="sm" 
+                            className="w-full gap-2"
+                            onClick={handleSaveEdit}
+                            disabled={saving}
+                          >
+                            {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                            Save Action
+                          </Button>
+                        </motion.div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Recent Executions - Show output directly */}
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="flex items-center justify-between p-4 border-b border-border">
+                  <h3 className="text-sm font-medium">Recent Runs</h3>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-xs gap-1"
+                    onClick={() => navigate('/executions')}
+                  >
+                    View All <ExternalLink className="w-3 h-3" />
+                  </Button>
+                </div>
+                
                 {loadingExecutions ? (
-                  <div className="flex items-center justify-center py-6">
+                  <div className="flex items-center justify-center py-8">
                     <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : automationExecutions.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="divide-y divide-border">
                     {automationExecutions.map((exec) => {
                       const started = new Date(exec.started_at);
-                      const statusIcon = exec.status === 'completed' ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : exec.status === 'failed' ? (
-                        <XCircle className="w-4 h-4 text-destructive" />
-                      ) : exec.status === 'running' ? (
-                        <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                      ) : (
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                      );
-                      
-                      const duration = exec.duration_ms 
-                        ? `${Math.floor(exec.duration_ms / 1000)}s`
-                        : exec.status === 'running' ? 'Running...' : '-';
+                      const isSelected = selectedExecutionId === exec.id;
+                      const outputData = exec.output_data as Record<string, unknown> | null;
+                      const hasResearchOutput = outputData && typeof outputData === 'object' && 'content' in outputData;
+                      const outputContent = hasResearchOutput ? (outputData as { content: string }).content : null;
                       
                       return (
-                        <div 
-                          key={exec.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 cursor-pointer transition-colors"
-                          onClick={() => navigate('/executions')}
-                        >
-                          <div className="flex items-center gap-3">
-                            {statusIcon}
-                            <div>
-                              <p className="text-sm font-medium capitalize">{exec.status}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatTime(exec.started_at)} · {started.toLocaleDateString()}
-                              </p>
+                        <div key={exec.id}>
+                          <button
+                            className={`w-full p-4 text-left hover:bg-muted/50 transition-colors ${isSelected ? 'bg-muted/30' : ''}`}
+                            onClick={() => setSelectedExecutionId(isSelected ? null : exec.id)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {exec.status === 'completed' ? (
+                                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                ) : exec.status === 'failed' ? (
+                                  <XCircle className="w-4 h-4 text-destructive" />
+                                ) : exec.status === 'running' ? (
+                                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                ) : (
+                                  <Clock className="w-4 h-4 text-muted-foreground" />
+                                )}
+                                <div>
+                                  <p className="text-sm font-medium">
+                                    {formatTime(exec.started_at)} · {started.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground capitalize">
+                                    {exec.status === 'completed' ? 'Success' : exec.status}
+                                    {exec.duration_ms && ` · ${Math.floor(exec.duration_ms / 1000)}s`}
+                                  </p>
+                                </div>
+                              </div>
+                              <ChevronRight className={`w-4 h-4 text-muted-foreground transition-transform ${isSelected ? 'rotate-90' : ''}`} />
                             </div>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{duration}</span>
+                          </button>
+                          
+                          {/* Expanded Output */}
+                          {isSelected && exec.status === 'completed' && outputData && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="px-4 pb-4"
+                            >
+                              <div className="rounded-lg bg-muted/50 p-4">
+                                {outputContent ? (
+                                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                                      {outputContent}
+                                    </div>
+                                    {(outputData as { citations?: string[] }).citations && (
+                                      <div className="mt-4 pt-3 border-t border-border">
+                                        <p className="text-xs text-muted-foreground mb-2">Sources</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {(outputData as { citations: string[] }).citations.slice(0, 5).map((url, i) => (
+                                            <a
+                                              key={i}
+                                              href={url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                                            >
+                                              <ExternalLink className="w-3 h-3" />
+                                              Source {i + 1}
+                                            </a>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <pre className="text-xs overflow-auto max-h-48">
+                                    {JSON.stringify(outputData, null, 2)}
+                                  </pre>
+                                )}
+                              </div>
+                            </motion.div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No executions yet. Click "Execute Now" to run this automation.
-                  </p>
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No runs yet. Click "Execute Now" to test.
+                  </div>
                 )}
               </div>
 
-              {/* Action buttons */}
-              <div className="flex gap-3">
-                <Button 
-                  variant="outline"
-                  className="flex-1 gap-2"
-                  onClick={startEditing}
-                >
-                  <Pencil className="w-4 h-4" />
-                  Edit
-                </Button>
-                <Button 
-                  className="flex-1 gap-2"
-                  onClick={handleExecute}
-                  disabled={executing}
-                >
-                  {executing ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Zap className="w-4 h-4" />
-                  )}
-                  {executing ? 'Executing...' : 'Execute Now'}
-                </Button>
-              </div>
+              {/* Execute Button */}
+              <Button 
+                className="w-full gap-2"
+                onClick={handleExecute}
+                disabled={executing}
+              >
+                {executing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                {executing ? 'Executing...' : 'Execute Now'}
+              </Button>
             </motion.div>
           )}
           </AnimatePresence>
