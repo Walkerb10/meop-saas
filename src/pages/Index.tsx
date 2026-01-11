@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentVoiceButton } from '@/components/AgentVoiceButton';
 import { AppLayout } from '@/components/AppLayout';
@@ -9,6 +9,9 @@ import { Send, Loader2, Zap, Clock, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTasks } from '@/hooks/useTasks';
 import { format, formatDistanceToNow } from 'date-fns';
+
+// Generate a unique conversation ID for this session
+const generateConversationId = () => `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
 function TasksPopoverContent() {
   const { tasks, loading } = useTasks();
@@ -94,6 +97,7 @@ const Index = () => {
   const [textInput, setTextInput] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
   const [hasStartedChat, setHasStartedChat] = useState(false);
+  const [conversationId, setConversationId] = useState(() => generateConversationId());
   const { toast } = useToast();
   const { tasks } = useTasks();
 
@@ -137,6 +141,7 @@ const Index = () => {
   const { status, isActive, toggle, stop } = useVapiAgent({
     onTranscript: handleTranscript,
     onError: handleError,
+    conversationId,
   });
 
   // Track when chat has started
@@ -151,9 +156,10 @@ const Index = () => {
     if (isActive) {
       stop();
     }
-    // Clear messages and reset state
+    // Clear messages and reset state with new conversation ID
     setMessages([]);
     setHasStartedChat(false);
+    setConversationId(generateConversationId());
   }, [isActive, stop]);
 
   const processingCount = tasks.filter(t => t.status === 'processing').length;

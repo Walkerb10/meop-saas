@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Vapi from '@vapi-ai/web';
+import { supabase } from '@/integrations/supabase/client';
 
 export type AgentStatus = 'idle' | 'connecting' | 'listening' | 'speaking';
 
 interface UseVapiAgentOptions {
   onTranscript?: (text: string, role: 'user' | 'assistant') => void;
   onError?: (error: string) => void;
+  conversationId?: string;
 }
 
 // Vapi public key and assistant ID
@@ -15,18 +17,37 @@ const VAPI_ASSISTANT_ID = '9526dfda-7749-42f3-af9c-0dfec7fdd6cd';
 export function useVapiAgent({
   onTranscript,
   onError,
+  conversationId,
 }: UseVapiAgentOptions = {}) {
   const [status, setStatus] = useState<AgentStatus>('idle');
   const [isActive, setIsActive] = useState(false);
   const vapiRef = useRef<Vapi | null>(null);
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
+  const conversationIdRef = useRef(conversationId);
 
   // Keep refs updated
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
     onErrorRef.current = onError;
-  }, [onTranscript, onError]);
+    conversationIdRef.current = conversationId;
+  }, [onTranscript, onError, conversationId]);
+
+  // Save transcript to database
+  const saveTranscript = useCallback(async (text: string, role: 'user' | 'assistant') => {
+    if (!conversationIdRef.current || !text.trim()) return;
+    
+    try {
+      await supabase.from('conversation_transcripts').insert({
+        role,
+        content: text.trim(),
+        conversation_id: conversationIdRef.current,
+        raw_payload: { source: 'vapi', timestamp: new Date().toISOString() },
+      });
+    } catch (error) {
+      console.error('Failed to save transcript:', error);
+    }
+  }, []);
 
   // Initialize Vapi instance
   useEffect(() => {
@@ -74,9 +95,11 @@ export function useVapiAgent({
           const transcript = message.transcript;
           const role = message.role === 'user' ? 'user' : 'assistant';
           
-          if (transcript && onTranscriptRef.current) {
+          if (transcript) {
             console.log(`🎤 ${role} said: ${transcript}`);
-            onTranscriptRef.current(transcript, role);
+            onTranscriptRef.current?.(transcript, role);
+            // Save to database
+            saveTranscript(transcript, role);
           }
         }
       });
