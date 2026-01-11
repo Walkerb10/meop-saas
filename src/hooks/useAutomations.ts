@@ -8,12 +8,12 @@ import { Json } from '@/integrations/supabase/types';
 export const DEFAULT_WEBHOOKS = {
   text: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
   send_text: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
-  slack: 'https://walkerb.app.n8n.cloud/webhook/slack-messages',
-  slack_message: 'https://walkerb.app.n8n.cloud/webhook/slack-messages',
-  discord: 'https://walkerb.app.n8n.cloud/webhook/discord-messages',
-  discord_message: 'https://walkerb.app.n8n.cloud/webhook/discord-messages',
-  email: 'https://walkerb.app.n8n.cloud/webhook/send-email',
-  send_email: 'https://walkerb.app.n8n.cloud/webhook/send-email',
+  slack: 'https://walkerb.app.n8n.cloud/webhook/067d7cbd-f49b-4641-aaab-6cb65617cb68',
+  slack_message: 'https://walkerb.app.n8n.cloud/webhook/067d7cbd-f49b-4641-aaab-6cb65617cb68',
+  discord: 'https://walkerb.app.n8n.cloud/webhook/de3262c9-cf10-4ba9-bf0f-87ba31a1144c',
+  discord_message: 'https://walkerb.app.n8n.cloud/webhook/de3262c9-cf10-4ba9-bf0f-87ba31a1144c',
+  email: 'https://walkerb.app.n8n.cloud/webhook/0bad5a52-1f17-4c90-9ca2-6d4aee1661f7',
+  send_email: 'https://walkerb.app.n8n.cloud/webhook/0bad5a52-1f17-4c90-9ca2-6d4aee1661f7',
 };
 
 // Default channels for messaging platforms
