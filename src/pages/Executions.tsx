@@ -85,6 +85,43 @@ const formatDuration = (ms: number | null): string => {
   return `${minutes}m ${seconds}s`;
 };
 
+// Check if output is from a research execution
+const isResearchOutput = (output: Json | null): output is { content: string; citations?: string[] } => {
+  if (!output || typeof output !== 'object' || Array.isArray(output)) return false;
+  const obj = output as Record<string, unknown>;
+  return typeof obj.content === 'string';
+};
+
+// Format research content with nice styling
+const ResearchOutput = ({ data }: { data: { content: string; citations?: string[] } }) => {
+  return (
+    <div className="space-y-4">
+      <div className="whitespace-pre-wrap text-sm leading-relaxed">
+        {data.content}
+      </div>
+      {data.citations && data.citations.length > 0 && (
+        <div className="pt-4 border-t border-border">
+          <h4 className="text-xs font-medium text-muted-foreground mb-2">Sources ({data.citations.length})</h4>
+          <div className="space-y-1">
+            {data.citations.map((citation, idx) => (
+              <a
+                key={idx}
+                href={citation}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-xs text-primary hover:underline"
+              >
+                <ExternalLink className="w-3 h-3 shrink-0" />
+                <span className="truncate">{citation}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Detect platform from execution data
 const detectPlatform = (execution: Execution): { name: string; icon: React.ComponentType<{ className?: string }> } => {
   const input = execution.input_data as Record<string, unknown> | null;
@@ -360,10 +397,18 @@ const Executions = () => {
               {/* Output Data */}
               {selectedExecution.output_data && (
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Output Data</h3>
-                  <pre className="p-4 rounded-lg bg-secondary/30 text-xs overflow-auto max-h-48">
-                    {JSON.stringify(selectedExecution.output_data, null, 2)}
-                  </pre>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                    {isResearchOutput(selectedExecution.output_data) ? 'Research Results' : 'Output Data'}
+                  </h3>
+                  {isResearchOutput(selectedExecution.output_data) ? (
+                    <div className="p-4 rounded-lg bg-secondary/30 overflow-auto max-h-96">
+                      <ResearchOutput data={selectedExecution.output_data} />
+                    </div>
+                  ) : (
+                    <pre className="p-4 rounded-lg bg-secondary/30 text-xs overflow-auto max-h-48">
+                      {JSON.stringify(selectedExecution.output_data, null, 2)}
+                    </pre>
+                  )}
                 </div>
               )}
             </div>
