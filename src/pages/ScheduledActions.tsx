@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Info, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
-import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
+import { ScheduledAction, ScheduledActionStep, FollowUpAction } from '@/types/agent';
+import { FollowUpActionsBuilder } from '@/components/FollowUpActionsBuilder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -336,6 +337,8 @@ interface AutomationFormData {
   customDate: string; // YYYY-MM-DD format
   everyXDays: string; // Number of days
   webhookUrl: string;
+  // Follow-up actions (building blocks)
+  followUpActions: FollowUpAction[];
 }
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -361,7 +364,7 @@ function getAutomationTypeFromSteps(steps: ScheduledActionStep[]): AutomationTyp
 }
 
 // Helper to extract data from automation steps
-function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Partial<AutomationFormData> {
+function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean, followUpActions?: FollowUpAction[]): Partial<AutomationFormData> {
   const actionStep = steps.find(s => s.type === 'action');
   const triggerStep = steps.find(s => s.type === 'trigger');
   const label = triggerStep?.label || '';
@@ -430,7 +433,12 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
     if (dateMatch) customDate = dateMatch[1];
   }
   
-  return { type, message, researchQuery, researchOutputFormat, researchOutputLength, emailTo, emailSubject, slackChannel, discordChannel, frequency, time, dayOfWeek, dayOfMonth, customDate, everyXDays };
+  return { 
+    type, message, researchQuery, researchOutputFormat, researchOutputLength, 
+    emailTo, emailSubject, slackChannel, discordChannel, frequency, time, 
+    dayOfWeek, dayOfMonth, customDate, everyXDays,
+    followUpActions: followUpActions || []
+  };
 }
 
 const ScheduledActions = () => {
@@ -457,6 +465,7 @@ const ScheduledActions = () => {
     customDate: '',
     everyXDays: '7',
     webhookUrl: '',
+    followUpActions: [],
   });
   // enhancingQuery state removed - now handled by AIEnhanceButton component
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
@@ -505,6 +514,7 @@ const ScheduledActions = () => {
           customDate: extracted.customDate || '',
           everyXDays: extracted.everyXDays || '7',
           webhookUrl: '',
+          followUpActions: extracted.followUpActions || [],
         });
         setIsEditing(true);
         // Clear the query param after handling
@@ -908,6 +918,7 @@ const ScheduledActions = () => {
       customDate: '',
       everyXDays: '7',
       webhookUrl: '',
+      followUpActions: [],
     });
   };
 
@@ -939,6 +950,7 @@ const ScheduledActions = () => {
       customDate: extracted.customDate || '',
       everyXDays: extracted.everyXDays || '7',
       webhookUrl: '',
+      followUpActions: extracted.followUpActions || [],
     });
     setIsEditing(true);
   };
@@ -1295,6 +1307,15 @@ const ScheduledActions = () => {
         </div>
       </div>
 
+      {/* Follow-up Actions (Building Blocks) */}
+      <div className="rounded-xl border border-border bg-card p-6">
+        <FollowUpActionsBuilder
+          actions={formData.followUpActions}
+          onChange={(actions) => setFormData({ ...formData, followUpActions: actions })}
+          primaryActionType={formData.type}
+        />
+      </div>
+
       {/* Preview */}
       <div className="rounded-xl border border-border bg-card p-6">
         <h3 className="text-sm font-medium text-muted-foreground mb-4">Preview</h3>
@@ -1637,6 +1658,7 @@ const ScheduledActions = () => {
                               customDate: extracted.customDate || '',
                               everyXDays: extracted.everyXDays || '7',
                               webhookUrl: '',
+                              followUpActions: extracted.followUpActions || [],
                             });
                             setEditingNode(step.type as 'trigger' | 'action');
                           }
