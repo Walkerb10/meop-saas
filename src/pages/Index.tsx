@@ -144,7 +144,7 @@ const Index = () => {
     [toast]
   );
 
-  const { status, isActive, toggle, stop } = useVapiAgent({
+  const { status, isActive, toggle, stop, inputVolume, outputVolume } = useVapiAgent({
     onTranscript: handleTranscript,
     onError: handleError,
     conversationId,
@@ -214,7 +214,9 @@ const Index = () => {
               status={status} 
               isActive={isActive} 
               onToggle={toggle}
-              size={hasStartedChat ? 'small' : 'normal'} 
+              size={hasStartedChat ? 'small' : 'normal'}
+              inputVolume={inputVolume}
+              outputVolume={outputVolume}
             />
             
             {/* Start speaking hint */}

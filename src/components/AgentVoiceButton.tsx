@@ -7,9 +7,18 @@ interface AgentVoiceButtonProps {
   isActive: boolean;
   onToggle: () => void;
   size?: 'normal' | 'small';
+  inputVolume?: number; // 0-1 range
+  outputVolume?: number; // 0-1 range
 }
 
-export function AgentVoiceButton({ status, isActive, onToggle, size = 'normal' }: AgentVoiceButtonProps) {
+export function AgentVoiceButton({ 
+  status, 
+  isActive, 
+  onToggle, 
+  size = 'normal',
+  inputVolume = 0,
+  outputVolume = 0,
+}: AgentVoiceButtonProps) {
   const isListening = status === 'listening';
   const isSpeaking = status === 'speaking';
   const isConnecting = status === 'connecting';
@@ -18,6 +27,31 @@ export function AgentVoiceButton({ status, isActive, onToggle, size = 'normal' }
   const isSmall = size === 'small';
   const buttonSize = isSmall ? 'w-16 h-16' : 'w-32 h-32';
   const iconSize = isSmall ? 'w-6 h-6' : 'w-12 h-12';
+
+  // Get the active volume level based on who's talking
+  const activeVolume = isSpeaking ? outputVolume : inputVolume;
+  // Scale to make visualization more visible (volume is often 0-0.3)
+  const scaledVolume = Math.min(1, activeVolume * 3);
+
+  // Calculate bar heights based on volume
+  const getBarHeight = (index: number, total: number) => {
+    const baseHeight = isSmall ? 4 : 8;
+    const maxHeight = isSmall ? 20 : 40;
+    
+    // If no volume, show minimal bars
+    if (scaledVolume < 0.05) {
+      return baseHeight;
+    }
+    
+    // Center bars should be taller
+    const centerIndex = (total - 1) / 2;
+    const distanceFromCenter = Math.abs(index - centerIndex) / centerIndex;
+    const heightMultiplier = 1 - distanceFromCenter * 0.4;
+    
+    return baseHeight + (maxHeight - baseHeight) * scaledVolume * heightMultiplier;
+  };
+
+  const barCount = isSmall ? 3 : 5;
 
   return (
     <div className="relative flex items-center justify-center">
@@ -33,22 +67,20 @@ export function AgentVoiceButton({ status, isActive, onToggle, size = 'normal' }
         whileHover={{ scale: isConnecting ? 1 : 1.05 }}
         whileTap={{ scale: isConnecting ? 1 : 0.95 }}
       >
-        {/* Wave bars when speaking OR listening */}
+        {/* Wave bars when speaking OR listening - driven by real volume */}
         {isAudioActive ? (
           <div className="flex items-center justify-center gap-1">
-            {[...Array(isSmall ? 3 : 5)].map((_, i) => (
+            {[...Array(barCount)].map((_, i) => (
               <motion.div
                 key={i}
                 className={`${isSmall ? 'w-1' : 'w-1.5'} bg-primary-foreground rounded-full`}
                 animate={{ 
-                  height: isSpeaking 
-                    ? (isSmall ? [4, 16, 4] : [8, 32, 8])
-                    : (isSmall ? [4, 10, 4] : [8, 20, 8]) // Smaller animation when listening
+                  height: getBarHeight(i, barCount),
                 }}
                 transition={{
-                  duration: isSpeaking ? 0.5 : 0.8,
-                  repeat: Infinity,
-                  delay: i * 0.1,
+                  type: 'spring',
+                  stiffness: 300,
+                  damping: 20,
                 }}
               />
             ))}
