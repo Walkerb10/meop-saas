@@ -13,76 +13,14 @@ export function AgentVoiceButton({ status, isActive, onToggle, size = 'normal' }
   const isListening = status === 'listening';
   const isSpeaking = status === 'speaking';
   const isConnecting = status === 'connecting';
+  const isAudioActive = isListening || isSpeaking;
 
   const isSmall = size === 'small';
   const buttonSize = isSmall ? 'w-16 h-16' : 'w-32 h-32';
   const iconSize = isSmall ? 'w-6 h-6' : 'w-12 h-12';
-  const pulseSize = isSmall ? 'w-20 h-20' : 'w-36 h-36';
-  const glowSize = isSmall ? 'w-24 h-24' : 'w-40 h-40';
 
   return (
     <div className="relative flex items-center justify-center">
-      {/* Outer pulse ring when active */}
-      {isActive && !isSmall && (
-        <motion.div
-          className={`absolute ${pulseSize} rounded-full border-2 border-primary/50`}
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.5, 0.2, 0.5],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      )}
-
-      {/* Speaking indicator rings */}
-      {isSpeaking && (
-        <>
-          {[1, 2, 3].map((i) => (
-            <motion.div
-              key={i}
-              className={`absolute ${isSmall ? 'w-16 h-16' : 'w-32 h-32'} rounded-full border border-primary/40`}
-              initial={{ scale: 1, opacity: 0.4 }}
-              animate={{ scale: 2, opacity: 0 }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                delay: i * 0.3,
-                ease: 'easeOut',
-              }}
-            />
-          ))}
-        </>
-      )}
-
-      {/* Listening pulse */}
-      {isListening && !isSmall && (
-        <motion.div
-          className={`absolute ${pulseSize} rounded-full bg-primary/20`}
-          animate={{
-            scale: [1, 1.1, 1],
-          }}
-          transition={{
-            duration: 1,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        />
-      )}
-
-      {/* Glow effect */}
-      {!isSmall && (
-        <div 
-          className={`absolute ${glowSize} rounded-full blur-3xl transition-all duration-500 ${
-            isActive ? 'opacity-50 scale-100' : 'opacity-0 scale-50'
-          }`}
-          style={{ background: 'hsl(var(--primary) / 0.4)' }}
-        />
-      )}
-
       {/* Main button */}
       <motion.button
         onClick={onToggle}
@@ -95,16 +33,20 @@ export function AgentVoiceButton({ status, isActive, onToggle, size = 'normal' }
         whileHover={{ scale: isConnecting ? 1 : 1.05 }}
         whileTap={{ scale: isConnecting ? 1 : 0.95 }}
       >
-        {/* Wave bars when speaking */}
-        {isSpeaking ? (
+        {/* Wave bars when speaking OR listening */}
+        {isAudioActive ? (
           <div className="flex items-center justify-center gap-1">
             {[...Array(isSmall ? 3 : 5)].map((_, i) => (
               <motion.div
                 key={i}
                 className={`${isSmall ? 'w-1' : 'w-1.5'} bg-primary-foreground rounded-full`}
-                animate={{ height: isSmall ? [4, 16, 4] : [8, 32, 8] }}
+                animate={{ 
+                  height: isSpeaking 
+                    ? (isSmall ? [4, 16, 4] : [8, 32, 8])
+                    : (isSmall ? [4, 10, 4] : [8, 20, 8]) // Smaller animation when listening
+                }}
                 transition={{
-                  duration: 0.5,
+                  duration: isSpeaking ? 0.5 : 0.8,
                   repeat: Infinity,
                   delay: i * 0.1,
                 }}
