@@ -11,18 +11,30 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type, output_format, output_length } = await req.json();
+    const { prompt, type, output_format, output_length, custom_instructions } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Enhancing prompt:", { type, prompt: prompt.substring(0, 50), output_format, output_length });
+    console.log("Enhancing prompt:", { type, hasCustom: !!custom_instructions, promptLength: prompt?.length || 0 });
 
     let systemPrompt: string;
+    let userMessage: string;
     
-    if (type === 'research') {
+    // Custom instructions mode
+    if (custom_instructions) {
+      if (prompt?.trim()) {
+        // Modify existing text with custom instructions
+        systemPrompt = `You are an expert text enhancer. The user has provided text and specific instructions on how to modify it. Follow their instructions precisely while maintaining the core intent. Output ONLY the enhanced text - no explanations or meta-commentary.`;
+        userMessage = `Original text:\n"${prompt}"\n\nInstructions: ${custom_instructions}`;
+      } else {
+        // Generate from scratch based on instructions
+        systemPrompt = `You are an expert content creator. Generate high-quality text based on the user's instructions. Be specific, clear, and actionable. Output ONLY the generated text - no explanations or meta-commentary.`;
+        userMessage = custom_instructions;
+      }
+    } else if (type === 'research') {
       systemPrompt = `You are an elite research query architect. Transform vague research requests into powerful, comprehensive research prompts that will extract maximum value from AI search engines like Perplexity.
 
 Your enhanced prompt MUST include:
@@ -41,8 +53,10 @@ ${output_format ? `Output will be formatted as: ${output_format}` : ''}
 Transform the user's simple query into a comprehensive research directive. Write in second person ("Research...", "Analyze...", "Identify...").
 
 Output ONLY the enhanced research prompt - no explanations, headers, or meta-commentary. The prompt should be 3-6 sentences that would make any researcher immediately understand exactly what to find.`;
+      userMessage = `Enhance this research prompt: "${prompt}"`;
     } else {
       systemPrompt = `You are a prompt enhancement expert. Improve the given prompt to be clearer, more specific, and more effective. Keep it concise. Respond ONLY with the enhanced prompt.`;
+      userMessage = `Enhance this prompt: "${prompt}"`;
     }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -55,7 +69,7 @@ Output ONLY the enhanced research prompt - no explanations, headers, or meta-com
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Enhance this ${type || 'prompt'}: "${prompt}"` },
+          { role: "user", content: userMessage },
         ],
         stream: false,
       }),
