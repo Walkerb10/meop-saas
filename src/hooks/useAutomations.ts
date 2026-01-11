@@ -4,11 +4,18 @@ import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Json } from '@/integrations/supabase/types';
 
 // Default webhook URLs for different automation types
-const DEFAULT_WEBHOOKS = {
+// Each type has its own dedicated webhook
+export const DEFAULT_WEBHOOKS = {
   text: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
-  slack: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
-  discord: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
-  email: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
+  slack: 'https://walkerb.app.n8n.cloud/webhook/slack-messages',
+  discord: 'https://walkerb.app.n8n.cloud/webhook/discord-messages',
+  email: 'https://walkerb.app.n8n.cloud/webhook/send-email',
+};
+
+// Default channels for messaging platforms
+export const DEFAULT_CHANNELS = {
+  slack: 'all_bhva',
+  discord: 'admin',
 };
 
 export function useAutomations() {
@@ -157,18 +164,20 @@ export function useAutomations() {
             message: message,
           };
 
-          // Add type-specific fields
+          // Add type-specific fields with defaults
           if (actionType === 'send_email') {
             payload.to = actionConfig.to;
             payload.subject = actionConfig.subject;
             payload.email_to = actionConfig.to;
             payload.email_subject = actionConfig.subject;
           } else if (actionType === 'slack_message') {
-            payload.channel = actionConfig.channel;
-            payload.slack_channel = actionConfig.channel;
+            const channel = (actionConfig.channel as string) || DEFAULT_CHANNELS.slack;
+            payload.channel = channel;
+            payload.slack_channel = channel;
           } else if (actionType === 'discord_message') {
-            payload.discord_channel = actionConfig.discord_channel;
-            payload.channel = actionConfig.discord_channel;
+            const channel = (actionConfig.discord_channel as string) || DEFAULT_CHANNELS.discord;
+            payload.discord_channel = channel;
+            payload.channel = channel;
           } else if (actionType === 'send_text') {
             payload.phone = actionConfig.phone;
           }

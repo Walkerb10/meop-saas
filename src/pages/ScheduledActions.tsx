@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { AppLayout } from '@/components/AppLayout';
-import { useAutomations } from '@/hooks/useAutomations';
+import { useAutomations, DEFAULT_CHANNELS } from '@/hooks/useAutomations';
 import { useTimezone } from '@/hooks/useTimezone';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -114,12 +114,23 @@ interface AutomationFormData {
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const AUTOMATION_TYPES = [
-  { id: 'text' as const, label: 'Send Text', icon: MessageSquare, description: 'Send SMS via n8n webhook' },
-  { id: 'research' as const, label: 'Research', icon: Search, description: 'AI-powered research via Perplexity' },
-  { id: 'email' as const, label: 'Send Email', icon: Mail, description: 'Send email via Gmail webhook' },
-  { id: 'slack' as const, label: 'Slack Message', icon: Hash, description: 'Post to Slack channel' },
-  { id: 'discord' as const, label: 'Discord Message', icon: Hash, description: 'Post to Discord channel' },
+  { id: 'text' as const, label: 'Text', icon: MessageSquare, description: 'Send SMS via n8n webhook', color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+  { id: 'research' as const, label: 'Research', icon: Search, description: 'AI-powered research via Perplexity', color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
+  { id: 'email' as const, label: 'Email', icon: Mail, description: 'Send email via Gmail webhook', color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
+  { id: 'slack' as const, label: 'Slack', icon: Hash, description: 'Post to Slack channel', color: 'bg-green-500/10 text-green-500 border-green-500/20' },
+  { id: 'discord' as const, label: 'Discord', icon: Hash, description: 'Post to Discord channel', color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' },
 ];
+
+// Helper to get automation type from steps
+function getAutomationTypeFromSteps(steps: ScheduledActionStep[]): AutomationType {
+  const actionStep = steps.find(s => s.type === 'action');
+  const config = actionStep?.config as Record<string, unknown> | undefined;
+  if (config?.action_type === 'research') return 'research';
+  if (config?.action_type === 'send_email') return 'email';
+  if (config?.action_type === 'slack_message') return 'slack';
+  if (config?.action_type === 'discord_message') return 'discord';
+  return 'text';
+}
 
 // Helper to extract data from automation steps
 function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Partial<AutomationFormData> {
@@ -149,11 +160,11 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
   const emailTo = (config?.to as string) || '';
   const emailSubject = (config?.subject as string) || '';
   
-  // Extract slack fields
-  const slackChannel = (config?.channel as string) || '';
+  // Extract slack fields - use default if not set
+  const slackChannel = (config?.channel as string) || DEFAULT_CHANNELS.slack;
   
-  // Extract discord fields
-  const discordChannel = (config?.discord_channel as string) || '';
+  // Extract discord fields - use default if not set
+  const discordChannel = (config?.discord_channel as string) || DEFAULT_CHANNELS.discord;
 
   // Parse trigger - check if it was one_time (inactive with no schedule indicator)
   let frequency: FrequencyType = 'daily';
@@ -210,8 +221,8 @@ const ScheduledActions = () => {
     customOutputFormat: '',
     emailTo: '',
     emailSubject: '',
-    slackChannel: '',
-    discordChannel: '',
+    slackChannel: DEFAULT_CHANNELS.slack,
+    discordChannel: DEFAULT_CHANNELS.discord,
     frequency: 'daily',
     time: '09:00',
     dayOfWeek: 'Monday',
@@ -578,8 +589,8 @@ const ScheduledActions = () => {
       customOutputFormat: '',
       emailTo: '',
       emailSubject: '',
-      slackChannel: '',
-      discordChannel: '',
+      slackChannel: DEFAULT_CHANNELS.slack,
+      discordChannel: DEFAULT_CHANNELS.discord,
       frequency: 'daily',
       time: '09:00',
       dayOfWeek: 'Monday',
@@ -785,7 +796,7 @@ const ScheduledActions = () => {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">#</span>
                   <Input
-                    placeholder="general"
+                    placeholder={DEFAULT_CHANNELS.slack}
                     value={formData.slackChannel}
                     onChange={(e) => setFormData({ ...formData, slackChannel: e.target.value })}
                     className="pl-7"
@@ -811,7 +822,7 @@ const ScheduledActions = () => {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">#</span>
                   <Input
-                    placeholder="general"
+                    placeholder={DEFAULT_CHANNELS.discord}
                     value={formData.discordChannel}
                     onChange={(e) => setFormData({ ...formData, discordChannel: e.target.value })}
                     className="pl-7"
@@ -1098,50 +1109,61 @@ const ScheduledActions = () => {
                   </Button>
                 </div>
               ) : (
-                automations.map((action, index) => (
-                  <motion.div
-                    key={action.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className={`rounded-xl border p-4 transition-all group ${
-                      action.isActive 
-                        ? 'border-border bg-card hover:border-primary/30' 
-                        : 'border-border/50 bg-card/50 opacity-60 hover:opacity-80'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      {/* Toggle Switch */}
-                      <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <Switch
-                          checked={action.isActive}
-                          onCheckedChange={() => handleToggleActive(action, { stopPropagation: () => {} } as React.MouseEvent)}
-                          disabled={togglingId === action.id}
-                        />
-                      </div>
-
-                      {/* Content - clickable */}
-                      <button
-                        onClick={() => setSelectedAutomation(action)}
-                        className="flex-1 text-left min-w-0"
-                      >
-                        <div className="flex items-center gap-3 mb-1">
-                          <h3 className={`font-semibold truncate ${action.isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                            {action.name}
-                          </h3>
+                automations.map((action, index) => {
+                  const automationType = getAutomationTypeFromSteps(action.steps);
+                  const typeConfig = AUTOMATION_TYPES.find(t => t.id === automationType) || AUTOMATION_TYPES[0];
+                  const TypeIcon = typeConfig.icon;
+                  
+                  return (
+                    <motion.div
+                      key={action.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className={`rounded-xl border p-4 transition-all group ${
+                        action.isActive 
+                          ? 'border-border bg-card hover:border-primary/30' 
+                          : 'border-border/50 bg-card/50 opacity-60 hover:opacity-80'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        {/* Toggle Switch */}
+                        <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Switch
+                            checked={action.isActive}
+                            onCheckedChange={() => handleToggleActive(action, { stopPropagation: () => {} } as React.MouseEvent)}
+                            disabled={togglingId === action.id}
+                          />
                         </div>
-                        {action.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">{action.description}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {action.steps.length} steps{action.steps[0] && ` • ${action.steps[0].label}`}
-                        </p>
-                      </button>
 
-                      <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
-                    </div>
-                  </motion.div>
-                ))
+                        {/* Content - clickable */}
+                        <button
+                          onClick={() => setSelectedAutomation(action)}
+                          className="flex-1 text-left min-w-0"
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            {/* Type Badge */}
+                            <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border ${typeConfig.color}`}>
+                              <TypeIcon className="w-3 h-3" />
+                              {typeConfig.label}
+                            </span>
+                            <h3 className={`font-semibold truncate ${action.isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {action.name}
+                            </h3>
+                          </div>
+                          {action.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-1">{action.description}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {action.steps[0] && action.steps[0].label}
+                          </p>
+                        </button>
+
+                        <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                      </div>
+                    </motion.div>
+                  );
+                })
               )}
             </motion.div>
           ) : (
@@ -1153,25 +1175,35 @@ const ScheduledActions = () => {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              {/* Status toggle */}
-              <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
-                <div className="flex items-center gap-3">
-                  <Power className={`w-5 h-5 ${selectedAutomation.isActive ? 'text-green-400' : 'text-muted-foreground'}`} />
-                  <div>
-                    <p className="font-medium">
-                      {selectedAutomation.isActive ? 'Automation Active' : 'Automation Disabled'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedAutomation.isActive ? 'Will run on schedule' : 'Will not run until enabled'}
-                    </p>
+              {/* Type Badge + Status toggle */}
+              {(() => {
+                const automationType = getAutomationTypeFromSteps(selectedAutomation.steps);
+                const typeConfig = AUTOMATION_TYPES.find(t => t.id === automationType) || AUTOMATION_TYPES[0];
+                const TypeIcon = typeConfig.icon;
+                return (
+                  <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card">
+                    <div className="flex items-center gap-3">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${typeConfig.color}`}>
+                        <TypeIcon className="w-4 h-4" />
+                        {typeConfig.label}
+                      </span>
+                      <div>
+                        <p className="font-medium">
+                          {selectedAutomation.isActive ? 'Active' : 'Disabled'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedAutomation.isActive ? 'Will run on schedule' : 'Will not run until enabled'}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={selectedAutomation.isActive}
+                      onCheckedChange={() => handleToggleActive(selectedAutomation, { stopPropagation: () => {} } as React.MouseEvent)}
+                      disabled={togglingId === selectedAutomation.id}
+                    />
                   </div>
-                </div>
-                <Switch
-                  checked={selectedAutomation.isActive}
-                  onCheckedChange={() => handleToggleActive(selectedAutomation, { stopPropagation: () => {} } as React.MouseEvent)}
-                  disabled={togglingId === selectedAutomation.id}
-                />
-              </div>
+                );
+              })()}
 
               {/* Description */}
               {selectedAutomation.description && (
