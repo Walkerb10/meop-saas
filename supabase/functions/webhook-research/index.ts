@@ -95,7 +95,7 @@ serve(async (req) => {
 
     // Build system prompt with format + word count instructions
     const baseSystemPrompt =
-      "You are a deep research assistant. Provide comprehensive, well-sourced answers with citations. Focus on accuracy and depth.";
+      "You are a helpful research assistant who explains things simply. Write at a 5th grade reading level. Use short sentences. Avoid big words and jargon. Make everything easy to understand for anyone.";
 
     const systemPrompt = [baseSystemPrompt, wordCountInstruction, formatInstructions]
       .filter(Boolean)
@@ -169,7 +169,7 @@ serve(async (req) => {
                 {
                   role: "system",
                   content:
-                    "You are an expert editor. Rewrite the provided research into the requested format and target word count. Do not add new facts; do not invent sources; do not include URLs in the body. Output ONLY the rewritten content.",
+                    "You are an expert editor who writes at a 5th grade reading level. Your job is to rewrite research so anyone can understand it. Use simple words, short sentences, and clear explanations. No jargon. No complex terms. No long paragraphs. Keep it friendly and easy to read. Do not add new facts. Do not invent sources. Do not include URLs in the body. Output ONLY the rewritten content.",
                 },
                 {
                   role: "user",
@@ -196,11 +196,18 @@ serve(async (req) => {
         console.warn("LOVABLE_API_KEY not configured; skipping reformat step");
       }
     }
-    
+
+    // Count words in the final content
+    const wordCount = content.split(/\s+/).filter((w: string) => w.length > 0).length;
+
+    // Append word count to the content
+    const contentWithWordCount = `${content}\n\n---\n**Word count:** ${wordCount}`;
+
     // Format the response for ElevenLabs agent
     const result = {
       success: true,
-      content,
+      content: contentWithWordCount,
+      word_count: wordCount,
       citations,
       model: data.model,
     };
