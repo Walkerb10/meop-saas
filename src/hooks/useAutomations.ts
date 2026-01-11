@@ -106,12 +106,13 @@ export function useAutomations() {
       if (!automation) throw new Error('Automation not found');
 
       // Extract action config
-      const steps = automation.steps as unknown as Array<{ type: string; config?: Record<string, unknown>; label?: string }>;
+      const steps =
+        automation.steps as unknown as Array<{ type: string; config?: Record<string, unknown>; label?: string }>;
       const actionStep = steps?.find((s) => s.type === 'action');
       const actionConfig = (actionStep?.config || {}) as Record<string, unknown>;
-      const actionType = actionConfig.action_type as string || 'send_text';
+      const actionType = (actionConfig.action_type as string) || 'send_text';
 
-      // Create an execution record
+      // Create an execution record (this is the only part we wait for)
       const { data: execution, error: execError } = await supabase
         .from('executions')
         .insert({
@@ -123,124 +124,139 @@ export function useAutomations() {
         .single();
 
       if (execError) throw execError;
+      if (!execution) throw new Error('Failed to create execution');
 
       const startTime = Date.now();
 
-      try {
-        // Determine how to execute based on action type
-        if (actionType === 'research') {
-          // Research query comes from query field in config (set by buildSteps)
-          const query = (actionConfig.query as string) || (actionConfig.research_query as string) || (actionConfig.message as string) || automation.name;
-          const outputFormat = (actionConfig.output_format as string) || 'detailed';
-          
-          console.log(`🔬 Executing research with query: "${query}" format: "${outputFormat}"`);
-          
-          const { data, error } = await supabase.functions.invoke('webhook-research', {
-            body: { 
-              query, 
-              output_format: outputFormat,
+      // Kick off the work in the background so the UI can immediately navigate to Executions.
+      void (async () => {
+        try {
+          // Determine how to execute based on action type
+          if (actionType === 'research') {
+            // Research query comes from query field in config (set by buildSteps)
+            const query =
+              (actionConfig.query as string) ||
+              (actionConfig.research_query as string) ||
+              (actionConfig.message as string) ||
+              automation.name;
+            const outputFormat = (actionConfig.output_format as string) || 'detailed';
+            const outputLength = (actionConfig.output_length as string) || '500';
+
+            console.log(
+              `🔬 Starting research execution ${execution.id} (format: ${outputFormat}, ~${outputLength} words)`
+            );
+
+            const { data, error } = await supabase.functions.invoke('webhook-research', {
+              body: {
+                query,
+                output_format: outputFormat,
+                output_length: outputLength,
+                execution_id: execution.id,
+              },
+            });
+
+            if (error) throw error;
+
+            // Update with result
+            await supabase
+              .from('executions')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                duration_ms: Date.now() - startTime,
+                output_data: data as Json,
+              })
+              .eq('id', execution.id);
+          } else {
+            // For text, email, slack, discord - send to n8n webhook
+            const webhookUrl =
+              automation.n8n_webhook_url ||
+              DEFAULT_WEBHOOKS[actionType as keyof typeof DEFAULT_WEBHOOKS] ||
+              DEFAULT_WEBHOOKS.text;
+
+            const message = (actionConfig.message as string) || automation.description || automation.name;
+
+            // Build payload based on type
+            const payload: Record<string, unknown> = {
+              automation_name: automation.name,
               execution_id: execution.id,
+              action_type: actionType,
+              message,
+            };
+
+            // Add type-specific fields with defaults
+            if (actionType === 'send_email') {
+              payload.to = actionConfig.to;
+              payload.subject = actionConfig.subject;
+              payload.email_to = actionConfig.to;
+              payload.email_subject = actionConfig.subject;
+            } else if (actionType === 'slack_message') {
+              const channel = (actionConfig.channel as string) || DEFAULT_CHANNELS.slack;
+              payload.channel = channel;
+              payload.slack_channel = channel;
+            } else if (actionType === 'discord_message') {
+              const channel = (actionConfig.discord_channel as string) || DEFAULT_CHANNELS.discord;
+              payload.discord_channel = channel;
+              payload.channel = channel;
+            } else if (actionType === 'send_text') {
+              payload.phone = actionConfig.phone;
             }
-          });
 
-          if (error) throw error;
+            console.log(`📤 Sending ${actionType} execution ${execution.id} to webhook:`, webhookUrl);
 
-          // Update with result
-          await supabase
-            .from('executions')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-              duration_ms: Date.now() - startTime,
-              output_data: data as Json,
-            })
-            .eq('id', execution.id);
+            const response = await fetch(webhookUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
 
-        } else {
-          // For text, email, slack, discord - send to n8n webhook
-          const webhookUrl = automation.n8n_webhook_url || DEFAULT_WEBHOOKS[actionType as keyof typeof DEFAULT_WEBHOOKS] || DEFAULT_WEBHOOKS.text;
-          
-          const message = (actionConfig.message as string) || automation.description || automation.name;
-          
-          // Build payload based on type
-          const payload: Record<string, unknown> = {
-            automation_name: automation.name,
-            execution_id: execution.id,
-            action_type: actionType,
-            message: message,
-          };
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`Webhook failed (${response.status}): ${errorText}`);
+            }
 
-          // Add type-specific fields with defaults
-          if (actionType === 'send_email') {
-            payload.to = actionConfig.to;
-            payload.subject = actionConfig.subject;
-            payload.email_to = actionConfig.to;
-            payload.email_subject = actionConfig.subject;
-          } else if (actionType === 'slack_message') {
-            const channel = (actionConfig.channel as string) || DEFAULT_CHANNELS.slack;
-            payload.channel = channel;
-            payload.slack_channel = channel;
-          } else if (actionType === 'discord_message') {
-            const channel = (actionConfig.discord_channel as string) || DEFAULT_CHANNELS.discord;
-            payload.discord_channel = channel;
-            payload.channel = channel;
-          } else if (actionType === 'send_text') {
-            payload.phone = actionConfig.phone;
+            let responseData: unknown = null;
+            try {
+              responseData = await response.json();
+            } catch {
+              // Response may not be JSON
+              responseData = { status: 'sent' };
+            }
+
+            // Update execution as completed
+            await supabase
+              .from('executions')
+              .update({
+                status: 'completed',
+                completed_at: new Date().toISOString(),
+                duration_ms: Date.now() - startTime,
+                output_data: responseData as Json,
+              })
+              .eq('id', execution.id);
           }
-
-          console.log(`📤 Sending ${actionType} to webhook:`, webhookUrl);
-          console.log('Payload:', JSON.stringify(payload, null, 2));
-
-          const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Webhook failed (${response.status}): ${errorText}`);
-          }
-
-          let responseData = null;
+        } catch (execError) {
+          console.error('Execution error:', execError);
           try {
-            responseData = await response.json();
-          } catch {
-            // Response may not be JSON
-            responseData = { status: 'sent' };
+            await supabase
+              .from('executions')
+              .update({
+                status: 'failed',
+                completed_at: new Date().toISOString(),
+                error_message: execError instanceof Error ? execError.message : 'Unknown error',
+              })
+              .eq('id', execution.id);
+          } catch (markFailedError) {
+            console.error('Failed to mark execution as failed:', markFailedError);
           }
-
-          // Update execution as completed
-          await supabase
-            .from('executions')
-            .update({
-              status: 'completed',
-              completed_at: new Date().toISOString(),
-              duration_ms: Date.now() - startTime,
-              output_data: responseData as Json,
-            })
-            .eq('id', execution.id);
         }
+      })();
 
-      } catch (execError) {
-        console.error('Execution error:', execError);
-        // Update execution as failed
-        await supabase
-          .from('executions')
-          .update({
-            status: 'failed',
-            completed_at: new Date().toISOString(),
-            error_message: execError instanceof Error ? execError.message : 'Unknown error',
-          })
-          .eq('id', execution.id);
-        throw execError;
+      // Best-effort bookkeeping (do not block UI)
+      try {
+        await supabase.from('automations').update({ last_run_at: new Date().toISOString() }).eq('id', automationId);
+      } catch (e) {
+        console.warn('Failed to update last_run_at:', e);
       }
-
-      // Update last_run_at
-      await supabase
-        .from('automations')
-        .update({ last_run_at: new Date().toISOString() })
-        .eq('id', automationId);
 
       return execution;
     } catch (err) {
@@ -248,6 +264,7 @@ export function useAutomations() {
       throw err;
     }
   }, []);
+
 
   const updateAutomation = useCallback(async (automationId: string, updates: {
     name?: string;
