@@ -129,9 +129,9 @@ export function useAutomations() {
       try {
         // Determine how to execute based on action type
         if (actionType === 'research') {
-          // Research query comes from research_query field in config (set by vapi-webhook from research_topic)
-          const query = (actionConfig.research_query as string) || (actionConfig.query as string) || (actionConfig.message as string) || automation.name;
-          const outputFormat = (actionConfig.output_format as string) || 'detailed report';
+          // Research query comes from query field in config (set by buildSteps)
+          const query = (actionConfig.query as string) || (actionConfig.research_query as string) || (actionConfig.message as string) || automation.name;
+          const outputFormat = (actionConfig.output_format as string) || 'detailed';
           
           console.log(`🔬 Executing research with query: "${query}" format: "${outputFormat}"`);
           

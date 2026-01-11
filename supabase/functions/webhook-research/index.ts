@@ -5,6 +5,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Output format templates matching the frontend
+const OUTPUT_FORMATS: Record<string, string> = {
+  summary: `Format your response as a concise 2-3 paragraph summary covering:
+• Key findings
+• Main takeaways
+• Brief conclusion`,
+  detailed: `Format your response as a comprehensive report with these sections:
+1. Executive Summary
+2. Background & Context
+3. Key Findings (detailed)
+4. Analysis & Implications
+5. Recommendations
+6. Sources & References`,
+  bullets: `Format your response as bullet points:
+• 5-10 key bullet points
+• Each point is 1-2 sentences
+• Most important information first
+• Action items highlighted`,
+  actionable: `Focus on practical next steps and format as:
+1. Immediate Actions (do today)
+2. Short-term Actions (this week)
+3. Strategic Considerations
+4. Risks to Watch`,
+  problem: `Format using the Problem Framework:
+1. PROBLEM: What's the core issue/challenge?
+2. CONTEXT: What is happening right now?
+3. WHY YOU SHOULD CARE: Implications & how this affects you
+4. WHAT YOU CAN DO: How to apply this info in your life`,
+};
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -12,14 +42,32 @@ serve(async (req) => {
   }
 
   try {
-    const { query, search_mode, recency } = await req.json();
+    const { query, search_mode, recency, output_format } = await req.json();
     
     console.log("Research webhook called with query:", query);
+    console.log("Output format requested:", output_format);
     
     const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
     if (!PERPLEXITY_API_KEY) {
       throw new Error("PERPLEXITY_API_KEY is not configured");
     }
+
+    // Determine the format instructions
+    let formatInstructions = "";
+    if (output_format) {
+      // Check if it's a known format key or custom format text
+      if (OUTPUT_FORMATS[output_format]) {
+        formatInstructions = OUTPUT_FORMATS[output_format];
+      } else if (output_format.length > 20) {
+        // Treat as custom format instructions
+        formatInstructions = `Format your response following these instructions:\n${output_format}`;
+      }
+    }
+
+    // Build system prompt with format instructions
+    const systemPrompt = formatInstructions
+      ? `You are a deep research assistant. Provide comprehensive, well-sourced answers with citations. Focus on accuracy and depth.\n\n${formatInstructions}`
+      : "You are a deep research assistant. Provide comprehensive, well-sourced answers with citations. Focus on accuracy and depth.";
 
     // Build the request body for Perplexity
     const requestBody: Record<string, unknown> = {
@@ -27,7 +75,7 @@ serve(async (req) => {
       messages: [
         {
           role: "system",
-          content: "You are a deep research assistant. Provide comprehensive, well-sourced answers with citations. Focus on accuracy and depth.",
+          content: systemPrompt,
         },
         {
           role: "user",

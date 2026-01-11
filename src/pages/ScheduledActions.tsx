@@ -537,19 +537,28 @@ const ScheduledActions = () => {
     
     setEnhancingQuery(true);
     try {
+      // Get the output format for context
+      const outputFormat = formData.researchOutputFormat === 'custom' 
+        ? formData.customOutputFormat 
+        : OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.format || '';
+      
       const { data, error } = await supabase.functions.invoke('enhance-prompt', {
-        body: { prompt: formData.researchQuery, type: 'research' }
+        body: { 
+          prompt: formData.researchQuery, 
+          type: 'research',
+          output_format: outputFormat
+        }
       });
       
       if (error) throw error;
       
       if (data?.enhancedPrompt) {
         setFormData(prev => ({ ...prev, researchQuery: data.enhancedPrompt }));
-        toast.success('Query enhanced!');
+        toast.success('Prompt enhanced!');
       }
     } catch (err) {
       console.error('Enhance error:', err);
-      toast.error('Failed to enhance query');
+      toast.error('Failed to enhance prompt');
     } finally {
       setEnhancingQuery(false);
     }
