@@ -1,14 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-type AutomationType = "text" | "slack" | "discord" | "email";
+type AutomationType = "text" | "slack" | "discord" | "email" | "research";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const KNOWN_AUTOMATION_TYPES = new Set<AutomationType>(["text", "slack", "discord", "email"]);
+const KNOWN_AUTOMATION_TYPES = new Set<AutomationType>(["text", "slack", "discord", "email", "research"]);
 
 // Default channels for messaging platforms
 const DEFAULT_CHANNELS = {
@@ -97,11 +97,14 @@ serve(async (req) => {
   // Detect if this is an email automation (has email_content field)
   const isEmailAutomation = body.email_content && body.recipient_emails;
   
-  // Normalize message content - could be message_content or email_content
-  const messageContent = asString(body.message_content ?? body.email_content) ?? "";
+  // Detect if this is a research automation
+  const isResearchAutomation = body.automation_type === "research" || body.research_topic;
+  
+  // Normalize message content - could be message_content, email_content, or research_topic
+  const messageContent = asString(body.message_content ?? body.email_content ?? body.research_topic) ?? "";
   
   // Check if this is a tool call (has scheduling fields from automation tool)
-  if ((messageContent || isEmailAutomation) && body.frequency && body.scheduled_time) {
+  if ((messageContent || isEmailAutomation || isResearchAutomation) && body.frequency && body.scheduled_time) {
     const rawType = asString(body.automation_type ?? body.automationType);
     const rawActionType = asString(body.action_type ?? body.actionType);
     
@@ -130,6 +133,8 @@ serve(async (req) => {
       automationType = "discord";
     } else if (toolName.includes("email")) {
       automationType = "email";
+    } else if (toolName.includes("research")) {
+      automationType = "research";
     // Then check explicit automation_type field
     } else if (isEmailAutomation) {
       automationType = "email";
@@ -150,6 +155,8 @@ serve(async (req) => {
       automationType = "discord";
     } else if (emailToRaw) {
       automationType = "email";
+    } else if (isResearchAutomation) {
+      automationType = "research";
     }
 
     const targetChannel =
@@ -232,6 +239,15 @@ serve(async (req) => {
       };
       actionLabel = `Email to ${emailToRaw || "recipient"}: "${short40}"`;
       automationName = `Email: ${short30}`;
+    } else if (automationType === "research") {
+      const outputFormat = asString(body.output_format ?? body.outputFormat) ?? "detailed report";
+      actionConfig = {
+        action_type: "research",
+        research_query: msg,
+        output_format: outputFormat,
+      };
+      actionLabel = `Research: "${short40}"`;
+      automationName = `Research: ${short30}`;
     } else {
       actionConfig = {
         action_type: "send_text",
