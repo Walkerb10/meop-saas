@@ -61,13 +61,13 @@ function SlackIcon({ className }: { className?: string }) {
   );
 }
 
-// Output length options
-const OUTPUT_LENGTHS = {
-  brief: { label: 'Brief', description: '1-2 paragraphs' },
-  standard: { label: 'Standard', description: '3-5 paragraphs' },
-  detailed: { label: 'Detailed', description: 'Comprehensive coverage' },
-  exhaustive: { label: 'Exhaustive', description: 'Deep dive with all details' },
-};
+// Word count presets for quick selection
+const WORD_COUNT_PRESETS = [
+  { value: '200', label: '~200 words (Brief)' },
+  { value: '500', label: '~500 words (Standard)' },
+  { value: '1000', label: '~1000 words (Detailed)' },
+  { value: '2000', label: '~2000 words (Comprehensive)' },
+];
 
 // Output format definitions with their actual structure
 const OUTPUT_FORMATS = {
@@ -115,11 +115,6 @@ const OUTPUT_FORMATS = {
 2. CONTEXT: What is happening right now?
 3. WHY YOU SHOULD CARE: Implications & how this affects you
 4. WHAT YOU CAN DO: How to apply this info in your life`,
-  },
-  custom: {
-    label: 'Custom Format...',
-    description: 'Define your own',
-    format: '',
   },
 };
 
@@ -179,7 +174,6 @@ interface AutomationFormData {
   researchQuery: string;
   researchOutputFormat: string;
   researchOutputLength: string;
-  customOutputFormat: string;
   // Email specific
   emailTo: string;
   emailSubject: string;
@@ -239,11 +233,8 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
   
   // Extract research fields
   const researchQuery = (config?.query as string) || (config?.research_query as string) || '';
-  const rawOutputFormat = (config?.output_format as string) || 'summary';
-  const isKnownFormat = ['summary', 'detailed', 'bullets', 'actionable', 'problem'].includes(rawOutputFormat);
-  const researchOutputFormat = isKnownFormat ? rawOutputFormat : 'custom';
-  const customOutputFormat = isKnownFormat ? '' : rawOutputFormat;
-  const researchOutputLength = (config?.output_length as string) || 'standard';
+  const researchOutputFormat = (config?.output_format as string) || 'summary';
+  const researchOutputLength = (config?.output_length as string) || '500';
   
   // Extract email fields
   const emailTo = (config?.to as string) || '';
@@ -293,7 +284,7 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
     if (dateMatch) customDate = dateMatch[1];
   }
   
-  return { type, message, researchQuery, researchOutputFormat, researchOutputLength, customOutputFormat, emailTo, emailSubject, slackChannel, discordChannel, frequency, time, dayOfWeek, dayOfMonth, customDate, everyXDays };
+  return { type, message, researchQuery, researchOutputFormat, researchOutputLength, emailTo, emailSubject, slackChannel, discordChannel, frequency, time, dayOfWeek, dayOfMonth, customDate, everyXDays };
 }
 
 const ScheduledActions = () => {
@@ -307,8 +298,7 @@ const ScheduledActions = () => {
     message: '',
     researchQuery: '',
     researchOutputFormat: 'summary',
-    researchOutputLength: 'standard',
-    customOutputFormat: '',
+    researchOutputLength: '500',
     emailTo: '',
     emailSubject: '',
     slackChannel: DEFAULT_CHANNELS.slack,
@@ -490,9 +480,7 @@ const ScheduledActions = () => {
         actionConfig = {
           action_type: 'research',
           query: formData.researchQuery,
-          output_format: formData.researchOutputFormat === 'custom' 
-            ? formData.customOutputFormat 
-            : formData.researchOutputFormat,
+          output_format: formData.researchOutputFormat,
           output_length: formData.researchOutputLength,
         };
         break;
@@ -554,7 +542,6 @@ const ScheduledActions = () => {
     if (!formData.name.trim()) return false;
     switch (formData.type) {
       case 'research':
-        if (formData.researchOutputFormat === 'custom' && !formData.customOutputFormat.trim()) return false;
         return formData.researchQuery.trim().length > 0;
       case 'email':
         return formData.emailTo.trim().length > 0 && formData.message.trim().length > 0;
@@ -576,10 +563,8 @@ const ScheduledActions = () => {
     setEnhancingQuery(true);
     try {
       // Get the output format and length for context
-      const outputFormat = formData.researchOutputFormat === 'custom' 
-        ? formData.customOutputFormat 
-        : OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.format || '';
-      const outputLength = OUTPUT_LENGTHS[formData.researchOutputLength as keyof typeof OUTPUT_LENGTHS]?.description || 'standard';
+      const outputFormat = OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS]?.format || '';
+      const outputLength = `approximately ${formData.researchOutputLength} words`;
       
       const { data, error } = await supabase.functions.invoke('enhance-prompt', {
         body: { 
@@ -694,8 +679,7 @@ const ScheduledActions = () => {
       message: '',
       researchQuery: '',
       researchOutputFormat: 'summary',
-      researchOutputLength: 'standard',
-      customOutputFormat: '',
+      researchOutputLength: '500',
       emailTo: '',
       emailSubject: '',
       slackChannel: DEFAULT_CHANNELS.slack,
@@ -726,8 +710,7 @@ const ScheduledActions = () => {
       message: extracted.message || '',
       researchQuery: extracted.researchQuery || '',
       researchOutputFormat: extracted.researchOutputFormat || 'summary',
-      researchOutputLength: extracted.researchOutputLength || 'standard',
-      customOutputFormat: extracted.customOutputFormat || '',
+      researchOutputLength: extracted.researchOutputLength || '500',
       emailTo: extracted.emailTo || '',
       emailSubject: extracted.emailSubject || '',
       slackChannel: extracted.slackChannel || '',
@@ -837,31 +820,43 @@ const ScheduledActions = () => {
                 />
               </div>
               
-              {/* Output Length Selector */}
+              {/* Output Length - Word Count */}
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Output Length</label>
-                <Select 
-                  value={formData.researchOutputLength} 
-                  onValueChange={(v) => setFormData({ ...formData, researchOutputLength: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(OUTPUT_LENGTHS).map(([key, val]) => (
-                      <SelectItem key={key} value={key}>
-                        {val.label} - {val.description}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <label className="text-sm font-medium mb-1.5 block">Target Word Count</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min="100"
+                    max="5000"
+                    placeholder="500"
+                    value={formData.researchOutputLength}
+                    onChange={(e) => setFormData({ ...formData, researchOutputLength: e.target.value })}
+                    className="w-24"
+                  />
+                  <Select 
+                    value={WORD_COUNT_PRESETS.find(p => p.value === formData.researchOutputLength)?.value || 'custom'} 
+                    onValueChange={(v) => v !== 'custom' && setFormData({ ...formData, researchOutputLength: v })}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Quick select..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WORD_COUNT_PRESETS.map((preset) => (
+                        <SelectItem key={preset.value} value={preset.value}>
+                          {preset.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Approximate output length in words</p>
               </div>
 
               {/* Output Format Selector */}
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <label className="text-sm font-medium">Output Format</label>
-                  {formData.researchOutputFormat !== 'custom' && OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS] && (
+                  {OUTPUT_FORMATS[formData.researchOutputFormat as keyof typeof OUTPUT_FORMATS] && (
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button variant="ghost" size="sm" className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground">
@@ -881,7 +876,7 @@ const ScheduledActions = () => {
                 </div>
                 <Select 
                   value={formData.researchOutputFormat} 
-                  onValueChange={(v) => setFormData({ ...formData, researchOutputFormat: v, customOutputFormat: v === 'custom' ? formData.customOutputFormat : '' })}
+                  onValueChange={(v) => setFormData({ ...formData, researchOutputFormat: v })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -895,22 +890,6 @@ const ScheduledActions = () => {
                   </SelectContent>
                 </Select>
               </div>
-              {formData.researchOutputFormat === 'custom' && (
-                <div>
-                  <label className="text-sm font-medium mb-1.5 block">Custom Output Format</label>
-                  <Textarea
-                    placeholder={`Define the exact structure you want, e.g.:
-• 3 bullet points max
-• Each bullet: finding + why it matters
-• End with 1 action item
-
-Or: Table with columns: Topic | Key Insight | Source`}
-                    value={formData.customOutputFormat}
-                    onChange={(e) => setFormData({ ...formData, customOutputFormat: e.target.value })}
-                    rows={4}
-                  />
-                </div>
-              )}
             </>
           )}
 

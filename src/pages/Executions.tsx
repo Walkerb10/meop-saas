@@ -105,14 +105,53 @@ const detectPlatform = (execution: Execution): { name: string; icon: React.Compo
   return { name: 'Text (SMS)', icon: MessageSquare };
 };
 
+type ExecutionTypeFilter = 'all' | 'research' | 'email' | 'slack' | 'discord' | 'text';
+type StatusFilter = 'all' | 'completed' | 'failed' | 'running' | 'pending_review';
+
+const EXECUTION_TYPE_FILTERS = [
+  { id: 'all' as const, label: 'All Types', icon: Clock },
+  { id: 'text' as const, label: 'Text', icon: MessageSquare },
+  { id: 'research' as const, label: 'Research', icon: Search },
+  { id: 'email' as const, label: 'Email', icon: Mail },
+  { id: 'slack' as const, label: 'Slack', icon: SlackIcon },
+  { id: 'discord' as const, label: 'Discord', icon: DiscordIcon },
+];
+
+const STATUS_FILTERS = [
+  { id: 'all' as const, label: 'All Statuses' },
+  { id: 'completed' as const, label: 'Completed' },
+  { id: 'running' as const, label: 'Running' },
+  { id: 'failed' as const, label: 'Failed' },
+  { id: 'pending_review' as const, label: 'Pending Review' },
+];
+
 const Executions = () => {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
   const [linkedAutomation, setLinkedAutomation] = useState<Automation | null>(null);
   const [loadingAutomation, setLoadingAutomation] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<ExecutionTypeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const { formatTime } = useTimezone();
   const navigate = useNavigate();
+
+  // Get the type of an execution
+  const getExecutionType = (execution: Execution): ExecutionTypeFilter => {
+    const platform = detectPlatform(execution);
+    if (platform.name.includes('Research')) return 'research';
+    if (platform.name.includes('Email')) return 'email';
+    if (platform.name.includes('Slack')) return 'slack';
+    if (platform.name.includes('Discord')) return 'discord';
+    return 'text';
+  };
+
+  // Filtered executions
+  const filteredExecutions = executions.filter(execution => {
+    const typeMatch = typeFilter === 'all' || getExecutionType(execution) === typeFilter;
+    const statusMatch = statusFilter === 'all' || execution.status === statusFilter;
+    return typeMatch && statusMatch;
+  });
 
   const fetchExecutions = async () => {
     const { data, error } = await supabase
@@ -340,16 +379,53 @@ const Executions = () => {
       <div className="max-w-4xl mx-auto flex flex-col h-full">
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 bg-background pt-6 px-6 pb-4 border-b border-border">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-xl font-semibold">Executions</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Track workflow executions and their results
+                Track automation executions and their results
               </p>
             </div>
             <Button variant="ghost" size="icon" onClick={fetchExecutions}>
               <RefreshCw className="w-4 h-4" />
             </Button>
+          </div>
+          
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2">
+            {/* Type filters */}
+            <div className="flex gap-1 overflow-x-auto pb-1">
+              {EXECUTION_TYPE_FILTERS.map(filter => {
+                const Icon = filter.icon;
+                const count = filter.id === 'all' 
+                  ? executions.length 
+                  : executions.filter(e => getExecutionType(e) === filter.id).length;
+                return (
+                  <Button
+                    key={filter.id}
+                    variant={typeFilter === filter.id ? 'default' : 'outline'}
+                    size="sm"
+                    className="gap-1.5 text-xs whitespace-nowrap"
+                    onClick={() => setTypeFilter(filter.id)}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {filter.label}
+                    <span className="text-[10px] opacity-70">({count})</span>
+                  </Button>
+                );
+              })}
+            </div>
+            
+            {/* Status filter dropdown */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="h-8 px-2 text-xs border border-border rounded-md bg-background"
+            >
+              {STATUS_FILTERS.map(filter => (
+                <option key={filter.id} value={filter.id}>{filter.label}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -364,25 +440,27 @@ const Executions = () => {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
             </div>
-          ) : executions.length === 0 ? (
+          ) : filteredExecutions.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-lg">
               <Clock className="w-8 h-8 mx-auto mb-3 opacity-50" />
-              <p>No executions yet</p>
-              <p className="text-sm mt-1">Workflow runs will appear here</p>
+              <p>No executions found</p>
+              <p className="text-sm mt-1">
+                {executions.length > 0 ? 'Try adjusting your filters' : 'Automation runs will appear here'}
+              </p>
             </div>
           ) : (
             <div className="rounded-lg border border-border overflow-hidden">
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th className="text-left p-3 text-sm font-medium">Workflow</th>
+                    <th className="text-left p-3 text-sm font-medium">Automation</th>
                     <th className="text-left p-3 text-sm font-medium">Status</th>
                     <th className="text-left p-3 text-sm font-medium hidden sm:table-cell">Started</th>
                     <th className="text-left p-3 text-sm font-medium">Duration</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {executions.map((execution, index) => (
+                  {filteredExecutions.map((execution, index) => (
                     <motion.tr
                       key={execution.id}
                       initial={{ opacity: 0, x: -10 }}
@@ -392,11 +470,18 @@ const Executions = () => {
                       onClick={() => handleSelectExecution(execution)}
                     >
                       <td className="p-3">
-                        <div>
-                          <p className="text-sm font-medium">{execution.sequence_name}</p>
-                          {execution.requires_human_review && (
-                            <span className="text-xs text-yellow-500">Needs review</span>
-                          )}
+                        <div className="flex items-center gap-2">
+                          {(() => {
+                            const platform = detectPlatform(execution);
+                            const PlatformIcon = platform.icon;
+                            return <PlatformIcon className="w-4 h-4 text-muted-foreground" />;
+                          })()}
+                          <div>
+                            <p className="text-sm font-medium">{execution.sequence_name}</p>
+                            {execution.requires_human_review && (
+                              <span className="text-xs text-yellow-500">Needs review</span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="p-3">

@@ -82,7 +82,7 @@ export function AppLayout({
               className="fixed left-0 top-0 bottom-0 w-64 bg-background border-r border-border z-50 p-4 flex flex-col"
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold">Menu</h2>
+                <h2 className="text-lg font-semibold">MEOP OS</h2>
                 <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)}>
                   <X className="w-5 h-5" />
                 </Button>
