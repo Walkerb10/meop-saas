@@ -1,11 +1,23 @@
 import { motion } from 'framer-motion';
-import { User, Mail, Key } from 'lucide-react';
+import { User, Mail, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AppLayout } from '@/components/AppLayout';
+import { useAuth } from '@/hooks/useAuth';
+import { useTimezone } from '@/hooks/useTimezone';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const Profile = () => {
+  const { user } = useAuth();
+  const { timezone, setTimezone, timezones } = useTimezone();
+
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto p-6">
@@ -32,7 +44,7 @@ const Profile = () => {
                 <User className="w-4 h-4" />
                 Display Name
               </Label>
-              <Input id="name" placeholder="Your name" defaultValue="Demo User" />
+              <Input id="name" placeholder="Your name" defaultValue="Griffin" />
             </div>
 
             <div className="space-y-2">
@@ -40,17 +52,35 @@ const Profile = () => {
                 <Mail className="w-4 h-4" />
                 Email
               </Label>
-              <Input id="email" type="email" placeholder="your@email.com" defaultValue="demo@example.com" />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="your@email.com" 
+                defaultValue={user?.email || 'griffinbohmfalk@gmail.com'} 
+                disabled
+              />
             </div>
 
+            {/* Timezone Settings */}
             <div className="space-y-2">
-              <Label htmlFor="apiKey" className="flex items-center gap-2">
-                <Key className="w-4 h-4" />
-                ElevenLabs API Key
+              <Label className="flex items-center gap-2">
+                <Globe className="w-4 h-4" />
+                Timezone
               </Label>
-              <Input id="apiKey" type="password" placeholder="••••••••••••" />
+              <Select value={timezone} onValueChange={setTimezone}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {timezones.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
-                Your API key is stored securely and never shared.
+                All times in the app will be displayed in this timezone.
               </p>
             </div>
 

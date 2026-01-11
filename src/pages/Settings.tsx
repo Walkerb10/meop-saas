@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut, Plus, Trash2, FileText, RefreshCw, ChevronDown, ChevronRight, Globe } from 'lucide-react';
+import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut, Plus, Trash2, FileText, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
@@ -21,23 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-// N8nTool interface is now imported from useN8nTools
-
-const VOICES = [
-  { id: 'Roger', name: 'Roger', description: 'Deep & confident' },
-  { id: 'Sarah', name: 'Sarah', description: 'Warm & friendly' },
-  { id: 'Laura', name: 'Laura', description: 'Professional & clear' },
-  { id: 'Charlie', name: 'Charlie', description: 'Casual & relaxed' },
-  { id: 'George', name: 'George', description: 'British & refined' },
-  { id: 'Callum', name: 'Callum', description: 'Scottish accent' },
-  { id: 'Liam', name: 'Liam', description: 'Young & energetic' },
-  { id: 'Alice', name: 'Alice', description: 'Soft & gentle' },
-  { id: 'Matilda', name: 'Matilda', description: 'Warm & expressive' },
-  { id: 'Jessica', name: 'Jessica', description: 'Bright & engaging' },
-  { id: 'Eric', name: 'Eric', description: 'Calm & reassuring' },
-  { id: 'Brian', name: 'Brian', description: 'Authoritative' },
-];
 
 const VAPI_WEBHOOKS = [
   {
@@ -59,11 +42,8 @@ const Settings = () => {
   const { sequences, addSequence, updateSequence, deleteSequence } = useSequences();
   const { tools: n8nTools, addTool: addN8nToolToDb, deleteTool: deleteN8nToolFromDb, loading: n8nLoading } = useN8nTools();
   const { signOut, user } = useAuth();
-  const { timezone, setTimezone, timezones, formatDateTime } = useTimezone();
+  const { formatDateTime } = useTimezone();
   const navigate = useNavigate();
-  const [selectedVoice, setSelectedVoice] = useState(() => {
-    return localStorage.getItem('selectedVoice') || 'Sarah';
-  });
   const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
   
   // Webhook logs state
@@ -186,11 +166,6 @@ const Settings = () => {
   const supabaseUrl = useMemo(() => {
     return import.meta.env.VITE_SUPABASE_URL || '';
   }, []);
-
-  const handleVoiceChange = (voice: string) => {
-    setSelectedVoice(voice);
-    localStorage.setItem('selectedVoice', voice);
-  };
 
   const copyWebhookUrl = (path: string) => {
     const url = `${supabaseUrl}/functions/v1/${path}`;
@@ -561,52 +536,9 @@ const Settings = () => {
             >
               <div>
                 <h2 className="text-lg font-semibold mb-2">Voice Settings</h2>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Choose the voice for your AI assistant.
+                <p className="text-sm text-muted-foreground">
+                  Voice configuration is managed in your Vapi dashboard.
                 </p>
-              </div>
-              <div className="max-w-sm">
-                <label className="text-sm font-medium mb-2 block">Select Voice</label>
-                <Select value={selectedVoice} onValueChange={handleVoiceChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {VOICES.map((voice) => (
-                      <SelectItem key={voice.id} value={voice.id}>
-                        <div className="flex flex-col">
-                          <span>{voice.name}</span>
-                          <span className="text-xs text-muted-foreground">{voice.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Timezone Settings */}
-              <div className="border-t border-border pt-6">
-                <h3 className="font-medium mb-2 flex items-center gap-2">
-                  <Globe className="w-4 h-4" />
-                  Timezone
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  All times in the app will be displayed in this timezone.
-                </p>
-                <div className="max-w-sm">
-                  <Select value={timezone} onValueChange={setTimezone}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timezones.map((tz) => (
-                        <SelectItem key={tz.value} value={tz.value}>
-                          {tz.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
             </motion.div>
           </TabsContent>
