@@ -187,6 +187,7 @@ const Settings = () => {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
+          <Tabs defaultValue="webhooks" className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="webhooks" className="gap-2">
               <Webhook className="w-4 h-4" />
@@ -585,7 +586,7 @@ const Settings = () => {
               </div>
             </motion.div>
           </TabsContent>
-        </Tabs>
+          </Tabs>
         </div>
       </div>
     </AppLayout>
