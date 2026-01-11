@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Sparkles, Info } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
@@ -283,6 +284,7 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
 }
 
 const ScheduledActions = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedAutomation, setSelectedAutomation] = useState<ScheduledAction | null>(null);
   const [executing, setExecuting] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -314,6 +316,41 @@ const ScheduledActions = () => {
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
   
   const { automations, loading, executeAutomation, deleteAutomation, createAutomation, updateAutomation } = useAutomations();
+  
+  // Handle edit query parameter - auto-open edit mode when navigating with ?edit=id
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && automations.length > 0 && !loading) {
+      const automationToEdit = automations.find(a => a.id === editId);
+      if (automationToEdit) {
+        setSelectedAutomation(automationToEdit);
+        // Trigger edit mode
+        const extracted = extractFromSteps(automationToEdit.steps, automationToEdit.isActive);
+        setFormData({
+          name: automationToEdit.name,
+          type: extracted.type || 'text',
+          message: extracted.message || '',
+          researchQuery: extracted.researchQuery || '',
+          researchOutputFormat: extracted.researchOutputFormat || 'summary',
+          researchOutputLength: extracted.researchOutputLength || '500',
+          emailTo: extracted.emailTo || '',
+          emailSubject: extracted.emailSubject || '',
+          slackChannel: extracted.slackChannel || '',
+          discordChannel: extracted.discordChannel || '',
+          frequency: extracted.frequency || 'daily',
+          time: extracted.time || '09:00',
+          dayOfWeek: extracted.dayOfWeek || 'Monday',
+          dayOfMonth: extracted.dayOfMonth || '1',
+          customDate: extracted.customDate || '',
+          everyXDays: extracted.everyXDays || '7',
+          webhookUrl: '',
+        });
+        setIsEditing(true);
+        // Clear the query param after handling
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [automations, loading, searchParams, setSearchParams]);
   
   // Filtered automations based on type filter
   const filteredAutomations = typeFilter === 'all' 
