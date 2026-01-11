@@ -71,13 +71,18 @@ serve(async (req) => {
 
     console.log("Automation created and saved:", automation);
 
+    // Return Vapi-compatible tool response
     return new Response(
       JSON.stringify({
-        success: true,
-        automation,
-        message: `Automation "${name}" created successfully`,
+        results: [
+          {
+            toolCallId: "create-automation",
+            result: `Successfully created automation "${name}". It is now saved and ready to run.`,
+          }
+        ]
       }),
       {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
