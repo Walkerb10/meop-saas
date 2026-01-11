@@ -7,9 +7,13 @@ import { Json } from '@/integrations/supabase/types';
 // Each type has its own dedicated webhook
 export const DEFAULT_WEBHOOKS = {
   text: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
+  send_text: 'https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2',
   slack: 'https://walkerb.app.n8n.cloud/webhook/slack-messages',
+  slack_message: 'https://walkerb.app.n8n.cloud/webhook/slack-messages',
   discord: 'https://walkerb.app.n8n.cloud/webhook/discord-messages',
+  discord_message: 'https://walkerb.app.n8n.cloud/webhook/discord-messages',
   email: 'https://walkerb.app.n8n.cloud/webhook/send-email',
+  send_email: 'https://walkerb.app.n8n.cloud/webhook/send-email',
 };
 
 // Default channels for messaging platforms
