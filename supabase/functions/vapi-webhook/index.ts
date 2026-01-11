@@ -16,12 +16,61 @@ const DEFAULT_CHANNELS = {
   discord: "admin",
 };
 
+// Output format templates (must match backend research execution)
+const OUTPUT_FORMAT_TEMPLATES: Record<string, string> = {
+  summary: `Format your response as a concise 2-3 paragraph summary covering:
+• Key findings
+• Main takeaways
+• Brief conclusion`,
+  detailed: `Format your response as a comprehensive report with these sections:
+1. Executive Summary
+2. Background & Context
+3. Key Findings (detailed)
+4. Analysis & Implications
+5. Recommendations
+6. Sources & References`,
+  bullets: `Format your response as bullet points:
+• 5-10 key bullet points
+• Each point is 1-2 sentences
+• Most important information first
+• Action items highlighted`,
+  actionable: `Focus on practical next steps and format as:
+1. Immediate Actions (do today)
+2. Short-term Actions (this week)
+3. Strategic Considerations
+4. Risks to Watch`,
+  problem: `Format using the Problem Framework:
+1. PROBLEM: What's the core issue/challenge?
+2. CONTEXT: What is happening right now?
+3. WHY YOU SHOULD CARE: Implications & how this affects you
+4. WHAT YOU CAN DO: How to apply this info in your life`,
+};
+
+type OutputFormatKey = keyof typeof OUTPUT_FORMAT_TEMPLATES;
+
+function normalizeOutputFormatKey(value: string | null): OutputFormatKey | null {
+  if (!value) return null;
+  const v = value.trim().toLowerCase();
+  if (!v) return null;
+
+  if (v === "summary" || v.includes("summary") || v.includes("brief")) return "summary";
+  if (v === "detailed" || v.includes("detailed") || v.includes("report")) return "detailed";
+  if (v === "bullets" || v.includes("bullet")) return "bullets";
+  if (v === "actionable" || v.includes("actionable") || v.includes("next step")) return "actionable";
+  if (v === "problem" || v.includes("problem framework") || v.includes("problem →") || v.includes("framework")) return "problem";
+
+  return null;
+}
+
 // AI-optimize research prompt using Lovable AI
-async function optimizeResearchPrompt(
-  rawPrompt: string,
-  outputFormat: string,
-  targetWordCount: number
-): Promise<string> {
+async function optimizeResearchPrompt(params: {
+  rawPrompt: string;
+  outputFormatKey: OutputFormatKey;
+  outputFormatInstructions: string;
+  targetWordCount: number;
+}): Promise<string> {
+  const { rawPrompt, outputFormatKey, outputFormatInstructions, targetWordCount } = params;
+
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
   if (!LOVABLE_API_KEY) {
     console.warn("LOVABLE_API_KEY not set, returning raw prompt");
@@ -29,19 +78,24 @@ async function optimizeResearchPrompt(
   }
 
   try {
-    const systemPrompt = `You are an expert research prompt engineer. Your job is to transform user requests into highly effective research prompts that will produce excellent results from a research AI.
+    const systemPrompt = `You are an expert research prompt engineer.
 
-A great research prompt should:
-1. GOAL: Clearly state what the user wants to learn or accomplish
-2. SCOPE: Define boundaries (time period, geography, industry, etc.)
-3. OUTPUT FORMAT: Specify exactly how results should be structured
-4. KEY QUESTIONS: Break down the topic into specific questions to answer
-5. ACTIONABILITY: Request practical insights the reader can use
+Transform the user's raw conversation context into a high-quality research request that will yield excellent results from a web research AI.
 
-Output format requested: ${outputFormat}
-Target length: ~${targetWordCount} words
+Requirements:
+- Use the provided context as the primary source of truth.
+- Clarify the goal and the intended reader/audience.
+- Include: goal, scope/boundaries, assumptions, key questions (prioritized), and what inputs/constraints must be considered.
+- Make the request action-oriented: ask for implications + recommendations + decision criteria.
+- Avoid fluff. Be specific. If information is missing, list 3-6 concise clarification questions at the end.
 
-Transform the user's raw request into a professional, comprehensive research prompt. Output ONLY the optimized prompt, nothing else.`;
+OUTPUT REQUIREMENTS:
+- Target length for the final answer: ~${targetWordCount} words (±25)
+- Output format key: ${outputFormatKey}
+- Output format structure (MUST be followed by the research AI):
+${outputFormatInstructions}
+
+Output ONLY the optimized research prompt. Do not wrap in quotes. Do not add explanations.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -59,24 +113,26 @@ Transform the user's raw request into a professional, comprehensive research pro
     });
 
     if (!response.ok) {
-      console.error("AI optimization failed:", response.status);
+      const t = await response.text().catch(() => "");
+      console.error("AI optimization failed:", response.status, t);
       return rawPrompt;
     }
 
     const data = await response.json();
     const optimized = data.choices?.[0]?.message?.content?.trim();
-    
-    if (optimized && optimized.length > 20) {
+
+    if (optimized && optimized.length > 40) {
       console.log("✅ Research prompt optimized by AI");
       return optimized;
     }
-    
+
     return rawPrompt;
   } catch (e) {
     console.error("AI optimization error:", e);
     return rawPrompt;
   }
 }
+
 
 function asString(value: unknown): string | null {
   if (typeof value === "string") return value;
@@ -302,24 +358,41 @@ serve(async (req) => {
       actionLabel = `Email to ${emailToRaw || "recipient"}: "${short40}"`;
       automationName = `Email: ${short30}`;
     } else if (automationType === "research") {
-      const outputFormat = asString(body.output_format ?? body.outputFormat) ?? "detailed report";
-      const targetWordCount = Number(body.target_word_count ?? body.targetWordCount) || 500;
-      
+      const outputFormatRaw = asString(body.output_format ?? body.outputFormat) ?? "detailed";
+      const outputFormatKey = normalizeOutputFormatKey(outputFormatRaw) ?? "detailed";
+      const outputFormatInstructions = OUTPUT_FORMAT_TEMPLATES[outputFormatKey] ?? "";
+
+      const outputLengthRaw =
+        asString(body.output_length ?? body.outputLength) ??
+        asString(body.target_word_count ?? body.targetWordCount) ??
+        "500";
+      const targetWordCount = (() => {
+        const n = parseInt(outputLengthRaw, 10);
+        return Number.isFinite(n) && n > 0 ? n : 500;
+      })();
+
       // Use research_body_info (the detailed context) for AI optimization
       const researchBodyInfo = asString(body.research_body_info ?? body.researchBodyInfo) ?? "";
       const rawResearchInput = researchBodyInfo || msg;
-      
+
       // AI-optimize the research prompt
-      const optimizedQuery = await optimizeResearchPrompt(rawResearchInput, outputFormat, targetWordCount);
-      
+      const optimizedQuery = await optimizeResearchPrompt({
+        rawPrompt: rawResearchInput,
+        outputFormatKey,
+        outputFormatInstructions,
+        targetWordCount,
+      });
+
       actionConfig = {
         action_type: "research",
         research_query: optimizedQuery,
         original_query: rawResearchInput,
-        output_format: outputFormat,
-        target_word_count: targetWordCount,
+        // MUST be a known key so the research executor applies the right template
+        output_format: outputFormatKey,
+        // MUST be output_length so the executor enforces word count
+        output_length: String(targetWordCount),
       };
-      
+
       const queryShort40 = `${optimizedQuery.substring(0, 40)}${optimizedQuery.length > 40 ? "..." : ""}`;
       actionLabel = `Research: "${queryShort40}"`;
       automationName = `Research: ${msg.substring(0, 30)}${msg.length > 30 ? "..." : ""}`;

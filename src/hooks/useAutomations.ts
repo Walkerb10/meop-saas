@@ -140,7 +140,9 @@ export function useAutomations() {
               (actionConfig.message as string) ||
               automation.name;
             const outputFormat = (actionConfig.output_format as string) || 'detailed';
-            const outputLength = (actionConfig.output_length as string) || '500';
+            const outputLength =
+              (actionConfig.output_length as string) ||
+              String((actionConfig.target_word_count as number) || (actionConfig.targetWordCount as number) || '500');
 
             console.log(
               `🔬 Starting research execution ${execution.id} (format: ${outputFormat}, ~${outputLength} words)`
