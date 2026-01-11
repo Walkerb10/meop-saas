@@ -11,28 +11,35 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, type } = await req.json();
+    const { prompt, type, output_format } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Enhancing prompt:", { type, prompt: prompt.substring(0, 50) });
+    console.log("Enhancing prompt:", { type, prompt: prompt.substring(0, 50), output_format });
 
-    const systemPrompt = type === 'research' 
-      ? `You are a research query optimization expert. Your task is to improve research queries to get better, more comprehensive results from AI search tools like Perplexity.
+    let systemPrompt: string;
+    
+    if (type === 'research') {
+      systemPrompt = `You are a research query optimization expert. Your task is to improve research queries to get better, more comprehensive results from AI search tools like Perplexity.
 
 When given a user's research query, enhance it by:
-1. Making it more specific and focused
-2. Adding relevant context or constraints
-3. Specifying what type of information is most valuable
-4. Including timeframes if relevant (e.g., "latest", "2024", "recent")
-5. Clarifying the desired depth or scope
+1. Making it more specific and focused - clarify exactly what is being researched
+2. Adding relevant context or constraints - specify the domain, industry, or field
+3. Specifying what type of information is most valuable - data, trends, analysis, etc.
+4. Including timeframes if relevant (e.g., "latest developments in 2024", "recent trends")
+5. Clarifying the goal - what the user wants to learn or accomplish with this research
+6. Describing the desired output - what kind of insights are expected
 
-Keep the enhanced query concise (1-3 sentences max). Maintain the user's original intent.
-Respond ONLY with the enhanced query, no explanations or preamble.`
-      : `You are a prompt enhancement expert. Improve the given prompt to be clearer, more specific, and more effective. Keep it concise. Respond ONLY with the enhanced prompt.`;
+${output_format ? `The user wants the results in this format: ${output_format}. Consider this when optimizing the query.` : ''}
+
+Keep the enhanced query concise (2-4 sentences max). Maintain the user's original intent but make it crystal clear what should be researched, why, and what insights are expected.
+Respond ONLY with the enhanced query, no explanations or preamble.`;
+    } else {
+      systemPrompt = `You are a prompt enhancement expert. Improve the given prompt to be clearer, more specific, and more effective. Keep it concise. Respond ONLY with the enhanced prompt.`;
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
