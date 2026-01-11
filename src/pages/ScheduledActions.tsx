@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Sparkles, Info } from 'lucide-react';
+import { Clock, ArrowDown, GitBranch, Play, Zap, ChevronRight, ArrowLeft, Trash2, Loader2, Plus, MessageSquare, Pencil, Save, Search, Mail, Hash, Power, Sparkles, Info, CheckCircle2, XCircle, ExternalLink } from 'lucide-react';
 import { ScheduledAction, ScheduledActionStep } from '@/types/agent';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -323,6 +323,14 @@ const ScheduledActions = () => {
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
+  const [automationExecutions, setAutomationExecutions] = useState<Array<{
+    id: string;
+    status: string;
+    started_at: string;
+    completed_at: string | null;
+    duration_ms: number | null;
+  }>>([]);
+  const [loadingExecutions, setLoadingExecutions] = useState(false);
   
   const { automations, loading, executeAutomation, deleteAutomation, createAutomation, updateAutomation } = useAutomations();
   
@@ -360,6 +368,35 @@ const ScheduledActions = () => {
       }
     }
   }, [automations, loading, searchParams, setSearchParams]);
+  
+  // Fetch executions for selected automation
+  useEffect(() => {
+    const fetchExecutions = async () => {
+      if (!selectedAutomation) {
+        setAutomationExecutions([]);
+        return;
+      }
+      
+      setLoadingExecutions(true);
+      try {
+        const { data, error } = await supabase
+          .from('executions')
+          .select('id, status, started_at, completed_at, duration_ms')
+          .eq('sequence_name', selectedAutomation.name)
+          .order('started_at', { ascending: false })
+          .limit(5);
+        
+        if (error) throw error;
+        setAutomationExecutions(data || []);
+      } catch (err) {
+        console.error('Failed to fetch executions:', err);
+      } finally {
+        setLoadingExecutions(false);
+      }
+    };
+    
+    fetchExecutions();
+  }, [selectedAutomation?.id, selectedAutomation?.name]);
   
   // Filtered automations based on type filter
   const filteredAutomations = typeFilter === 'all' 
@@ -1428,6 +1465,70 @@ const ScheduledActions = () => {
                   <p className="text-sm text-muted-foreground">No steps defined for this automation</p>
                 </div>
               )}
+
+              {/* Recent Executions */}
+              <div className="rounded-xl border border-border bg-card p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-medium text-muted-foreground">Recent Executions</h3>
+                  {automationExecutions.length > 0 && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-xs gap-1"
+                      onClick={() => navigate('/executions')}
+                    >
+                      View All <ExternalLink className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+                {loadingExecutions ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : automationExecutions.length > 0 ? (
+                  <div className="space-y-2">
+                    {automationExecutions.map((exec) => {
+                      const started = new Date(exec.started_at);
+                      const statusIcon = exec.status === 'completed' ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : exec.status === 'failed' ? (
+                        <XCircle className="w-4 h-4 text-destructive" />
+                      ) : exec.status === 'running' ? (
+                        <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                      ) : (
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                      );
+                      
+                      const duration = exec.duration_ms 
+                        ? `${Math.floor(exec.duration_ms / 1000)}s`
+                        : exec.status === 'running' ? 'Running...' : '-';
+                      
+                      return (
+                        <div 
+                          key={exec.id}
+                          className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 cursor-pointer transition-colors"
+                          onClick={() => navigate('/executions')}
+                        >
+                          <div className="flex items-center gap-3">
+                            {statusIcon}
+                            <div>
+                              <p className="text-sm font-medium capitalize">{exec.status}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatTime(exec.started_at)} · {started.toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{duration}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No executions yet. Click "Execute Now" to run this automation.
+                  </p>
+                )}
+              </div>
 
               {/* Action buttons */}
               <div className="flex gap-3">
