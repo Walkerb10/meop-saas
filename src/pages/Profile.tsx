@@ -56,7 +56,7 @@ const Profile = () => {
                 id="email" 
                 type="email" 
                 placeholder="your@email.com" 
-                defaultValue={user?.email || 'griffinbohmfalk@gmail.com'} 
+                defaultValue={user?.email || ''} 
                 disabled
               />
             </div>
