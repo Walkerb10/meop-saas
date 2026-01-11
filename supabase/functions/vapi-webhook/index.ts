@@ -94,8 +94,14 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
+  // Detect if this is an email automation (has email_content field)
+  const isEmailAutomation = body.email_content && body.recipient_emails;
+  
+  // Normalize message content - could be message_content or email_content
+  const messageContent = asString(body.message_content ?? body.email_content) ?? "";
+  
   // Check if this is a tool call (has scheduling fields from automation tool)
-  if (body.message_content && body.frequency && body.scheduled_time) {
+  if ((messageContent || isEmailAutomation) && body.frequency && body.scheduled_time) {
     const rawType = asString(body.automation_type ?? body.automationType);
     const rawActionType = asString(body.action_type ?? body.actionType);
 
@@ -103,7 +109,7 @@ serve(async (req) => {
     const slackChannelRaw = asString(body.slack_channel ?? body.slackChannel);
     const discordChannelRaw = asString(body.discord_channel ?? body.discordChannel);
 
-    const emailToRaw = asString(body.email_to ?? body.emailTo ?? body.to);
+    const emailToRaw = asString(body.email_to ?? body.emailTo ?? body.to ?? body.recipient_emails);
     const emailSubjectRaw = asString(body.email_subject ?? body.emailSubject ?? body.subject);
 
     const typeCandidate = (rawType ?? "").toLowerCase().trim();
@@ -112,7 +118,10 @@ serve(async (req) => {
 
     let automationType: AutomationType = "text";
 
-    if (isKnownAutomationType(typeCandidate)) {
+    // Auto-detect email if we have email-specific fields
+    if (isEmailAutomation) {
+      automationType = "email";
+    } else if (isKnownAutomationType(typeCandidate)) {
       automationType = typeCandidate as AutomationType;
     } else if (actionTypeCandidate === "slack_message" || actionTypeCandidate === "send_slack") {
       automationType = "slack";
@@ -177,7 +186,7 @@ serve(async (req) => {
       triggerLabel = `Daily at ${timeLabel}`;
     }
 
-    const msg = asString(body.message_content) ?? "";
+    const msg = messageContent;
     const short40 = `${msg.substring(0, 40)}${msg.length > 40 ? "..." : ""}`;
     const short30 = `${msg.substring(0, 30)}${msg.length > 30 ? "..." : ""}`;
 
@@ -270,8 +279,17 @@ serve(async (req) => {
     }
 
     console.log(`✅ Created ${automationType} automation:`, data.id);
+    
+    // Return Vapi-compatible tool response
     return new Response(
-      JSON.stringify({ success: true, automation_id: data.id, message: `${automationType} automation created!` }),
+      JSON.stringify({
+        results: [
+          {
+            toolCallId: "schedule-automation",
+            result: `Successfully scheduled ${automationType} automation "${automationData.name}". It will run ${triggerLabel.toLowerCase()}.`,
+          }
+        ]
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
