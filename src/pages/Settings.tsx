@@ -176,15 +176,17 @@ const Settings = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="mb-6">
+      <div className="max-w-4xl mx-auto flex flex-col h-full">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-10 bg-background pt-6 px-6 pb-4 border-b border-border">
           <h1 className="text-xl font-semibold">Settings</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Configure your integrations and preferences
           </p>
         </div>
 
-        <Tabs defaultValue="webhooks" className="w-full">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           <TabsList className="grid w-full grid-cols-5 mb-6">
             <TabsTrigger value="webhooks" className="gap-2">
               <Webhook className="w-4 h-4" />
@@ -584,6 +586,7 @@ const Settings = () => {
             </motion.div>
           </TabsContent>
         </Tabs>
+        </div>
       </div>
     </AppLayout>
   );
