@@ -21,10 +21,13 @@ export function useVapiAgent({
 }: UseVapiAgentOptions = {}) {
   const [status, setStatus] = useState<AgentStatus>('idle');
   const [isActive, setIsActive] = useState(false);
+  const [inputVolume, setInputVolume] = useState(0); // 0-1 range for user's voice level
+  const [outputVolume, setOutputVolume] = useState(0); // 0-1 range for assistant's voice level
   const vapiRef = useRef<Vapi | null>(null);
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
   const conversationIdRef = useRef(conversationId);
+  const volumeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Keep refs updated
   useEffect(() => {
@@ -49,6 +52,38 @@ export function useVapiAgent({
     }
   }, []);
 
+  // Poll volume levels when active
+  const startVolumePolling = useCallback(() => {
+    if (volumeIntervalRef.current) return;
+    
+    volumeIntervalRef.current = setInterval(() => {
+      if (vapiRef.current) {
+        try {
+          // Vapi SDK methods - access via any to bypass missing types
+          const vapi = vapiRef.current as unknown as {
+            getInputVolume?: () => number;
+            getOutputVolume?: () => number;
+          };
+          const input = vapi.getInputVolume?.() ?? 0;
+          const output = vapi.getOutputVolume?.() ?? 0;
+          setInputVolume(input);
+          setOutputVolume(output);
+        } catch {
+          // Vapi may not support these methods
+        }
+      }
+    }, 50); // Poll at ~20fps for smooth animation
+  }, []);
+
+  const stopVolumePolling = useCallback(() => {
+    if (volumeIntervalRef.current) {
+      clearInterval(volumeIntervalRef.current);
+      volumeIntervalRef.current = null;
+    }
+    setInputVolume(0);
+    setOutputVolume(0);
+  }, []);
+
   // Initialize Vapi instance
   useEffect(() => {
     if (!vapiRef.current) {
@@ -61,6 +96,7 @@ export function useVapiAgent({
         console.log('✅ Vapi call started');
         setStatus('listening');
         setIsActive(true);
+        startVolumePolling();
         
         // Ensure audio output is enabled and at full volume
         try {
@@ -75,6 +111,7 @@ export function useVapiAgent({
         console.log('❌ Vapi call ended');
         setStatus('idle');
         setIsActive(false);
+        stopVolumePolling();
       });
 
       vapi.on('speech-start', () => {
@@ -108,17 +145,19 @@ export function useVapiAgent({
         console.error('❌ Vapi error:', error);
         setStatus('idle');
         setIsActive(false);
+        stopVolumePolling();
         const errorMessage = error instanceof Error ? error.message : 'Connection failed';
         onErrorRef.current?.(errorMessage);
       });
     }
 
     return () => {
+      stopVolumePolling();
       if (vapiRef.current) {
         vapiRef.current.stop();
       }
     };
-  }, []);
+  }, [startVolumePolling, stopVolumePolling]);
 
   const start = useCallback(async () => {
     if (!vapiRef.current) {
@@ -149,12 +188,13 @@ export function useVapiAgent({
   }, [isActive]);
 
   const stop = useCallback(() => {
+    stopVolumePolling();
     if (vapiRef.current) {
       vapiRef.current.stop();
     }
     setStatus('idle');
     setIsActive(false);
-  }, []);
+  }, [stopVolumePolling]);
 
   const toggle = useCallback(async () => {
     if (isActive) {
@@ -168,6 +208,8 @@ export function useVapiAgent({
     status,
     isActive,
     isSpeaking: status === 'speaking',
+    inputVolume,
+    outputVolume,
     start,
     stop,
     toggle,
