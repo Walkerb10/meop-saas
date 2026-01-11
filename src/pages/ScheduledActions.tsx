@@ -81,14 +81,14 @@ const OUTPUT_FORMATS = {
 3. Strategic Considerations
 4. Risks to Watch`,
   },
-  storytelling: {
-    label: 'Story Framework',
-    description: 'Problem → Solution narrative',
-    format: `Structured narrative format:
-1. PROBLEM: What's the issue/challenge?
-2. CONTEXT: Why does this matter now?
-3. WHY YOU SHOULD CARE: Impact & implications
-4. SOLUTION: What can be done about it?`,
+  problem: {
+    label: 'Problem Framework',
+    description: 'Problem → Implications → Action',
+    format: `Structured analysis format:
+1. PROBLEM: What's the core issue/challenge?
+2. CONTEXT: What is happening right now?
+3. WHY YOU SHOULD CARE: Implications & how this affects you
+4. WHAT YOU CAN DO: How to apply this info in your life`,
   },
   custom: {
     label: 'Custom Format...',
@@ -211,7 +211,7 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean): Part
   // Extract research fields
   const researchQuery = (config?.query as string) || (config?.research_query as string) || '';
   const rawOutputFormat = (config?.output_format as string) || 'summary';
-  const isKnownFormat = ['summary', 'detailed', 'bullets', 'actionable', 'storytelling'].includes(rawOutputFormat);
+  const isKnownFormat = ['summary', 'detailed', 'bullets', 'actionable', 'problem'].includes(rawOutputFormat);
   const researchOutputFormat = isKnownFormat ? rawOutputFormat : 'custom';
   const customOutputFormat = isKnownFormat ? '' : rawOutputFormat;
   
