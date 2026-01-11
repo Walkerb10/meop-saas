@@ -124,6 +124,65 @@ const OUTPUT_FORMATS = {
 };
 
 // Interactive node component for sequence flow
+// Helper to generate human-readable summary
+function generateAutomationSummary(automation: ScheduledAction): { schedule: string; output: string } {
+  const triggerStep = automation.steps.find(s => s.type === 'trigger');
+  const actionStep = automation.steps.find(s => s.type === 'action');
+  const config = actionStep?.config as Record<string, unknown> | undefined;
+  const automationType = getAutomationTypeFromSteps(automation.steps);
+  
+  // Parse schedule from trigger label
+  let schedule = 'Manual execution';
+  if (triggerStep?.label) {
+    const label = triggerStep.label.toLowerCase();
+    if (label.includes('daily at')) {
+      const timeMatch = triggerStep.label.match(/at\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+      schedule = `Runs daily at ${timeMatch?.[1] || 'scheduled time'}`;
+    } else if (label.includes('every') && label.includes('days')) {
+      const daysMatch = triggerStep.label.match(/every\s+(\d+)\s+days/i);
+      const timeMatch = triggerStep.label.match(/at\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+      schedule = `Runs every ${daysMatch?.[1] || 'X'} days at ${timeMatch?.[1] || 'scheduled time'}`;
+    } else if (label.includes('weekly') || (label.includes('every') && ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].some(d => label.includes(d)))) {
+      const dayMatch = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].find(d => triggerStep.label.includes(d));
+      const timeMatch = triggerStep.label.match(/at\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+      schedule = `Runs every ${dayMatch || 'week'} at ${timeMatch?.[1] || 'scheduled time'}`;
+    } else if (label.includes('monthly')) {
+      const dayMatch = triggerStep.label.match(/day\s+(\d+)/i);
+      const timeMatch = triggerStep.label.match(/at\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+      schedule = `Runs monthly on day ${dayMatch?.[1] || '1'} at ${timeMatch?.[1] || 'scheduled time'}`;
+    } else if (label.includes('one-time') || label.includes('manual')) {
+      schedule = 'Manual execution only';
+    }
+  }
+  
+  // Describe output
+  let output = 'Sends a message';
+  switch (automationType) {
+    case 'research':
+      const format = (config?.output_format as string) || 'summary';
+      const formatLabel = OUTPUT_FORMATS[format as keyof typeof OUTPUT_FORMATS]?.label || format;
+      output = `Generates a ${formatLabel.toLowerCase()} research report`;
+      break;
+    case 'text':
+      output = 'Sends an SMS text message';
+      break;
+    case 'email':
+      const to = (config?.to as string) || 'recipient';
+      output = `Sends an email to ${to}`;
+      break;
+    case 'slack':
+      const slackChannel = (config?.channel as string) || 'channel';
+      output = `Posts to Slack #${slackChannel}`;
+      break;
+    case 'discord':
+      const discordChannel = (config?.discord_channel as string) || 'channel';
+      output = `Posts to Discord #${discordChannel}`;
+      break;
+  }
+  
+  return { schedule, output };
+}
+
 function InteractiveNode({ 
   step, 
   isFirst, 
@@ -179,7 +238,7 @@ function InteractiveNode({
       )}
       <button
         onClick={onClick}
-        className={`rounded-lg border p-4 w-full transition-all cursor-pointer ${getTypeStyles()}`}
+        className={`rounded-lg border p-4 w-full transition-all cursor-pointer group ${getTypeStyles()}`}
       >
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-md ${
@@ -192,10 +251,11 @@ function InteractiveNode({
             <p className="text-xs text-muted-foreground capitalize flex items-center gap-1">
               {step.type === 'trigger' && <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />}
               {step.type === 'trigger' ? 'Trigger' : 'Action'}
-              <span className="text-muted-foreground/50 ml-1">· Click to edit</span>
             </p>
           </div>
-          <Pencil className="w-4 h-4 text-muted-foreground" />
+          <div className="p-1.5 rounded-md bg-secondary/50 group-hover:bg-secondary transition-colors">
+            <Pencil className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          </div>
         </div>
       </button>
     </div>
@@ -1498,27 +1558,46 @@ const ScheduledActions = () => {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              {/* Status Toggle - Compact */}
+              {/* Summary Section */}
               {(() => {
+                const summary = generateAutomationSummary(selectedAutomation);
                 const automationType = getAutomationTypeFromSteps(selectedAutomation.steps);
                 const typeConfig = AUTOMATION_TYPES.find(t => t.id === automationType) || AUTOMATION_TYPES[0];
                 const TypeIcon = typeConfig.icon;
                 return (
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${typeConfig.color}`}>
-                        <TypeIcon className="w-3 h-3" />
-                        {typeConfig.label}
-                      </span>
-                      <span className={`text-sm ${selectedAutomation.isActive ? 'text-green-500' : 'text-muted-foreground'}`}>
-                        {selectedAutomation.isActive ? 'Active' : 'Disabled'}
-                      </span>
+                  <div className="rounded-xl border border-border bg-gradient-to-br from-card to-secondary/30 p-5">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${typeConfig.color}`}>
+                          <TypeIcon className="w-3.5 h-3.5" />
+                          {typeConfig.label}
+                        </span>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          selectedAutomation.isActive 
+                            ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
+                            : 'bg-secondary text-muted-foreground border border-border'
+                        }`}>
+                          <Power className="w-3 h-3" />
+                          {selectedAutomation.isActive ? 'Active' : 'Disabled'}
+                        </span>
+                      </div>
+                      <Switch
+                        checked={selectedAutomation.isActive}
+                        onCheckedChange={() => handleToggleActive(selectedAutomation, { stopPropagation: () => {} } as React.MouseEvent)}
+                        disabled={togglingId === selectedAutomation.id}
+                      />
                     </div>
-                    <Switch
-                      checked={selectedAutomation.isActive}
-                      onCheckedChange={() => handleToggleActive(selectedAutomation, { stopPropagation: () => {} } as React.MouseEvent)}
-                      disabled={togglingId === selectedAutomation.id}
-                    />
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Clock className="w-4 h-4 text-primary shrink-0" />
+                        <span className="text-foreground">{summary.schedule}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <Zap className="w-4 h-4 text-green-500 shrink-0" />
+                        <span className="text-foreground">{summary.output}</span>
+                      </div>
+                    </div>
                   </div>
                 );
               })()}
@@ -1526,7 +1605,7 @@ const ScheduledActions = () => {
               {/* Interactive Sequence Flow */}
               <div className="rounded-xl border border-border bg-card p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-medium text-muted-foreground">Sequence Flow</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground">Workflow</h3>
                   {editingNode && (
                     <Button 
                       variant="ghost" 
