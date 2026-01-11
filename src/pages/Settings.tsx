@@ -58,9 +58,14 @@ const Settings = () => {
     if (!payload || typeof payload !== 'object') return null;
     const p = payload as Record<string, unknown>;
     
+    // Check for our saved tool call marker (most reliable)
+    if (p._tool_call === true && p._automation_type) {
+      return `schedule_${p._automation_type}`;
+    }
+    
     // Check for explicit automation_type first (most reliable for Vapi)
     if (p.automation_type && typeof p.automation_type === 'string') {
-      return p.automation_type;
+      return `schedule_${p.automation_type}`;
     }
     
     // Check for message_content + frequency = scheduling tool call
@@ -91,11 +96,13 @@ const Settings = () => {
   };
 
   // Check if a log is a Vapi tool call (has automation fields)
-  const isVapiToolCall = (payload: Json): boolean => {
+  const isVapiToolCall = (payload: Json, role?: string): boolean => {
+    if (role === 'tool_call') return true;
     if (!payload || typeof payload !== 'object') return false;
     const p = payload as Record<string, unknown>;
-    // Must have scheduling fields OR explicit tool indicators
+    // Check for our saved tool call marker or scheduling fields
     return !!(
+      p._tool_call === true ||
       (p.message_content && p.frequency && p.scheduled_time) ||
       (p.research_topic && p.frequency) ||
       p.automation_type ||
@@ -117,10 +124,10 @@ const Settings = () => {
   const filteredLogs = useMemo(() => {
     if (logFilter === 'all') return webhookLogs;
     if (logFilter === 'tools') {
-      return webhookLogs.filter(log => isVapiToolCall(log.raw_payload));
+      return webhookLogs.filter(log => isVapiToolCall(log.raw_payload, log.role));
     }
     if (logFilter === 'chat') {
-      return webhookLogs.filter(log => !getToolName(log.raw_payload));
+      return webhookLogs.filter(log => !getToolName(log.raw_payload) && log.role !== 'tool_call');
     }
     return webhookLogs.filter(log => getToolName(log.raw_payload) === logFilter);
   }, [webhookLogs, logFilter]);

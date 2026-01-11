@@ -308,6 +308,21 @@ serve(async (req) => {
 
     console.log(`✅ Created ${automationType} automation:`, data.id);
     
+    // Save the tool call to conversation_transcripts for logging
+    await supabase.from("conversation_transcripts").insert({
+      role: "tool_call",
+      content: `Scheduled ${automationType}: "${short40}"`,
+      conversation_id: conversationId,
+      raw_payload: {
+        ...body,
+        _tool_call: true,
+        _automation_type: automationType,
+        _automation_id: data.id,
+        _automation_name: automationData.name,
+        _trigger_label: triggerLabel,
+      },
+    });
+    
     // Return Vapi-compatible tool response
     return new Response(
       JSON.stringify({
