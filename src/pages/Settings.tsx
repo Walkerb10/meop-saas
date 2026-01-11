@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
 import { AppLayout } from '@/components/AppLayout';
 import { useSequences } from '@/hooks/useSequences';
+import { useN8nTools } from '@/hooks/useN8nTools';
 import { useAuth } from '@/hooks/useAuth';
 import { useTimezone } from '@/hooks/useTimezone';
 import { Input } from '@/components/ui/input';
@@ -21,12 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-interface N8nTool {
-  id: string;
-  title: string;
-  webhookUrl: string;
-  description: string;
-}
+// N8nTool interface is now imported from useN8nTools
 
 const VOICES = [
   { id: 'Roger', name: 'Roger', description: 'Deep & confident' },
@@ -76,6 +72,7 @@ interface WebhookLog {
 
 const Settings = () => {
   const { sequences, addSequence, updateSequence, deleteSequence } = useSequences();
+  const { tools: n8nTools, addTool: addN8nToolToDb, deleteTool: deleteN8nToolFromDb, loading: n8nLoading } = useN8nTools();
   const { signOut, user } = useAuth();
   const { timezone, setTimezone, timezones, formatDateTime } = useTimezone();
   const navigate = useNavigate();
@@ -126,11 +123,7 @@ const Settings = () => {
     return webhookLogs.filter(log => getToolName(log.raw_payload) === logFilter);
   }, [webhookLogs, logFilter]);
   
-  // n8n Tools state
-  const [n8nTools, setN8nTools] = useState<N8nTool[]>(() => {
-    const saved = localStorage.getItem('n8nTools');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // n8n Tools form state
   const [newTool, setNewTool] = useState({ title: '', webhookUrl: '', description: '' });
   const [showAddN8nForm, setShowAddN8nForm] = useState(false);
 
@@ -161,25 +154,21 @@ const Settings = () => {
     });
   };
 
-  useEffect(() => {
-    localStorage.setItem('n8nTools', JSON.stringify(n8nTools));
-  }, [n8nTools]);
-
-  const addN8nTool = () => {
+  const addN8nTool = async () => {
     if (!newTool.title.trim() || !newTool.webhookUrl.trim()) return;
-    const tool: N8nTool = {
-      id: Date.now().toString(),
+    const success = await addN8nToolToDb({
       title: newTool.title.trim(),
       webhookUrl: newTool.webhookUrl.trim(),
       description: newTool.description.trim(),
-    };
-    setN8nTools([...n8nTools, tool]);
-    setNewTool({ title: '', webhookUrl: '', description: '' });
-    setShowAddN8nForm(false);
+    });
+    if (success) {
+      setNewTool({ title: '', webhookUrl: '', description: '' });
+      setShowAddN8nForm(false);
+    }
   };
 
-  const deleteN8nTool = (id: string) => {
-    setN8nTools(n8nTools.filter(t => t.id !== id));
+  const deleteN8nTool = async (id: string) => {
+    await deleteN8nToolFromDb(id);
   };
 
   const handleLogout = async () => {
