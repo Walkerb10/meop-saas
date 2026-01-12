@@ -460,28 +460,93 @@ export type Database = {
         }
         Relationships: []
       }
+      sequence_executions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_step: number | null
+          error_message: string | null
+          id: string
+          input_data: Json | null
+          sequence_id: string
+          started_at: string
+          status: string
+          step_results: Json | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          error_message?: string | null
+          id?: string
+          input_data?: Json | null
+          sequence_id: string
+          started_at?: string
+          status?: string
+          step_results?: Json | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_step?: number | null
+          error_message?: string | null
+          id?: string
+          input_data?: Json | null
+          sequence_id?: string
+          started_at?: string
+          status?: string
+          step_results?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequence_executions_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sequences: {
         Row: {
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
+          is_active: boolean
+          last_run_at: string | null
           name: string
+          steps: Json
+          trigger_config: Json | null
+          trigger_type: string
           updated_at: string
           webhook_url: string | null
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
+          is_active?: boolean
+          last_run_at?: string | null
           name: string
+          steps?: Json
+          trigger_config?: Json | null
+          trigger_type?: string
           updated_at?: string
           webhook_url?: string | null
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
+          is_active?: boolean
+          last_run_at?: string | null
           name?: string
+          steps?: Json
+          trigger_config?: Json | null
+          trigger_type?: string
           updated_at?: string
           webhook_url?: string | null
         }
