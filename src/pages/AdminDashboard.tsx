@@ -6,6 +6,7 @@ import { KnowledgeBaseManager } from '@/components/KnowledgeBaseManager';
 import { ChatPermissionsManager } from '@/components/ChatPermissionsManager';
 import { FeatureAccessManager } from '@/components/FeatureAccessManager';
 import { AdminFeedbackList } from '@/components/AdminFeedbackList';
+import { AITrainingManager } from '@/components/AITrainingManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,7 @@ import { useTeamMembers, TeamMember } from '@/hooks/useTeamMembers';
 import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useUserRole, AppRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/hooks/useAuth';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths } from 'date-fns';
 import { 
   Users, 
@@ -35,6 +37,7 @@ import {
   AlertCircle,
   Loader2,
   MessageSquare,
+  Brain,
 } from 'lucide-react';
 
 function UserManagementTab() {
@@ -46,6 +49,7 @@ function UserManagementTab() {
 
   const getRoleBadgeColor = (role?: AppRole) => {
     switch (role) {
+      case 'owner': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
       case 'admin': return 'bg-red-500/20 text-red-400 border-red-500/30';
       case 'manager': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
       case 'member': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
@@ -90,7 +94,7 @@ function UserManagementTab() {
               <SelectContent>
                 <SelectItem value="member">Member</SelectItem>
                 <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="viewer">Viewer</SelectItem>
+                <SelectItem value="tester">Tester</SelectItem>
               </SelectContent>
             </Select>
             <Button className="gap-2">
@@ -145,7 +149,7 @@ function UserManagementTab() {
                         <SelectItem value="admin">Admin</SelectItem>
                         <SelectItem value="manager">Manager</SelectItem>
                         <SelectItem value="member">Member</SelectItem>
-                        <SelectItem value="viewer">Viewer</SelectItem>
+                        <SelectItem value="tester">Tester</SelectItem>
                       </SelectContent>
                     </Select>
                     <Button 
@@ -648,7 +652,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="bg-secondary/50">
+          <TabsList className="bg-secondary/50 flex-wrap">
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               Users
@@ -667,6 +671,10 @@ export default function AdminDashboard() {
             </TabsTrigger>
             <TabsTrigger value="knowledge" className="gap-2">
               Knowledge
+            </TabsTrigger>
+            <TabsTrigger value="training" className="gap-2">
+              <Brain className="w-4 h-4" />
+              AI Training
             </TabsTrigger>
             <TabsTrigger value="chat-permissions" className="gap-2">
               Chat Data
@@ -695,6 +703,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="knowledge">
             <KnowledgeBaseManager />
+          </TabsContent>
+
+          <TabsContent value="training">
+            <AITrainingManager />
           </TabsContent>
 
           <TabsContent value="chat-permissions">

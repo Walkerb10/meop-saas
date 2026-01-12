@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           conversation_id: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           id: string
           is_active: boolean
@@ -32,6 +33,7 @@ export type Database = {
         Insert: {
           conversation_id?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean
@@ -46,6 +48,7 @@ export type Database = {
         Update: {
           conversation_id?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean
@@ -374,9 +377,13 @@ export type Database = {
         Row: {
           allowed_roles: Database["public"]["Enums"]["app_role"][] | null
           category: string
+          chunk_index: number | null
           content: string
           created_at: string
           created_by: string | null
+          embedding: string | null
+          file_name: string | null
+          file_url: string | null
           id: string
           is_public: boolean
           metadata: Json | null
@@ -386,9 +393,13 @@ export type Database = {
         Insert: {
           allowed_roles?: Database["public"]["Enums"]["app_role"][] | null
           category?: string
+          chunk_index?: number | null
           content: string
           created_at?: string
           created_by?: string | null
+          embedding?: string | null
+          file_name?: string | null
+          file_url?: string | null
           id?: string
           is_public?: boolean
           metadata?: Json | null
@@ -398,9 +409,13 @@ export type Database = {
         Update: {
           allowed_roles?: Database["public"]["Enums"]["app_role"][] | null
           category?: string
+          chunk_index?: number | null
           content?: string
           created_at?: string
           created_by?: string | null
+          embedding?: string | null
+          file_name?: string | null
+          file_url?: string | null
           id?: string
           is_public?: boolean
           metadata?: Json | null
@@ -585,9 +600,23 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      match_knowledge_entries: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          category: string
+          content: string
+          id: string
+          similarity: number
+          title: string
+        }[]
+      }
     }
     Enums: {
-      app_role: "admin" | "manager" | "member" | "tester"
+      app_role: "owner" | "admin" | "manager" | "member" | "tester"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -715,7 +744,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "manager", "member", "tester"],
+      app_role: ["owner", "admin", "manager", "member", "tester"],
     },
   },
 } as const

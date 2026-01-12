@@ -24,12 +24,14 @@ const FEATURES: { key: string; label: string; description: string }[] = [
   { key: 'calendar', label: 'Calendar', description: 'View team calendar' },
   { key: 'task_assignment', label: 'Task Assignment', description: 'Assign tasks to team members' },
   { key: 'feedback', label: 'Feedback', description: 'Submit and view feedback' },
+  { key: 'ai_training', label: 'AI Training', description: 'Train and manage MEOP AI knowledge' },
 ];
 
 const ROLES: AppRole[] = ['admin', 'manager', 'member', 'tester'];
 
 const getRoleBadgeColor = (role: AppRole) => {
   switch (role) {
+    case 'owner': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
     case 'admin': return 'bg-red-500/20 text-red-400 border-red-500/30';
     case 'manager': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
     case 'member': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';

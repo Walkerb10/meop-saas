@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type AppRole = 'admin' | 'manager' | 'member' | 'tester';
+type AppRole = 'owner' | 'admin' | 'manager' | 'member' | 'tester';
 
 export interface KnowledgeEntry {
   id: string;
