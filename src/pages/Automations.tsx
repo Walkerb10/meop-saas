@@ -1,0 +1,470 @@
+import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Plus, Search, Play, Clock, Zap, ChevronRight, 
+  MoreHorizontal, Trash2, Power, PowerOff, Loader2, Filter
+} from 'lucide-react';
+import { AppLayout } from '@/components/AppLayout';
+import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useTasks } from '@/hooks/useTasks';
+import { Workflow, WorkflowNode, WorkflowConnection } from '@/types/workflow';
+import { format, formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+// Demo workflows for showcase
+const DEMO_WORKFLOWS: Workflow[] = [
+  {
+    id: 'demo-1',
+    name: 'Daily Market Research',
+    description: 'Research market trends every morning and send to Slack',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    lastRunAt: new Date(Date.now() - 3600000).toISOString(),
+    nodes: [
+      { id: 'n1', type: 'trigger_schedule', label: 'Daily at 9 AM', position: { x: 100, y: 100 }, config: { frequency: 'daily', time: '09:00' } },
+      { id: 'n2', type: 'action_research', label: 'Market Research', position: { x: 100, y: 250 }, config: { query: 'Latest market trends in AI', outputFormat: 'problem', outputLength: '500' } },
+      { id: 'n3', type: 'action_slack', label: 'Post to Slack', position: { x: 100, y: 400 }, config: { channel: 'market-updates', message: '{{result}}' } },
+    ],
+    connections: [
+      { id: 'c1', sourceId: 'n1', targetId: 'n2' },
+      { id: 'c2', sourceId: 'n2', targetId: 'n3' },
+    ],
+  },
+  {
+    id: 'demo-2',
+    name: 'Competitor Analysis',
+    description: 'Weekly competitor analysis sent via email',
+    isActive: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    nodes: [
+      { id: 'n1', type: 'trigger_schedule', label: 'Weekly Monday', position: { x: 100, y: 100 }, config: { frequency: 'weekly', dayOfWeek: 'Monday', time: '08:00' } },
+      { id: 'n2', type: 'action_research', label: 'Competitor Research', position: { x: 100, y: 250 }, config: { query: 'Competitor analysis for tech startups', outputFormat: 'detailed' } },
+      { id: 'n3', type: 'action_email', label: 'Send Report', position: { x: 100, y: 400 }, config: { to: 'team@company.com', subject: 'Weekly Competitor Report', message: '{{result}}' } },
+    ],
+    connections: [
+      { id: 'c1', sourceId: 'n1', targetId: 'n2' },
+      { id: 'c2', sourceId: 'n2', targetId: 'n3' },
+    ],
+  },
+];
+
+function TasksPopoverContent() {
+  const { tasks, loading } = useTasks();
+  const processingTasks = tasks.filter(t => t.status === 'processing');
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+      </div>
+    );
+  }
+
+  if (processingTasks.length === 0) {
+    return (
+      <div className="text-center py-6">
+        <p className="text-sm text-muted-foreground">No running workflows</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {processingTasks.map(task => (
+        <div key={task.id} className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+          <div className="flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+            <p className="text-sm font-medium">{task.name}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function AutomationsPage() {
+  const [workflows, setWorkflows] = useState<Workflow[]>(DEMO_WORKFLOWS);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
+  const [executingId, setExecutingId] = useState<string | null>(null);
+  const [executingNodeId, setExecutingNodeId] = useState<string | null>(null);
+  const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
+  const { tasks } = useTasks();
+  const processingCount = tasks.filter(t => t.status === 'processing').length;
+
+  const filteredWorkflows = workflows.filter(w => 
+    w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    w.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleSaveWorkflow = useCallback(async (workflowData: Partial<Workflow>) => {
+    if (selectedWorkflow) {
+      // Update existing
+      setWorkflows(prev => prev.map(w => 
+        w.id === selectedWorkflow.id 
+          ? { ...w, ...workflowData, updatedAt: new Date().toISOString() } as Workflow
+          : w
+      ));
+      toast.success('Workflow saved');
+    } else {
+      // Create new
+      const newWorkflow: Workflow = {
+        id: crypto.randomUUID(),
+        name: workflowData.name || 'New Workflow',
+        description: workflowData.description,
+        nodes: workflowData.nodes || [],
+        connections: workflowData.connections || [],
+        isActive: workflowData.isActive ?? true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setWorkflows(prev => [...prev, newWorkflow]);
+      setSelectedWorkflow(newWorkflow);
+      toast.success('Workflow created');
+    }
+    setIsCreating(false);
+  }, [selectedWorkflow]);
+
+  const handleExecuteWorkflow = useCallback(async () => {
+    if (!selectedWorkflow) return;
+    
+    setExecutingId(selectedWorkflow.id);
+    setCompletedNodeIds([]);
+
+    // Simulate execution by stepping through nodes
+    const sortedNodes = [...selectedWorkflow.nodes].sort((a, b) => a.position.y - b.position.y);
+    
+    for (const node of sortedNodes) {
+      setExecutingNodeId(node.id);
+      await new Promise(r => setTimeout(r, 1500)); // Simulate execution time
+      setCompletedNodeIds(prev => [...prev, node.id]);
+    }
+
+    setExecutingNodeId(null);
+    setExecutingId(null);
+    
+    // Update last run
+    setWorkflows(prev => prev.map(w => 
+      w.id === selectedWorkflow.id 
+        ? { ...w, lastRunAt: new Date().toISOString() }
+        : w
+    ));
+    
+    toast.success('Workflow completed successfully');
+  }, [selectedWorkflow]);
+
+  const handleDeleteWorkflow = useCallback(() => {
+    if (!deleteWorkflowId) return;
+    setWorkflows(prev => prev.filter(w => w.id !== deleteWorkflowId));
+    setDeleteWorkflowId(null);
+    toast.success('Workflow deleted');
+  }, [deleteWorkflowId]);
+
+  const handleToggleActive = useCallback((id: string) => {
+    setWorkflows(prev => prev.map(w => 
+      w.id === id ? { ...w, isActive: !w.isActive } : w
+    ));
+  }, []);
+
+  // Show builder when editing or creating
+  if (selectedWorkflow || isCreating) {
+    return (
+      <AppLayout 
+        showTasksButton 
+        tasksContent={<TasksPopoverContent />}
+        taskCount={processingCount}
+      >
+        <div className="h-[calc(100vh-3.5rem)]">
+          <WorkflowBuilder
+            workflow={selectedWorkflow || undefined}
+            onSave={handleSaveWorkflow}
+            onExecute={selectedWorkflow ? handleExecuteWorkflow : undefined}
+            onBack={() => {
+              setSelectedWorkflow(null);
+              setIsCreating(false);
+              setCompletedNodeIds([]);
+            }}
+            isExecuting={executingId === selectedWorkflow?.id}
+            executingNodeId={executingNodeId}
+            completedNodeIds={completedNodeIds}
+          />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Show workflow list
+  return (
+    <AppLayout 
+      showTasksButton 
+      tasksContent={<TasksPopoverContent />}
+      taskCount={processingCount}
+    >
+      <div className="p-6 max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Automations</h1>
+            <p className="text-muted-foreground mt-1">
+              Build visual workflows that automate your tasks
+            </p>
+          </div>
+          <Button onClick={() => setIsCreating(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            New Workflow
+          </Button>
+        </div>
+
+        {/* Search and filters */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search workflows..."
+              className="pl-10"
+            />
+          </div>
+          <Button variant="outline" size="icon">
+            <Filter className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <Zap className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{workflows.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Workflows</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-green-500/10">
+                  <Power className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{workflows.filter(w => w.isActive).length}</p>
+                  <p className="text-sm text-muted-foreground">Active</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg bg-blue-500/10">
+                  <Clock className="w-5 h-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">
+                    {workflows.filter(w => w.lastRunAt).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Ran This Week</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Workflow list */}
+        <div className="space-y-3">
+          <AnimatePresence>
+            {filteredWorkflows.map((workflow, index) => (
+              <motion.div
+                key={workflow.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <Card 
+                  className={cn(
+                    'cursor-pointer transition-all hover:shadow-md hover:border-primary/30',
+                    !workflow.isActive && 'opacity-60'
+                  )}
+                  onClick={() => setSelectedWorkflow(workflow)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      {/* Icon */}
+                      <div className={cn(
+                        'p-3 rounded-xl',
+                        workflow.isActive ? 'bg-primary/10' : 'bg-muted'
+                      )}>
+                        <Zap className={cn(
+                          'w-5 h-5',
+                          workflow.isActive ? 'text-primary' : 'text-muted-foreground'
+                        )} />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-foreground truncate">
+                            {workflow.name}
+                          </h3>
+                          <Badge variant={workflow.isActive ? 'default' : 'secondary'} className="text-xs">
+                            {workflow.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </div>
+                        {workflow.description && (
+                          <p className="text-sm text-muted-foreground truncate mt-0.5">
+                            {workflow.description}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                          <span>{workflow.nodes.length} steps</span>
+                          {workflow.lastRunAt && (
+                            <span>
+                              Last run {formatDistanceToNow(new Date(workflow.lastRunAt), { addSuffix: true })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedWorkflow(workflow);
+                            handleExecuteWorkflow();
+                          }}
+                          disabled={!workflow.isActive || executingId === workflow.id}
+                        >
+                          {executingId === workflow.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Play className="w-4 h-4" />
+                          )}
+                        </Button>
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleActive(workflow.id);
+                            }}>
+                              {workflow.isActive ? (
+                                <>
+                                  <PowerOff className="w-4 h-4 mr-2" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <Power className="w-4 h-4 mr-2" />
+                                  Activate
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-destructive"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteWorkflowId(workflow.id);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {filteredWorkflows.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
+                <Zap className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-lg font-medium text-foreground mb-1">
+                {searchQuery ? 'No workflows found' : 'No workflows yet'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {searchQuery 
+                  ? 'Try a different search term'
+                  : 'Create your first automation workflow'
+                }
+              </p>
+              {!searchQuery && (
+                <Button onClick={() => setIsCreating(true)} className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Create Workflow
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteWorkflowId} onOpenChange={() => setDeleteWorkflowId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Workflow?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. The workflow and all its configuration will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteWorkflow} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AppLayout>
+  );
+}
