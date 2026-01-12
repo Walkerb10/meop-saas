@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-type AppRole = 'admin' | 'manager' | 'member' | 'viewer';
+type AppRole = 'admin' | 'manager' | 'member' | 'tester';
 
 export interface KnowledgeEntry {
   id: string;
@@ -50,7 +50,7 @@ export function useKnowledgeBase() {
           content: entry.content,
           category: entry.category,
           is_public: entry.is_public ?? true,
-          allowed_roles: entry.allowed_roles || ['admin', 'manager', 'member', 'viewer'],
+          allowed_roles: entry.allowed_roles || ['admin', 'manager', 'member', 'tester'],
         })
         .select()
         .single();
