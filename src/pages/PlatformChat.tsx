@@ -43,11 +43,9 @@ export default function PlatformChat() {
         {/* Messages */}
         <ScrollArea className="flex-1 p-4" ref={scrollRef}>
           {messages.length === 0 ? <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="p-4 rounded-full bg-primary/10 mb-4">
-                <Bot className="h-8 w-8 text-primary" />
+              <div className="p-4 rounded-full bg-primary/10 mb-6">
+                <Bot className="h-10 w-10 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">MEOP AI</h2>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-lg">
                 {["What tasks are due this week?", "Show me recent automations", "Who's on the team?", "What executions failed recently?"].map(suggestion => <Button key={suggestion} variant="outline" className="text-sm" onClick={() => sendMessage(suggestion)}>
                     {suggestion}

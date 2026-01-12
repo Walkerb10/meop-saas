@@ -11,6 +11,7 @@ import { useSequences } from '@/hooks/useSequences';
 import { useN8nTools } from '@/hooks/useN8nTools';
 import { useAuth } from '@/hooks/useAuth';
 import { useTimezone } from '@/hooks/useTimezone';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
@@ -44,8 +45,11 @@ const Settings = () => {
   const { tools: n8nTools, addTool: addN8nToolToDb, deleteTool: deleteN8nToolFromDb, loading: n8nLoading } = useN8nTools();
   const { signOut, user } = useAuth();
   const { formatDateTime } = useTimezone();
+  const { canAccess, loading: featureLoading } = useFeatureAccess();
   const navigate = useNavigate();
   const [copiedWebhook, setCopiedWebhook] = useState<string | null>(null);
+  
+  const canViewWebhooks = canAccess('webhooks') || canAccess('admin_dashboard');
   
   // Webhook logs state
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
@@ -209,16 +213,20 @@ const Settings = () => {
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <Tabs defaultValue="webhooks" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="webhooks" className="gap-2">
-              <Webhook className="w-4 h-4" />
-              <span className="hidden sm:inline">Webhooks</span>
-            </TabsTrigger>
-            <TabsTrigger value="logs" className="gap-2" onClick={fetchWebhookLogs}>
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Logs</span>
-            </TabsTrigger>
+          <Tabs defaultValue={canViewWebhooks ? "webhooks" : "voice"} className="w-full">
+          <TabsList className={`grid w-full mb-6 ${canViewWebhooks ? 'grid-cols-5' : 'grid-cols-4'}`}>
+            {canViewWebhooks && (
+              <TabsTrigger value="webhooks" className="gap-2">
+                <Webhook className="w-4 h-4" />
+                <span className="hidden sm:inline">Webhooks</span>
+              </TabsTrigger>
+            )}
+            {canViewWebhooks && (
+              <TabsTrigger value="logs" className="gap-2" onClick={fetchWebhookLogs}>
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">Logs</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="voice" className="gap-2">
               <Volume2 className="w-4 h-4" />
               <span className="hidden sm:inline">Voice</span>
@@ -233,7 +241,7 @@ const Settings = () => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="webhooks">
+          {canViewWebhooks && <TabsContent value="webhooks">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -447,9 +455,9 @@ const Settings = () => {
                 )}
               </div>
             </motion.div>
-          </TabsContent>
+          </TabsContent>}
 
-          <TabsContent value="logs">
+          {canViewWebhooks && <TabsContent value="logs">
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -551,7 +559,7 @@ const Settings = () => {
                 </div>
               )}
             </motion.div>
-          </TabsContent>
+          </TabsContent>}
 
           <TabsContent value="voice">
             <VoiceSettings />

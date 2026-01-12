@@ -10,7 +10,8 @@ export type FeatureKey =
   | 'voice_agent'
   | 'sequences'
   | 'executions'
-  | 'feedback';
+  | 'feedback'
+  | 'webhooks';
 
 interface FeatureAccessData {
   canAccess: (feature: FeatureKey) => boolean;

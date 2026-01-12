@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { KnowledgeBaseManager } from '@/components/KnowledgeBaseManager';
 import { ChatPermissionsManager } from '@/components/ChatPermissionsManager';
+import { FeatureAccessManager } from '@/components/FeatureAccessManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -661,8 +662,12 @@ export default function AdminDashboard() {
             <TabsTrigger value="knowledge" className="gap-2">
               Knowledge
             </TabsTrigger>
-            <TabsTrigger value="permissions" className="gap-2">
-              Permissions
+            <TabsTrigger value="chat-permissions" className="gap-2">
+              Chat Data
+            </TabsTrigger>
+            <TabsTrigger value="feature-access" className="gap-2">
+              <Shield className="w-4 h-4" />
+              Features
             </TabsTrigger>
           </TabsList>
 
@@ -682,8 +687,12 @@ export default function AdminDashboard() {
             <KnowledgeBaseManager />
           </TabsContent>
 
-          <TabsContent value="permissions">
+          <TabsContent value="chat-permissions">
             <ChatPermissionsManager />
+          </TabsContent>
+
+          <TabsContent value="feature-access">
+            <FeatureAccessManager />
           </TabsContent>
         </Tabs>
       </div>
