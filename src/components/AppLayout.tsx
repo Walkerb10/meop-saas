@@ -15,6 +15,7 @@ import {
   Settings,
   ListTodo,
   MessageSquare,
+  Lightbulb,
   SquarePen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ const mainNavItems = [
 ];
 
 const bottomNavItems = [
+  { icon: Lightbulb, label: 'Feedback', path: '/feedback' },
   { icon: User, label: 'Profile', path: '/profile' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];

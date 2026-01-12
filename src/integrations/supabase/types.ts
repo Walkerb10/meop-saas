@@ -134,6 +134,36 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          priority: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          priority?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       n8n_tools: {
         Row: {
           created_at: string
