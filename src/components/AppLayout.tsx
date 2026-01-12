@@ -28,7 +28,7 @@ import {
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 
 const mainNavItems = [
-  { icon: Sparkles, label: 'Voice Agent', path: '/' },
+  { icon: Sparkles, label: 'Agent', path: '/' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
   { icon: ListTodo, label: 'Sequences', path: '/sequences' },
   { icon: Clock, label: 'Executions', path: '/executions' },
