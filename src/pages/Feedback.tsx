@@ -8,8 +8,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Check, Clock, Lightbulb } from 'lucide-react';
+import { Plus, Trash2, Check, Clock, Lightbulb, Sparkles, Copy, Loader2, ChevronDown, ChevronUp, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface FeedbackItem {
   id: string;
@@ -18,6 +19,13 @@ interface FeedbackItem {
   status: string;
   priority: string | null;
   created_at: string;
+}
+
+interface AIRecommendation {
+  recommendation: string;
+  prompt: string;
+  complexity: 'low' | 'medium' | 'high';
+  estimatedFiles: string[];
 }
 
 const statusConfig = {
@@ -32,10 +40,19 @@ const priorityConfig = {
   high: 'bg-red-500/20 text-red-400',
 };
 
+const complexityConfig = {
+  low: { label: 'Low', color: 'bg-green-500/20 text-green-400' },
+  medium: { label: 'Medium', color: 'bg-yellow-500/20 text-yellow-400' },
+  high: { label: 'High', color: 'bg-red-500/20 text-red-400' },
+};
+
 export default function Feedback() {
   const [newTitle, setNewTitle] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newPriority, setNewPriority] = useState('medium');
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [loadingAI, setLoadingAI] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<Record<string, AIRecommendation>>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -93,6 +110,61 @@ export default function Feedback() {
     addMutation.mutate();
   };
 
+  const toggleExpanded = (id: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const generateAIRecommendation = async (item: FeedbackItem) => {
+    setLoadingAI(item.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-fix-prompt', {
+        body: {
+          title: item.title,
+          description: item.description,
+          priority: item.priority,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      setRecommendations(prev => ({
+        ...prev,
+        [item.id]: data as AIRecommendation,
+      }));
+
+      // Auto-expand the item to show the recommendation
+      setExpandedItems(prev => new Set(prev).add(item.id));
+
+      toast({ title: 'AI recommendation generated!' });
+    } catch (error) {
+      console.error('Failed to generate recommendation:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Failed to generate recommendation',
+        description: error instanceof Error ? error.message : 'Please try again',
+      });
+    } finally {
+      setLoadingAI(null);
+    }
+  };
+
+  const copyPrompt = (prompt: string) => {
+    navigator.clipboard.writeText(prompt);
+    toast({ title: 'Prompt copied to clipboard!' });
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col h-full">
@@ -100,7 +172,9 @@ export default function Feedback() {
         <div className="sticky top-0 z-10 bg-background border-b border-border p-4 space-y-4">
           <div>
             <h1 className="text-2xl font-bold">Feature Requests</h1>
-            <p className="text-muted-foreground text-sm">Track ideas and features you want to build</p>
+            <p className="text-muted-foreground text-sm">
+              Track ideas and features. Get AI-powered prompts to fix issues automatically.
+            </p>
           </div>
 
           {/* Add New Feature Form */}
@@ -129,10 +203,10 @@ export default function Feedback() {
               </Button>
             </div>
             <Textarea
-              placeholder="Description (optional)"
+              placeholder="Describe the feature or issue in detail..."
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
-              className="min-h-[60px]"
+              className="min-h-[80px]"
             />
           </div>
         </div>
@@ -142,55 +216,187 @@ export default function Feedback() {
           {isLoading ? (
             <p className="text-muted-foreground text-center py-8">Loading...</p>
           ) : items.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No features yet. Add one above!</p>
+            <div className="text-center py-12">
+              <Lightbulb className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No features yet. Add one above!</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Get AI-generated prompts to help implement your ideas.
+              </p>
+            </div>
           ) : (
             items.map((item) => {
               const statusInfo = statusConfig[item.status as keyof typeof statusConfig] || statusConfig.pending;
               const StatusIcon = statusInfo.icon;
               const priorityClass = priorityConfig[item.priority as keyof typeof priorityConfig] || priorityConfig.medium;
+              const isExpanded = expandedItems.has(item.id);
+              const recommendation = recommendations[item.id];
+              const isLoadingThis = loadingAI === item.id;
 
               return (
-                <Card key={item.id} className="bg-card border-border">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium truncate">{item.title}</h3>
-                          <Badge variant="outline" className={priorityClass}>
-                            {item.priority || 'medium'}
-                          </Badge>
+                <Card key={item.id} className="bg-card border-border overflow-hidden">
+                  <CardContent className="p-0">
+                    <Collapsible open={isExpanded} onOpenChange={() => toggleExpanded(item.id)}>
+                      {/* Main row */}
+                      <div className="flex items-start justify-between gap-3 p-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 className="font-medium">{item.title}</h3>
+                            <Badge variant="outline" className={priorityClass}>
+                              {item.priority || 'medium'}
+                            </Badge>
+                            {recommendation && (
+                              <Badge variant="outline" className={complexityConfig[recommendation.complexity].color}>
+                                {complexityConfig[recommendation.complexity].label} complexity
+                              </Badge>
+                            )}
+                          </div>
+                          {item.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">{item.description}</p>
+                          )}
                         </div>
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground">{item.description}</p>
-                        )}
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {/* Generate AI button */}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              generateAIRecommendation(item);
+                            }}
+                            disabled={isLoadingThis}
+                            className="gap-1.5 text-xs"
+                          >
+                            {isLoadingThis ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Wand2 className="h-3.5 w-3.5" />
+                            )}
+                            {recommendation ? 'Regenerate' : 'AI Fix'}
+                          </Button>
+
+                          <Select
+                            value={item.status}
+                            onValueChange={(status) => updateStatusMutation.mutate({ id: item.id, status })}
+                          >
+                            <SelectTrigger className={`w-32 h-8 text-xs ${statusInfo.color}`}>
+                              <StatusIcon className="h-3 w-3 mr-1" />
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="in-progress">In Progress</SelectItem>
+                              <SelectItem value="done">Done</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={() => deleteMutation.mutate(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={item.status}
-                          onValueChange={(status) => updateStatusMutation.mutate({ id: item.id, status })}
-                        >
-                          <SelectTrigger className={`w-32 h-8 text-xs ${statusInfo.color}`}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="in-progress">In Progress</SelectItem>
-                            <SelectItem value="done">Done</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      {/* Expanded content */}
+                      <CollapsibleContent>
+                        <div className="border-t border-border p-4 bg-secondary/30 space-y-4">
+                          {item.description && (
+                            <div>
+                              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                                Full Description
+                              </h4>
+                              <p className="text-sm">{item.description}</p>
+                            </div>
+                          )}
 
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(item.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                          {recommendation ? (
+                            <>
+                              {/* AI Recommendation */}
+                              <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Sparkles className="h-4 w-4 text-primary" />
+                                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    AI Recommendation
+                                  </h4>
+                                </div>
+                                <p className="text-sm">{recommendation.recommendation}</p>
+                              </div>
+
+                              {/* Estimated Files */}
+                              {recommendation.estimatedFiles.length > 0 && (
+                                <div>
+                                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                                    Likely Files to Modify
+                                  </h4>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {recommendation.estimatedFiles.map((file, i) => (
+                                      <Badge key={i} variant="secondary" className="text-xs font-mono">
+                                        {file}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Ready-to-use Prompt */}
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    Ready-to-Use Prompt
+                                  </h4>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => copyPrompt(recommendation.prompt)}
+                                    className="h-7 gap-1.5 text-xs"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                    Copy
+                                  </Button>
+                                </div>
+                                <div className="bg-background rounded-lg p-3 border border-border">
+                                  <p className="text-sm font-mono whitespace-pre-wrap">{recommendation.prompt}</p>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center py-4">
+                              <p className="text-sm text-muted-foreground mb-3">
+                                Click "AI Fix" to generate an implementation prompt
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => generateAIRecommendation(item)}
+                                disabled={isLoadingThis}
+                                className="gap-2"
+                              >
+                                {isLoadingThis ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Wand2 className="h-4 w-4" />
+                                )}
+                                Generate AI Recommendation
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </CardContent>
                 </Card>
               );

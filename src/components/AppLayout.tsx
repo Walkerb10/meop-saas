@@ -213,13 +213,24 @@ export function AppLayout({
         <header className="fixed top-0 right-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border"
           style={{ left: isMobile ? 0 : desktopSidebarOpen ? '200px' : '56px' }}
         >
-          {/* Left side - hamburger on mobile, New Chat on desktop */}
+          {/* Left side - hamburger on mobile, Feedback button, New Chat */}
           <div className="flex items-center gap-2">
             {isMobile && (
               <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
                 <Menu className="w-6 h-6" />
               </Button>
             )}
+            
+            {/* Feedback button - always visible in header */}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => navigate('/feedback')}
+              className="gap-2 text-muted-foreground hover:text-foreground"
+            >
+              <Lightbulb className="w-4 h-4" />
+              <span>Feedback</span>
+            </Button>
             
             {showNewChatButton && onNewChat && (
               <Button 
