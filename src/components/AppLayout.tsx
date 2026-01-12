@@ -17,7 +17,9 @@ import {
   MessageSquare,
   Lightbulb,
   SquarePen,
+  Shield,
 } from 'lucide-react';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -25,12 +27,23 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
-const mainNavItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
-  { icon: Clock, label: 'Executions', path: '/executions' },
-  { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
-];
+const getNavItems = (isAdmin: boolean) => {
+  const items = [
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  ];
+  
+  if (isAdmin) {
+    items.push({ icon: Shield, label: 'Admin', path: '/admin' });
+  }
+  
+  items.push(
+    { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
+    { icon: Clock, label: 'Executions', path: '/executions' },
+    { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
+  );
+  
+  return items;
+};
 
 const bottomNavItems = [
   { icon: Lightbulb, label: 'Feedback', path: '/feedback' },
@@ -60,7 +73,9 @@ export function AppLayout({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin } = useUserRole();
 
+  const mainNavItems = getNavItems(isAdmin);
   const isActive = (path: string) => location.pathname === path;
 
   return (
