@@ -28,30 +28,27 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 
-const getNavItems = (isAdmin: boolean) => {
+const mainNavItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: Sparkles, label: 'MEOP AI', path: '/platform-chat' },
+  { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
+  { icon: Clock, label: 'Executions', path: '/executions' },
+  { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
+];
+
+const getBottomNavItems = (isAdmin: boolean) => {
   const items = [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-    { icon: Sparkles, label: 'Assistant', path: '/platform-chat' },
+    { icon: Lightbulb, label: 'Feedback', path: '/feedback' },
+    { icon: User, label: 'Profile', path: '/profile' },
+    { icon: Settings, label: 'Settings', path: '/settings' },
   ];
   
   if (isAdmin) {
     items.push({ icon: Shield, label: 'Admin', path: '/admin' });
   }
   
-  items.push(
-    { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
-    { icon: Clock, label: 'Executions', path: '/executions' },
-    { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
-  );
-  
   return items;
 };
-
-const bottomNavItems = [
-  { icon: Lightbulb, label: 'Feedback', path: '/feedback' },
-  { icon: User, label: 'Profile', path: '/profile' },
-  { icon: Settings, label: 'Settings', path: '/settings' },
-];
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -77,7 +74,7 @@ export function AppLayout({
   const location = useLocation();
   const { isAdmin } = useUserRole();
 
-  const mainNavItems = getNavItems(isAdmin);
+  const bottomNavItems = getBottomNavItems(isAdmin);
   const isActive = (path: string) => location.pathname === path;
 
   return (

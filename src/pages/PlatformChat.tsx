@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+// MEOP AI - Platform Assistant trained on conversations, knowledge base, and platform data
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,9 +38,9 @@ export default function PlatformChat() {
               <Sparkles className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold">Platform Assistant</h1>
+              <h1 className="text-lg font-semibold">MEOP AI</h1>
               <p className="text-sm text-muted-foreground">
-                Ask anything about your team, tasks, automations, and more
+                Your team OS assistant - trained on conversations, tasks, and platform data
               </p>
             </div>
           </div>
@@ -58,10 +59,10 @@ export default function PlatformChat() {
               <div className="p-4 rounded-full bg-primary/10 mb-4">
                 <Bot className="h-8 w-8 text-primary" />
               </div>
-              <h2 className="text-xl font-semibold mb-2">Platform Assistant</h2>
+              <h2 className="text-xl font-semibold mb-2">MEOP AI</h2>
               <p className="text-muted-foreground max-w-md mb-6">
-                I have access to your platform's knowledge base, team members, tasks, 
-                automations, and conversation history. Ask me anything!
+                I'm trained on your platform's conversations, knowledge base, team data, 
+                and automations. Ask me anything about your team OS!
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-w-lg">
                 {[
