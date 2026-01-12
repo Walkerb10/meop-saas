@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AgentVoiceButton } from '@/components/AgentVoiceButton';
 import { AppLayout } from '@/components/AppLayout';
 import { useVapiAgent } from '@/hooks/useVapiAgent';
+import { useRAGChat } from '@/hooks/useRAGChat';
 import { Message } from '@/types/agent';
 import { useToast } from '@/hooks/use-toast';
 import { Send, Loader2, Zap, Clock, Calendar } from 'lucide-react';
@@ -98,14 +99,38 @@ const Index = () => {
   const [inputFocused, setInputFocused] = useState(false);
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [conversationId, setConversationId] = useState(() => generateConversationId());
+  const [isSendingText, setIsSendingText] = useState(false);
   const { toast } = useToast();
   const { tasks } = useTasks();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // RAG chat for text input
+  const { 
+    messages: ragMessages, 
+    isLoading: ragLoading, 
+    sendMessage: sendRAGMessage,
+    clearMessages: clearRAGMessages 
+  } = useRAGChat();
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Sync RAG messages to local state
+  useEffect(() => {
+    if (ragMessages.length > 0) {
+      setMessages(ragMessages.map(m => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+      })));
+      if (!hasStartedChat) {
+        setHasStartedChat(true);
+      }
+    }
+  }, [ragMessages, hasStartedChat]);
 
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages((prev) => {
@@ -116,7 +141,7 @@ const Index = () => {
         updated[updated.length - 1] = {
           ...lastMsg,
           content: lastMsg.content + ' ' + text,
-          timestamp: new Date(), // Update timestamp to latest
+          timestamp: new Date(),
         };
         return updated;
       }
@@ -164,14 +189,44 @@ const Index = () => {
     }
     // Clear messages and reset state with new conversation ID
     setMessages([]);
+    clearRAGMessages();
     setHasStartedChat(false);
     setConversationId(generateConversationId());
-  }, [isActive, stop]);
+  }, [isActive, stop, clearRAGMessages]);
+
+  const handleSendText = useCallback(async () => {
+    if (!textInput.trim() || isSendingText) return;
+    
+    setIsSendingText(true);
+    const messageText = textInput.trim();
+    setTextInput('');
+    
+    try {
+      await sendRAGMessage(messageText);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to send message',
+      });
+    } finally {
+      setIsSendingText(false);
+    }
+  }, [textInput, isSendingText, sendRAGMessage, toast]);
+
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendText();
+    }
+  }, [handleSendText]);
 
   const processingCount = tasks.filter(t => t.status === 'processing').length;
 
   // Show tagline only if we haven't started a chat yet
   const showTagline = !hasStartedChat;
+
+  const isLoading = ragLoading || isSendingText;
 
   return (
     <AppLayout 
@@ -222,9 +277,9 @@ const Index = () => {
             </div>
             
             {/* Start speaking hint */}
-            {hasStartedChat && messages.length === 0 && (
+            {hasStartedChat && messages.length === 0 && !isLoading && (
               <p className="text-muted-foreground text-sm mt-2">
-                Start speaking...
+                Start speaking or type a message...
               </p>
             )}
           </div>
@@ -245,13 +300,21 @@ const Index = () => {
                           : 'bg-secondary text-foreground'
                       }`}
                     >
-                      <p className="text-sm">{msg.content}</p>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                       <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                         {format(msg.timestamp, 'h:mm a')}
                       </p>
                     </div>
                   </div>
                 ))}
+                {/* Loading indicator */}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-secondary text-foreground rounded-2xl px-4 py-3">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    </div>
+                  </div>
+                )}
                 {/* Scroll anchor */}
                 <div ref={messagesEndRef} />
               </div>
@@ -274,20 +337,27 @@ const Index = () => {
                 onChange={(e) => setTextInput(e.target.value)}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
+                onKeyDown={handleKeyPress}
                 placeholder="Enter message..."
-                className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                disabled={isLoading}
+                className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
               />
               <Button 
                 size="icon" 
                 variant="ghost"
+                onClick={handleSendText}
+                disabled={!textInput.trim() || isLoading}
                 className={`shrink-0 h-8 w-8 rounded-full transition-all ${
-                  textInput.trim() 
+                  textInput.trim() && !isLoading
                     ? 'text-primary hover:bg-primary/10' 
                     : 'text-muted-foreground hover:bg-muted'
                 }`}
-                disabled={!textInput.trim()}
               >
-                <Send className="w-4 h-4" />
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </Button>
             </div>
           </div>

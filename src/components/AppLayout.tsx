@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebarState } from '@/hooks/useSidebarState';
 import {
-  LayoutDashboard,
   User,
   Clock,
   Menu,
@@ -29,11 +28,10 @@ import {
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 
 const mainNavItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+  { icon: Sparkles, label: 'Voice Agent', path: '/' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
   { icon: Clock, label: 'Executions', path: '/executions' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
-  { icon: Sparkles, label: 'MEOP AI', path: '/platform-chat' },
 ];
 
 const getBottomNavItems = (isAdmin: boolean) => {

@@ -11,13 +11,56 @@ interface ChatMessage {
   content: string;
 }
 
+// Generate embedding using Lovable AI
+async function generateEmbedding(text: string, apiKey: string): Promise<number[] | null> {
+  try {
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          {
+            role: "system",
+            content: `You are an embedding generator. Convert the following text into a 768-dimensional embedding vector. 
+            Return ONLY a JSON array of 768 floating point numbers between -1 and 1. No other text.`,
+          },
+          { role: "user", content: text.substring(0, 2000) },
+        ],
+        temperature: 0,
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) return null;
+
+    const match = content.match(/\[[\s\S]*?\]/);
+    if (!match) return null;
+
+    const embedding = JSON.parse(match[0]);
+    if (Array.isArray(embedding) && embedding.length === 768) {
+      return embedding;
+    }
+    return null;
+  } catch (e) {
+    console.error("Embedding generation failed:", e);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, sessionId } = await req.json();
+    const { messages, sessionId, conversationId } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -64,23 +107,67 @@ serve(async (req) => {
       .eq("role", userRole)
       .single();
 
-    // Build context from platform data based on permissions
+    // Get the latest user message for semantic search
+    const latestUserMessage = messages.filter((m: ChatMessage) => m.role === "user").pop();
+    const queryText = latestUserMessage?.content || "";
+
+    // Build context from platform data
     const contextParts: string[] = [];
 
-    // 1. Get knowledge base entries (filtered by role)
-    const { data: knowledge } = await supabase
-      .from("knowledge_base")
-      .select("title, content, category")
-      .or(`is_public.eq.true,allowed_roles.cs.{${userRole}}`);
+    // === SEMANTIC SEARCH SECTION ===
     
-    if (knowledge && knowledge.length > 0) {
-      contextParts.push("=== KNOWLEDGE BASE ===");
-      knowledge.forEach((k: any) => {
-        contextParts.push(`[${k.category}] ${k.title}: ${k.content}`);
+    // Generate embedding for the query
+    const queryEmbedding = await generateEmbedding(queryText, LOVABLE_API_KEY);
+    
+    if (queryEmbedding && userId) {
+      // 1. Search knowledge base semantically
+      const { data: knowledgeMatches } = await supabase.rpc("match_knowledge_entries", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_threshold: 0.6,
+        match_count: 5,
       });
+
+      if (knowledgeMatches && knowledgeMatches.length > 0) {
+        contextParts.push("=== RELEVANT KNOWLEDGE (Semantic Match) ===");
+        knowledgeMatches.forEach((k: any) => {
+          contextParts.push(`[${k.category}] ${k.title} (${Math.round(k.similarity * 100)}% relevant):\n${k.content}`);
+        });
+      }
+
+      // 2. Search past conversations semantically
+      const { data: conversationMatches } = await supabase.rpc("match_conversations", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_threshold: 0.65,
+        match_count: 5,
+        target_user_id: userId,
+      });
+
+      if (conversationMatches && conversationMatches.length > 0) {
+        contextParts.push("\n=== RELEVANT PAST CONVERSATIONS ===");
+        conversationMatches.forEach((c: any) => {
+          contextParts.push(`- [${c.role}] ${c.content.substring(0, 200)}... (${Math.round(c.similarity * 100)}% relevant)`);
+        });
+      }
+
+      // 3. Search user memories
+      const { data: memoryMatches } = await supabase.rpc("match_user_memories", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        target_user_id: userId,
+        match_threshold: 0.6,
+        match_count: 5,
+      });
+
+      if (memoryMatches && memoryMatches.length > 0) {
+        contextParts.push("\n=== USER MEMORIES & PREFERENCES ===");
+        memoryMatches.forEach((m: any) => {
+          contextParts.push(`- [${m.memory_type}] ${m.content}`);
+        });
+      }
     }
 
-    // 2. Get team members info
+    // === STATIC CONTEXT SECTION ===
+
+    // Get team members info (shared knowledge)
     const { data: teamMembers } = await supabase
       .from("team_members")
       .select("display_name, email, is_active");
@@ -92,13 +179,13 @@ serve(async (req) => {
       });
     }
 
-    // 3. Get automations (based on permissions)
-    if (permissions?.can_view_all_automations || userRole === "admin") {
+    // Get automations (based on permissions)
+    if (permissions?.can_view_all_automations || userRole === "admin" || userRole === "owner") {
       const { data: automations } = await supabase
         .from("automations")
-        .select("name, description, trigger_type, is_active, created_at")
+        .select("name, description, trigger_type, is_active, created_at, created_by")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(15);
       
       if (automations && automations.length > 0) {
         contextParts.push("\n=== AUTOMATIONS ===");
@@ -108,13 +195,13 @@ serve(async (req) => {
       }
     }
 
-    // 4. Get recent executions (based on permissions)
-    if (permissions?.can_view_all_executions || userRole === "admin") {
+    // Get recent executions (based on permissions)
+    if (permissions?.can_view_all_executions || userRole === "admin" || userRole === "owner") {
       const { data: executions } = await supabase
         .from("executions")
         .select("sequence_name, status, started_at, completed_at, error_message")
         .order("started_at", { ascending: false })
-        .limit(10);
+        .limit(8);
       
       if (executions && executions.length > 0) {
         contextParts.push("\n=== RECENT EXECUTIONS ===");
@@ -124,21 +211,13 @@ serve(async (req) => {
       }
     }
 
-    // 5. Get team tasks
-    if (permissions?.can_view_team_activity || userRole === "admin") {
+    // Get team tasks
+    if (permissions?.can_view_team_activity || userRole === "admin" || userRole === "owner") {
       const { data: tasks } = await supabase
         .from("team_tasks")
-        .select(`
-          title, 
-          description, 
-          status, 
-          priority, 
-          due_date,
-          assigned_to,
-          created_by
-        `)
+        .select("title, description, status, priority, due_date")
         .order("created_at", { ascending: false })
-        .limit(15);
+        .limit(10);
       
       if (tasks && tasks.length > 0) {
         contextParts.push("\n=== TEAM TASKS ===");
@@ -148,51 +227,39 @@ serve(async (req) => {
       }
     }
 
-    // 6. Get conversation history (based on permissions)
-    if (permissions?.can_view_all_conversations || userRole === "admin") {
-      const { data: recentConversations } = await supabase
-        .from("conversation_transcripts")
-        .select("role, content, created_at, conversation_id")
-        .order("created_at", { ascending: false })
-        .limit(20);
-      
-      if (recentConversations && recentConversations.length > 0) {
-        contextParts.push("\n=== RECENT PLATFORM CONVERSATIONS ===");
-        recentConversations.forEach((c: any) => {
-          const preview = c.content.substring(0, 100);
-          contextParts.push(`- [${c.role}] ${preview}...`);
-        });
-      }
-    }
-
-    // 7. Get sequences
+    // Get sequences
     const { data: sequences } = await supabase
       .from("sequences")
-      .select("name, description, webhook_url");
+      .select("name, description");
     
     if (sequences && sequences.length > 0) {
-      contextParts.push("\n=== SEQUENCES ===");
+      contextParts.push("\n=== AVAILABLE SEQUENCES ===");
       sequences.forEach((s: any) => {
         contextParts.push(`- ${s.name}: ${s.description || "No description"}`);
       });
     }
 
     // Build system prompt with context
-    const systemPrompt = `You are MEOP AI, the intelligent assistant for MEOP OS - a team operations platform. You are trained on all conversations, knowledge base entries, team data, automations, and platform activity.
+    const systemPrompt = `You are MEOP AI, the intelligent voice and text assistant for MEOP OS - a team operations platform. You are trained on the company knowledge base, all past conversations, user memories, and platform data.
 
 Current user: ${userEmail || "Unknown"} (Role: ${userRole})
+
+=== HOW YOU WORK ===
+- You use semantic search to find relevant information from past conversations, knowledge base, and user memories
+- You remember context from previous conversations and build understanding over time
+- You can help with platform operations, answer questions about processes, and provide insights
 
 === PLATFORM CONTEXT ===
 ${contextParts.join("\n")}
 
 === INSTRUCTIONS ===
-- You are MEOP AI, the internal RAG assistant for this platform
-- Answer questions about the platform, team members, tasks, automations, executions, and conversation history
-- Reference who said what, who created what automation, and who called what tools when relevant
-- If asked about something not in the context, say you don't have that information yet
-- Be helpful, concise, and professional
-- When discussing data, always attribute it to its source (e.g., "According to the knowledge base...", "In a recent conversation...")
-- If the user asks to create/modify things, explain what they need to do in the platform`;
+- Be conversational, helpful, and concise - you're a voice-first assistant
+- Reference relevant information from past conversations when helpful
+- If you remember something about the user from memories, naturally incorporate it
+- When discussing data, attribute it to its source
+- If asked about something not in your context, acknowledge you don't have that information
+- Keep responses clear and easy to understand - aim for 5th grade reading level
+- For complex topics, break them down into simple steps`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
