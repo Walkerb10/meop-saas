@@ -26,14 +26,14 @@ const FEATURES: { key: string; label: string; description: string }[] = [
   { key: 'feedback', label: 'Feedback', description: 'Submit and view feedback' },
 ];
 
-const ROLES: AppRole[] = ['admin', 'manager', 'member', 'viewer'];
+const ROLES: AppRole[] = ['admin', 'manager', 'member', 'tester'];
 
 const getRoleBadgeColor = (role: AppRole) => {
   switch (role) {
     case 'admin': return 'bg-red-500/20 text-red-400 border-red-500/30';
     case 'manager': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
     case 'member': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-    case 'viewer': return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    case 'tester': return 'bg-green-500/20 text-green-400 border-green-500/30';
     default: return 'bg-muted text-muted-foreground';
   }
 };

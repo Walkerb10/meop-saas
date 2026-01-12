@@ -317,12 +317,14 @@ interface AutomationFormData {
   name: string;
   type: AutomationType;
   message: string;
+  // Text specific
+  phoneNumber: string;
   // Research specific
   researchQuery: string;
   researchOutputFormat: string;
   researchOutputLength: string;
   // Email specific
-  emailTo: string;
+  emailRecipients: string[];
   emailSubject: string;
   // Slack specific
   slackChannel: string;
@@ -339,6 +341,32 @@ interface AutomationFormData {
   webhookUrl: string;
   // Follow-up actions (building blocks)
   followUpActions: FollowUpAction[];
+}
+
+// Helper to format phone number as +1XXXXXXXXXX
+function formatPhoneNumber(input: string): string {
+  // Remove all non-digit characters
+  const digits = input.replace(/\D/g, '');
+  // If starts with 1 and has 11 digits, it's already with country code
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`;
+  }
+  // If has 10 digits, add +1 prefix
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  // Otherwise return what we have with +1 if not already formatted
+  if (digits.length > 0) {
+    return digits.startsWith('1') ? `+${digits}` : `+1${digits}`;
+  }
+  return '';
+}
+
+// Helper to format email recipients for display
+function formatEmailRecipients(recipients: string[]): string {
+  if (recipients.length === 0) return 'No recipients';
+  if (recipients.length === 1) return recipients[0];
+  return `${recipients[0]} +${recipients.length - 1} more`;
 }
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -385,9 +413,17 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean, follo
   const researchOutputFormat = (config?.output_format as string) || 'summary';
   const researchOutputLength = (config?.output_length as string) || '500';
   
-  // Extract email fields
-  const emailTo = (config?.to as string) || '';
+  // Extract email fields (handle both string and array formats)
+  const emailToRaw = config?.to;
+  const emailRecipients: string[] = Array.isArray(emailToRaw) 
+    ? emailToRaw 
+    : typeof emailToRaw === 'string' && emailToRaw 
+      ? emailToRaw.split(',').map((e: string) => e.trim()).filter(Boolean)
+      : [];
   const emailSubject = (config?.subject as string) || '';
+  
+  // Extract phone number for text
+  const phoneNumber = (config?.phone as string) || '';
   
   // Extract slack fields - use default if not set
   const slackChannel = (config?.channel as string) || DEFAULT_CHANNELS.slack;
@@ -434,8 +470,8 @@ function extractFromSteps(steps: ScheduledActionStep[], isActive: boolean, follo
   }
   
   return { 
-    type, message, researchQuery, researchOutputFormat, researchOutputLength, 
-    emailTo, emailSubject, slackChannel, discordChannel, frequency, time, 
+    type, message, phoneNumber, researchQuery, researchOutputFormat, researchOutputLength, 
+    emailRecipients, emailSubject, slackChannel, discordChannel, frequency, time, 
     dayOfWeek, dayOfMonth, customDate, everyXDays,
     followUpActions: followUpActions || []
   };
@@ -451,10 +487,11 @@ const ScheduledActions = () => {
     name: '',
     type: 'text',
     message: '',
+    phoneNumber: '',
     researchQuery: '',
     researchOutputFormat: 'summary',
     researchOutputLength: '500',
-    emailTo: '',
+    emailRecipients: [],
     emailSubject: '',
     slackChannel: DEFAULT_CHANNELS.slack,
     discordChannel: DEFAULT_CHANNELS.discord,
@@ -500,10 +537,11 @@ const ScheduledActions = () => {
           name: automationToEdit.name,
           type: extracted.type || 'text',
           message: extracted.message || '',
+          phoneNumber: extracted.phoneNumber || '',
           researchQuery: extracted.researchQuery || '',
           researchOutputFormat: extracted.researchOutputFormat || 'summary',
           researchOutputLength: extracted.researchOutputLength || '500',
-          emailTo: extracted.emailTo || '',
+          emailRecipients: extracted.emailRecipients || [],
           emailSubject: extracted.emailSubject || '',
           slackChannel: extracted.slackChannel || '',
           discordChannel: extracted.discordChannel || '',
@@ -689,7 +727,7 @@ const ScheduledActions = () => {
       case 'research':
         return `Research: "${formData.researchQuery.substring(0, 30)}${formData.researchQuery.length > 30 ? '...' : ''}"`;
       case 'email':
-        return `Email to: ${formatEmailRecipients(formData.emailTo)}`;
+        return `Email to: ${formatEmailRecipients(formData.emailRecipients)}`;
       case 'slack':
         return `Slack #${formData.slackChannel || '(enter channel)'}`;
       case 'discord':
@@ -725,7 +763,7 @@ const ScheduledActions = () => {
       case 'email':
         actionConfig = {
           action_type: 'send_email',
-          to: formData.emailTo,
+          to: formData.emailRecipients.join(', '),
           subject: formData.emailSubject,
           message: formData.message,
         };
@@ -748,6 +786,7 @@ const ScheduledActions = () => {
         actionConfig = {
           action_type: 'send_text',
           message: formData.message,
+          phone: formatPhoneNumber(formData.phoneNumber),
         };
     }
 
@@ -766,7 +805,7 @@ const ScheduledActions = () => {
       case 'research':
         return `Research: "${formData.researchQuery}"`;
       case 'email':
-        return `Email to ${formatEmailRecipients(formData.emailTo)}: "${formData.emailSubject}"`;
+        return `Email to ${formatEmailRecipients(formData.emailRecipients)}: "${formData.emailSubject}"`;
       case 'slack':
         return `Slack #${formData.slackChannel}: "${formData.message}"`;
       case 'discord':
@@ -782,7 +821,7 @@ const ScheduledActions = () => {
       case 'research':
         return formData.researchQuery.trim().length > 0;
       case 'email':
-        return formData.emailTo.trim().length > 0 && formData.message.trim().length > 0;
+        return formData.emailRecipients.length > 0 && formData.message.trim().length > 0;
       case 'slack':
         return formData.slackChannel.trim().length > 0 && formData.message.trim().length > 0;
       case 'discord':
@@ -904,10 +943,11 @@ const ScheduledActions = () => {
       name: '',
       type: 'text',
       message: '',
+      phoneNumber: '',
       researchQuery: '',
       researchOutputFormat: 'summary',
       researchOutputLength: '500',
-      emailTo: '',
+      emailRecipients: [],
       emailSubject: '',
       slackChannel: DEFAULT_CHANNELS.slack,
       discordChannel: DEFAULT_CHANNELS.discord,
@@ -936,10 +976,11 @@ const ScheduledActions = () => {
       name: selectedAutomation.name,
       type: extracted.type || 'text',
       message: extracted.message || '',
+      phoneNumber: extracted.phoneNumber || '',
       researchQuery: extracted.researchQuery || '',
       researchOutputFormat: extracted.researchOutputFormat || 'summary',
       researchOutputLength: extracted.researchOutputLength || '500',
-      emailTo: extracted.emailTo || '',
+      emailRecipients: extracted.emailRecipients || [],
       emailSubject: extracted.emailSubject || '',
       slackChannel: extracted.slackChannel || '',
       discordChannel: extracted.discordChannel || '',
@@ -1010,15 +1051,27 @@ const ScheduledActions = () => {
 
           {/* Type-specific fields */}
           {formData.type === 'text' && (
-            <div>
-              <label className="text-sm font-medium mb-1.5 block">Message</label>
-              <Textarea
-                placeholder="The message to send..."
-                value={formData.message}
-                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                rows={3}
-              />
-            </div>
+            <>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Phone Number</label>
+                <Input
+                  type="tel"
+                  placeholder="(888) 333-4444"
+                  value={formData.phoneNumber}
+                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Will be formatted as +1XXXXXXXXXX</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium mb-1.5 block">Message</label>
+                <Textarea
+                  placeholder="The message to send..."
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  rows={3}
+                />
+              </div>
+            </>
           )}
 
           {formData.type === 'research' && (
@@ -1102,13 +1155,60 @@ const ScheduledActions = () => {
           {formData.type === 'email' && (
             <>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">To (Email)</label>
-                <Input
-                  type="email"
-                  placeholder="recipient@example.com"
-                  value={formData.emailTo}
-                  onChange={(e) => setFormData({ ...formData, emailTo: e.target.value })}
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium">Recipients</label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1"
+                    onClick={() => setFormData({ ...formData, emailRecipients: [...formData.emailRecipients, ''] })}
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add
+                  </Button>
+                </div>
+                <div className="space-y-2">
+                  {formData.emailRecipients.length === 0 ? (
+                    <div className="flex gap-2">
+                      <Input
+                        type="email"
+                        placeholder="recipient@example.com"
+                        value=""
+                        onChange={(e) => setFormData({ ...formData, emailRecipients: [e.target.value] })}
+                      />
+                    </div>
+                  ) : (
+                    formData.emailRecipients.map((email, index) => (
+                      <div key={index} className="flex gap-2">
+                        <Input
+                          type="email"
+                          placeholder="recipient@example.com"
+                          value={email}
+                          onChange={(e) => {
+                            const newRecipients = [...formData.emailRecipients];
+                            newRecipients[index] = e.target.value;
+                            setFormData({ ...formData, emailRecipients: newRecipients });
+                          }}
+                        />
+                        {formData.emailRecipients.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => {
+                              const newRecipients = formData.emailRecipients.filter((_, i) => i !== index);
+                              setFormData({ ...formData, emailRecipients: newRecipients });
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">Subject</label>
@@ -1644,10 +1744,11 @@ const ScheduledActions = () => {
                               name: selectedAutomation.name,
                               type: extracted.type || 'text',
                               message: extracted.message || '',
+                              phoneNumber: extracted.phoneNumber || '',
                               researchQuery: extracted.researchQuery || '',
                               researchOutputFormat: extracted.researchOutputFormat || 'summary',
                               researchOutputLength: extracted.researchOutputLength || '500',
-                              emailTo: extracted.emailTo || '',
+                              emailRecipients: extracted.emailRecipients || [],
                               emailSubject: extracted.emailSubject || '',
                               slackChannel: extracted.slackChannel || '',
                               discordChannel: extracted.discordChannel || '',
@@ -1829,7 +1930,7 @@ const ScheduledActions = () => {
                             <>
                               <div>
                                 <label className="text-xs font-medium mb-1 block">To</label>
-                                <Input value={formData.emailTo} onChange={(e) => setFormData({ ...formData, emailTo: e.target.value })} className="h-9" />
+                                <Input value={formData.emailRecipients.join(', ')} onChange={(e) => setFormData({ ...formData, emailRecipients: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="h-9" placeholder="email1@example.com, email2@example.com" />
                               </div>
                               <div>
                                 <label className="text-xs font-medium mb-1 block">Subject</label>

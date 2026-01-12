@@ -4,7 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 
 export interface ChatDataPermission {
   id: string;
-  role: 'admin' | 'manager' | 'member' | 'viewer';
+  role: 'admin' | 'manager' | 'member' | 'tester';
   can_view_all_conversations: boolean;
   can_view_all_automations: boolean;
   can_view_all_executions: boolean;
