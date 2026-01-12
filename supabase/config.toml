@@ -3,6 +3,9 @@ project_id = "txhakmrteltbbabpvlmu"
 [functions.chat]
 verify_jwt = false
 
+[functions.rag-chat]
+verify_jwt = false
+
 [functions.webhook-research]
 verify_jwt = false
 
@@ -19,4 +22,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.enhance-prompt]
+verify_jwt = false
+
+[functions.generate-fix-prompt]
 verify_jwt = false

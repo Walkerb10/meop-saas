@@ -18,6 +18,7 @@ import {
   Lightbulb,
   SquarePen,
   Shield,
+  Sparkles,
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ import {
 const getNavItems = (isAdmin: boolean) => {
   const items = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: Sparkles, label: 'Assistant', path: '/platform-chat' },
   ];
   
   if (isAdmin) {
