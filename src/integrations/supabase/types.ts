@@ -210,6 +210,7 @@ export type Database = {
           content: string
           conversation_id: string | null
           created_at: string
+          embedding: string | null
           id: string
           raw_payload: Json | null
           role: string
@@ -219,6 +220,7 @@ export type Database = {
           content: string
           conversation_id?: string | null
           created_at?: string
+          embedding?: string | null
           id?: string
           raw_payload?: Json | null
           role: string
@@ -228,6 +230,7 @@ export type Database = {
           content?: string
           conversation_id?: string | null
           created_at?: string
+          embedding?: string | null
           id?: string
           raw_payload?: Json | null
           role?: string
@@ -386,6 +389,7 @@ export type Database = {
           file_url: string | null
           id: string
           is_public: boolean
+          is_shared: boolean | null
           metadata: Json | null
           title: string
           updated_at: string
@@ -402,6 +406,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_public?: boolean
+          is_shared?: boolean | null
           metadata?: Json | null
           title: string
           updated_at?: string
@@ -418,6 +423,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_public?: boolean
+          is_shared?: boolean | null
           metadata?: Json | null
           title?: string
           updated_at?: string
@@ -562,6 +568,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_memories: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          memory_type: string
+          source_conversation_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          memory_type?: string
+          source_conversation_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          memory_type?: string
+          source_conversation_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -600,6 +639,22 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      match_conversations: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+          target_user_id?: string
+        }
+        Returns: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          similarity: number
+        }[]
+      }
       match_knowledge_entries: {
         Args: {
           match_count?: number
@@ -612,6 +667,20 @@ export type Database = {
           id: string
           similarity: number
           title: string
+        }[]
+      }
+      match_user_memories: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+          target_user_id: string
+        }
+        Returns: {
+          content: string
+          id: string
+          memory_type: string
+          similarity: number
         }[]
       }
     }
