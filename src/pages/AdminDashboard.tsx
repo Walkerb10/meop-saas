@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { KnowledgeBaseManager } from '@/components/KnowledgeBaseManager';
+import { ChatPermissionsManager } from '@/components/ChatPermissionsManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -656,6 +658,12 @@ export default function AdminDashboard() {
               <Calendar className="w-4 h-4" />
               Calendar
             </TabsTrigger>
+            <TabsTrigger value="knowledge" className="gap-2">
+              Knowledge
+            </TabsTrigger>
+            <TabsTrigger value="permissions" className="gap-2">
+              Permissions
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -668,6 +676,14 @@ export default function AdminDashboard() {
 
           <TabsContent value="calendar">
             <CalendarTab />
+          </TabsContent>
+
+          <TabsContent value="knowledge">
+            <KnowledgeBaseManager />
+          </TabsContent>
+
+          <TabsContent value="permissions">
+            <ChatPermissionsManager />
           </TabsContent>
         </Tabs>
       </div>

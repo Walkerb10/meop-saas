@@ -101,6 +101,107 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_data_permissions: {
+        Row: {
+          can_add_knowledge: boolean | null
+          can_view_all_automations: boolean | null
+          can_view_all_conversations: boolean | null
+          can_view_all_executions: boolean | null
+          can_view_knowledge_base: boolean | null
+          can_view_team_activity: boolean | null
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          can_add_knowledge?: boolean | null
+          can_view_all_automations?: boolean | null
+          can_view_all_conversations?: boolean | null
+          can_view_all_executions?: boolean | null
+          can_view_knowledge_base?: boolean | null
+          can_view_team_activity?: boolean | null
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          can_add_knowledge?: boolean | null
+          can_view_all_automations?: boolean | null
+          can_view_all_conversations?: boolean | null
+          can_view_all_executions?: boolean | null
+          can_view_knowledge_base?: boolean | null
+          can_view_team_activity?: boolean | null
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          context_used: Json | null
+          created_at: string
+          id: string
+          role: string
+          session_id: string
+          tool_calls: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          context_used?: Json | null
+          created_at?: string
+          id?: string
+          role: string
+          session_id: string
+          tool_calls?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          context_used?: Json | null
+          created_at?: string
+          id?: string
+          role?: string
+          session_id?: string
+          tool_calls?: Json | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       conversation_transcripts: {
         Row: {
           content: string
@@ -109,6 +210,7 @@ export type Database = {
           id: string
           raw_payload: Json | null
           role: string
+          user_id: string | null
         }
         Insert: {
           content: string
@@ -117,6 +219,7 @@ export type Database = {
           id?: string
           raw_payload?: Json | null
           role: string
+          user_id?: string | null
         }
         Update: {
           content?: string
@@ -125,6 +228,7 @@ export type Database = {
           id?: string
           raw_payload?: Json | null
           role?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -257,6 +361,45 @@ export type Database = {
           id?: string
           invited_by?: string
           role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
+      knowledge_base: {
+        Row: {
+          allowed_roles: Database["public"]["Enums"]["app_role"][] | null
+          category: string
+          content: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_public: boolean
+          metadata: Json | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          allowed_roles?: Database["public"]["Enums"]["app_role"][] | null
+          category?: string
+          content: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_public?: boolean
+          metadata?: Json | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          allowed_roles?: Database["public"]["Enums"]["app_role"][] | null
+          category?: string
+          content?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_public?: boolean
+          metadata?: Json | null
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
