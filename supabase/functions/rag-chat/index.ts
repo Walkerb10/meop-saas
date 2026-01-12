@@ -230,12 +230,42 @@ serve(async (req) => {
     // Get sequences
     const { data: sequences } = await supabase
       .from("sequences")
-      .select("name, description");
+      .select("name, description, created_by");
     
     if (sequences && sequences.length > 0) {
       contextParts.push("\n=== AVAILABLE SEQUENCES ===");
       sequences.forEach((s: any) => {
         contextParts.push(`- ${s.name}: ${s.description || "No description"}`);
+      });
+    }
+
+    // Get calendar events (upcoming)
+    const { data: calendarEvents } = await supabase
+      .from("calendar_events")
+      .select("title, description, start_time, end_time, assigned_to")
+      .gte("start_time", new Date().toISOString())
+      .order("start_time", { ascending: true })
+      .limit(10);
+    
+    if (calendarEvents && calendarEvents.length > 0) {
+      contextParts.push("\n=== UPCOMING CALENDAR EVENTS ===");
+      calendarEvents.forEach((e: any) => {
+        contextParts.push(`- ${e.title} at ${e.start_time}${e.description ? `: ${e.description}` : ""}`);
+      });
+    }
+
+    // Get pinned messages (priority context)
+    const { data: pinnedMessages } = await supabase
+      .from("chat_messages")
+      .select("content, role, created_at")
+      .eq("is_pinned", true)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    
+    if (pinnedMessages && pinnedMessages.length > 0) {
+      contextParts.push("\n=== PINNED IMPORTANT MESSAGES ===");
+      pinnedMessages.forEach((m: any) => {
+        contextParts.push(`[${m.role}]: ${m.content}`);
       });
     }
 
