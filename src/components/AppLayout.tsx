@@ -30,10 +30,10 @@ import {
 
 const mainNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-  { icon: Sparkles, label: 'MEOP AI', path: '/platform-chat' },
   { icon: CalendarClock, label: 'Automations', path: '/scheduled-actions' },
   { icon: Clock, label: 'Executions', path: '/executions' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
+  { icon: Sparkles, label: 'MEOP AI', path: '/platform-chat' },
 ];
 
 const getBottomNavItems = (isAdmin: boolean) => {
