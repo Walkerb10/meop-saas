@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { KnowledgeBaseManager } from '@/components/KnowledgeBaseManager';
 import { ChatPermissionsManager } from '@/components/ChatPermissionsManager';
 import { FeatureAccessManager } from '@/components/FeatureAccessManager';
+import { AdminFeedbackList } from '@/components/AdminFeedbackList';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,6 +34,7 @@ import {
   Circle,
   AlertCircle,
   Loader2,
+  MessageSquare,
 } from 'lucide-react';
 
 function UserManagementTab() {
@@ -651,6 +653,10 @@ export default function AdminDashboard() {
               <Users className="w-4 h-4" />
               Users
             </TabsTrigger>
+            <TabsTrigger value="feedback" className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              Feedback
+            </TabsTrigger>
             <TabsTrigger value="tasks" className="gap-2">
               <ListTodo className="w-4 h-4" />
               Tasks
@@ -673,6 +679,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="users">
             <UserManagementTab />
+          </TabsContent>
+
+          <TabsContent value="feedback">
+            <AdminFeedbackList />
           </TabsContent>
 
           <TabsContent value="tasks">

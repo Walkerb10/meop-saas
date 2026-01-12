@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut, Plus, Trash2, FileText, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { Webhook, Volume2, Bell, Shield, Copy, Check, LogOut, Plus, Trash2, FileText, RefreshCw, ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SequencesManager } from '@/components/SequencesManager';
 import { AppLayout } from '@/components/AppLayout';
 import { VoiceSettings } from '@/components/VoiceSettings';
+import { UserFeedbackList } from '@/components/UserFeedbackList';
 import { useSequences } from '@/hooks/useSequences';
 import { useN8nTools } from '@/hooks/useN8nTools';
 import { useAuth } from '@/hooks/useAuth';
@@ -230,6 +231,10 @@ const Settings = () => {
             <TabsTrigger value="voice" className="gap-2">
               <Volume2 className="w-4 h-4" />
               <span className="hidden sm:inline">Voice</span>
+            </TabsTrigger>
+            <TabsTrigger value="feedback" className="gap-2">
+              <MessageSquare className="w-4 h-4" />
+              <span className="hidden sm:inline">My Feedback</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="gap-2">
               <Bell className="w-4 h-4" />
@@ -563,6 +568,22 @@ const Settings = () => {
 
           <TabsContent value="voice">
             <VoiceSettings />
+          </TabsContent>
+
+          <TabsContent value="feedback">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-6"
+            >
+              <div>
+                <h2 className="text-lg font-semibold mb-2">My Feedback</h2>
+                <p className="text-sm text-muted-foreground">
+                  View feedback you've submitted.
+                </p>
+              </div>
+              <UserFeedbackList />
+            </motion.div>
           </TabsContent>
 
           <TabsContent value="notifications">

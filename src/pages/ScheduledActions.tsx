@@ -714,9 +714,11 @@ const ScheduledActions = () => {
   };
 
   // Format multiple emails for display
-  const formatEmailRecipients = (emails: string): string => {
+  const formatEmailRecipients = (emails: string | string[]): string => {
     if (!emails) return '(enter email)';
-    const emailList = emails.split(/[,;]\s*/).filter(e => e.trim());
+    const emailList = Array.isArray(emails) 
+      ? emails.filter(e => e.trim())
+      : emails.split(/[,;]\s*/).filter(e => e.trim());
     if (emailList.length === 0) return '(enter email)';
     if (emailList.length === 1) return emailList[0].trim();
     return emailList.map(e => e.trim()).join(', ');

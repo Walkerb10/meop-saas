@@ -15,7 +15,6 @@ import {
   Settings,
   ListTodo,
   MessageSquare,
-  Lightbulb,
   SquarePen,
   Shield,
   Sparkles,
@@ -27,6 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { FeedbackDialog } from '@/components/FeedbackDialog';
 
 const mainNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
@@ -38,7 +38,6 @@ const mainNavItems = [
 
 const getBottomNavItems = (isAdmin: boolean) => {
   const items = [
-    { icon: Lightbulb, label: 'Feedback', path: '/feedback' },
     { icon: User, label: 'Profile', path: '/profile' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
@@ -235,16 +234,8 @@ export function AppLayout({
               </Button>
             )}
             
-            {/* Feedback button - always visible in header */}
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => navigate('/feedback')}
-              className="gap-2 text-muted-foreground hover:text-foreground"
-            >
-              <Lightbulb className="w-4 h-4" />
-              <span>Feedback</span>
-            </Button>
+            {/* Feedback dialog - always visible in header */}
+            <FeedbackDialog />
             
             {showNewChatButton && onNewChat && (
               <Button 
