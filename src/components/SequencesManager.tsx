@@ -45,6 +45,8 @@ export function SequencesManager({ sequences, onAdd, onUpdate, onDelete }: Seque
       name: newSequence.name.trim(),
       description: newSequence.description.trim() || undefined,
       steps: [],
+      triggerType: 'manual',
+      isActive: true,
     });
     setNewSequence({ name: '', description: '' });
     setIsAdding(false);

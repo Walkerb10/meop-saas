@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import ScheduledActions from "./pages/ScheduledActions";
+import Sequences from "./pages/Sequences";
 import Settings from "./pages/Settings";
 import Executions from "./pages/Executions";
 import Profile from "./pages/Profile";
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/scheduled-actions" element={<ProtectedRoute><ScheduledActions /></ProtectedRoute>} />
+          <Route path="/sequences" element={<ProtectedRoute><Sequences /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/executions" element={<ProtectedRoute><Executions /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
