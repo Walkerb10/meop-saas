@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ChevronRight, ArrowLeft, Trash2, Loader2, User, Bot, Zap } from 'lucide-react';
+import { MessageSquare, ChevronRight, ArrowLeft, Trash2, Loader2, User, Bot, Zap, Pin, PinOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { usePinMessage } from '@/hooks/usePinMessage';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +25,8 @@ interface ConversationMessage {
   role: string;
   content: string;
   created_at: string;
+  is_pinned?: boolean;
+  session_id?: string;
 }
 
 interface ConversationAutomation {
@@ -46,6 +50,8 @@ const Conversations = () => {
   const [loading, setLoading] = useState(true);
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { pinMessage, unpinMessage, pinning } = usePinMessage();
+  const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchConversations();
@@ -371,11 +377,22 @@ const Conversations = () => {
               {/* Messages */}
               {selectedConversation.messages.map((msg) => {
                 const { label, isUser } = getRoleDisplay(msg.role);
+                const isPinned = msg.is_pinned || pinnedMessages.has(msg.id);
+                
+                const handlePin = async () => {
+                  if (isPinned) {
+                    const success = await unpinMessage(msg.id, msg.session_id || selectedConversation.conversation_id);
+                    if (success) setPinnedMessages(prev => { const n = new Set(prev); n.delete(msg.id); return n; });
+                  } else {
+                    const success = await pinMessage(msg.id, msg.session_id || selectedConversation.conversation_id);
+                    if (success) setPinnedMessages(prev => new Set(prev).add(msg.id));
+                  }
+                };
                 
                 return (
                   <div
                     key={msg.id}
-                    className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
+                    className={`flex gap-3 group ${isUser ? 'justify-end' : 'justify-start'}`}
                   >
                     {/* Avatar for assistant */}
                     {!isUser && (
@@ -384,20 +401,52 @@ const Conversations = () => {
                       </div>
                     )}
                     
-                    <div
-                      className={`max-w-[75%] rounded-2xl px-4 py-3 ${
-                        isUser
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-secondary text-foreground border border-border'
-                      }`}
-                    >
-                      <div className={`text-xs mb-1 font-medium ${isUser ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                        {label}
+                    <div className="relative">
+                      {isPinned && (
+                        <Badge variant="secondary" className="absolute -top-2 -left-2 text-[10px] px-1.5 py-0.5">
+                          <Pin className="w-2.5 h-2.5 mr-0.5" />
+                          Pinned
+                        </Badge>
+                      )}
+                      <div
+                        className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                          isUser
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-foreground border border-border'
+                        } ${isPinned ? 'ring-2 ring-primary/30' : ''}`}
+                      >
+                        <div className={`text-xs mb-1 font-medium ${isUser ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                          {label}
+                        </div>
+                        <p className="text-sm leading-relaxed">{msg.content}</p>
+                        <div className={`flex items-center justify-between mt-2 ${isUser ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
+                          <p className="text-xs">
+                            {format(new Date(msg.created_at), 'h:mm a')}
+                          </p>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={handlePin}
+                                disabled={pinning === msg.id}
+                              >
+                                {pinning === msg.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : isPinned ? (
+                                  <PinOff className="w-3 h-3" />
+                                ) : (
+                                  <Pin className="w-3 h-3" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {isPinned ? 'Unpin message' : 'Pin for AI context'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                       </div>
-                      <p className="text-sm leading-relaxed">{msg.content}</p>
-                      <p className={`text-xs mt-2 ${isUser ? 'text-primary-foreground/60' : 'text-muted-foreground'}`}>
-                        {format(new Date(msg.created_at), 'h:mm a')}
-                      </p>
                     </div>
                     
                     {/* Avatar for user */}

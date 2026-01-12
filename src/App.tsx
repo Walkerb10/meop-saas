@@ -12,6 +12,7 @@ import Executions from "./pages/Executions";
 import Profile from "./pages/Profile";
 import Conversations from "./pages/Conversations";
 import AdminDashboard from "./pages/AdminDashboard";
+import Calendar from "./pages/Calendar";
 
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/executions" element={<ProtectedRoute><Executions /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/conversations" element={<ProtectedRoute><Conversations /></ProtectedRoute>} />
+          <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

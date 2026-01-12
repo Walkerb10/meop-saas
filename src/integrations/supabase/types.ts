@@ -145,7 +145,10 @@ export type Database = {
           content: string
           context_used: Json | null
           created_at: string
+          embedding: string | null
           id: string
+          is_pinned: boolean | null
+          pinned_by: string | null
           role: string
           session_id: string
           tool_calls: Json | null
@@ -155,7 +158,10 @@ export type Database = {
           content: string
           context_used?: Json | null
           created_at?: string
+          embedding?: string | null
           id?: string
+          is_pinned?: boolean | null
+          pinned_by?: string | null
           role: string
           session_id: string
           tool_calls?: Json | null
@@ -165,7 +171,10 @@ export type Database = {
           content?: string
           context_used?: Json | null
           created_at?: string
+          embedding?: string | null
           id?: string
+          is_pinned?: boolean | null
+          pinned_by?: string | null
           role?: string
           session_id?: string
           tool_calls?: Json | null
@@ -185,6 +194,10 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_pinned: boolean | null
+          is_summarized: boolean | null
+          key_topics: string[] | null
+          summary: string | null
           title: string | null
           updated_at: string
           user_id: string
@@ -192,6 +205,10 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_pinned?: boolean | null
+          is_summarized?: boolean | null
+          key_topics?: string[] | null
+          summary?: string | null
           title?: string | null
           updated_at?: string
           user_id: string
@@ -199,6 +216,10 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_pinned?: boolean | null
+          is_summarized?: boolean | null
+          key_topics?: string[] | null
+          summary?: string | null
           title?: string | null
           updated_at?: string
           user_id?: string
@@ -692,6 +713,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_sessions_needing_summary: {
+        Args: never
+        Returns: {
+          last_message_at: string
+          message_count: number
+          session_id: string
+          user_id: string
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
@@ -704,6 +734,23 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      match_chat_messages: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+          target_user_id?: string
+        }
+        Returns: {
+          content: string
+          created_at: string
+          id: string
+          is_pinned: boolean
+          role: string
+          session_id: string
+          similarity: number
+        }[]
+      }
       match_conversations: {
         Args: {
           match_count?: number

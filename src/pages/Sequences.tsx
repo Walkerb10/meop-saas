@@ -17,6 +17,7 @@ import { useSequences, useSequenceExecutions } from '@/hooks/useSequences';
 import { SequenceBuilder } from '@/components/SequenceBuilder';
 import { Sequence, SequenceStep } from '@/types/sequence';
 import { format, formatDistanceToNow } from 'date-fns';
+import { CreatorBadge } from '@/components/CreatorBadge';
 
 const STEP_TYPE_ICONS: Record<string, string> = {
   research: '🔍',

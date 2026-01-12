@@ -17,6 +17,7 @@ import {
   SquarePen,
   Shield,
   Sparkles,
+  Calendar,
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ const mainNavItems = [
   { icon: ListTodo, label: 'Sequences', path: '/sequences' },
   { icon: Clock, label: 'Executions', path: '/executions' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
+  { icon: Calendar, label: 'Calendar', path: '/calendar' },
 ];
 
 const getBottomNavItems = (isAdmin: boolean) => {
