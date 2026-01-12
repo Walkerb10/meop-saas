@@ -34,6 +34,8 @@ export function useVapiAgent({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const startMicAnalyzerRef = useRef<() => Promise<void>>();
+  const stopMicAnalyzerRef = useRef<() => void>();
 
   // Keep refs updated
   useEffect(() => {
@@ -66,7 +68,7 @@ export function useVapiAgent({
   }, []);
 
   // Start real-time microphone volume detection using Web Audio API
-  const startMicAnalyzer = useCallback(async () => {
+  const startMicAnalyzer = async () => {
     try {
       console.log('🎤 Starting mic analyzer...');
       
@@ -118,10 +120,10 @@ export function useVapiAgent({
     } catch (error) {
       console.error('Failed to start mic analyzer:', error);
     }
-  }, []);
+  };
 
   // Stop microphone analyzer
-  const stopMicAnalyzer = useCallback(() => {
+  const stopMicAnalyzer = () => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
@@ -136,7 +138,11 @@ export function useVapiAgent({
     }
     analyserRef.current = null;
     console.log('🔇 Mic analyzer stopped');
-  }, []);
+  };
+
+  // Keep analyzer functions in refs
+  startMicAnalyzerRef.current = startMicAnalyzer;
+  stopMicAnalyzerRef.current = stopMicAnalyzer;
 
   // Initialize Vapi instance
   useEffect(() => {
@@ -152,7 +158,7 @@ export function useVapiAgent({
         setIsActive(true);
         
         // Start our local mic analyzer for real-time volume
-        startMicAnalyzer();
+        startMicAnalyzerRef.current?.();
         
         // Ensure audio output is enabled
         try {
@@ -167,8 +173,9 @@ export function useVapiAgent({
         console.log('❌ Vapi call ended');
         setStatus('idle');
         setIsActive(false);
-        resetVolumes();
-        stopMicAnalyzer();
+        setInputVolume(0);
+        setOutputVolume(0);
+        stopMicAnalyzerRef.current?.();
       });
 
       vapi.on('speech-start', () => {
@@ -210,21 +217,23 @@ export function useVapiAgent({
         console.error('❌ Vapi error:', error);
         setStatus('idle');
         setIsActive(false);
-        resetVolumes();
-        stopMicAnalyzer();
+        setInputVolume(0);
+        setOutputVolume(0);
+        stopMicAnalyzerRef.current?.();
         const errorMessage = error instanceof Error ? error.message : 'Connection failed';
         onErrorRef.current?.(errorMessage);
       });
     }
 
     return () => {
-      resetVolumes();
-      stopMicAnalyzer();
+      setInputVolume(0);
+      setOutputVolume(0);
+      stopMicAnalyzerRef.current?.();
       if (vapiRef.current) {
         vapiRef.current.stop();
       }
     };
-  }, [resetVolumes, saveTranscript, startMicAnalyzer, stopMicAnalyzer]);
+  }, [saveTranscript]);
 
   const start = useCallback(async () => {
     if (!vapiRef.current) {
@@ -249,14 +258,15 @@ export function useVapiAgent({
   }, [isActive]);
 
   const stop = useCallback(() => {
-    resetVolumes();
-    stopMicAnalyzer();
+    setInputVolume(0);
+    setOutputVolume(0);
+    stopMicAnalyzerRef.current?.();
     if (vapiRef.current) {
       vapiRef.current.stop();
     }
     setStatus('idle');
     setIsActive(false);
-  }, [resetVolumes, stopMicAnalyzer]);
+  }, []);
 
   const toggle = useCallback(async () => {
     if (isActive) {
