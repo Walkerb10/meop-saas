@@ -10,7 +10,6 @@ import Settings from "./pages/Settings";
 import Executions from "./pages/Executions";
 import Profile from "./pages/Profile";
 import Conversations from "./pages/Conversations";
-import Feedback from "./pages/Feedback";
 import AdminDashboard from "./pages/AdminDashboard";
 import PlatformChat from "./pages/PlatformChat";
 import Auth from "./pages/Auth";
@@ -34,7 +33,6 @@ const App = () => (
           <Route path="/executions" element={<ProtectedRoute><Executions /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/conversations" element={<ProtectedRoute><Conversations /></ProtectedRoute>} />
-          <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
