@@ -27,14 +27,15 @@ export function useVapiAgent({
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
   const conversationIdRef = useRef(conversationId);
-  const volumeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const statusRef = useRef<AgentStatus>('idle');
 
   // Keep refs updated
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
     onErrorRef.current = onError;
     conversationIdRef.current = conversationId;
-  }, [onTranscript, onError, conversationId]);
+    statusRef.current = status;
+  }, [onTranscript, onError, conversationId, status]);
 
   // Save transcript to database
   const saveTranscript = useCallback(async (text: string, role: 'user' | 'assistant') => {
@@ -52,34 +53,8 @@ export function useVapiAgent({
     }
   }, []);
 
-  // Poll volume levels when active
-  const startVolumePolling = useCallback(() => {
-    if (volumeIntervalRef.current) return;
-    
-    volumeIntervalRef.current = setInterval(() => {
-      if (vapiRef.current) {
-        try {
-          // Vapi SDK methods - access via any to bypass missing types
-          const vapi = vapiRef.current as unknown as {
-            getInputVolume?: () => number;
-            getOutputVolume?: () => number;
-          };
-          const input = vapi.getInputVolume?.() ?? 0;
-          const output = vapi.getOutputVolume?.() ?? 0;
-          setInputVolume(input);
-          setOutputVolume(output);
-        } catch {
-          // Vapi may not support these methods
-        }
-      }
-    }, 50); // Poll at ~20fps for smooth animation
-  }, []);
-
-  const stopVolumePolling = useCallback(() => {
-    if (volumeIntervalRef.current) {
-      clearInterval(volumeIntervalRef.current);
-      volumeIntervalRef.current = null;
-    }
+  // Reset volume levels
+  const resetVolumes = useCallback(() => {
     setInputVolume(0);
     setOutputVolume(0);
   }, []);
@@ -96,7 +71,6 @@ export function useVapiAgent({
         console.log('✅ Vapi call started');
         setStatus('listening');
         setIsActive(true);
-        startVolumePolling();
         
         // Ensure audio output is enabled and at full volume
         try {
@@ -111,7 +85,7 @@ export function useVapiAgent({
         console.log('❌ Vapi call ended');
         setStatus('idle');
         setIsActive(false);
-        stopVolumePolling();
+        resetVolumes();
       });
 
       vapi.on('speech-start', () => {
@@ -122,6 +96,19 @@ export function useVapiAgent({
       vapi.on('speech-end', () => {
         console.log('🎤 Assistant stopped speaking');
         setStatus('listening');
+      });
+
+      // Listen for real-time volume levels from Vapi SDK
+      vapi.on('volume-level', (volume: number) => {
+        // Volume is a 0-1 value representing the active speaker's level
+        // Route to input or output based on current status
+        if (statusRef.current === 'speaking') {
+          setOutputVolume(volume);
+          setInputVolume(0);
+        } else if (statusRef.current === 'listening') {
+          setInputVolume(volume);
+          setOutputVolume(0);
+        }
       });
 
       vapi.on('message', (message) => {
@@ -145,19 +132,19 @@ export function useVapiAgent({
         console.error('❌ Vapi error:', error);
         setStatus('idle');
         setIsActive(false);
-        stopVolumePolling();
+        resetVolumes();
         const errorMessage = error instanceof Error ? error.message : 'Connection failed';
         onErrorRef.current?.(errorMessage);
       });
     }
 
     return () => {
-      stopVolumePolling();
+      resetVolumes();
       if (vapiRef.current) {
         vapiRef.current.stop();
       }
     };
-  }, [startVolumePolling, stopVolumePolling]);
+  }, [resetVolumes, saveTranscript]);
 
   const start = useCallback(async () => {
     if (!vapiRef.current) {
@@ -188,13 +175,13 @@ export function useVapiAgent({
   }, [isActive]);
 
   const stop = useCallback(() => {
-    stopVolumePolling();
+    resetVolumes();
     if (vapiRef.current) {
       vapiRef.current.stop();
     }
     setStatus('idle');
     setIsActive(false);
-  }, [stopVolumePolling]);
+  }, [resetVolumes]);
 
   const toggle = useCallback(async () => {
     if (isActive) {
