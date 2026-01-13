@@ -8,6 +8,15 @@ import { X, Sparkles, Clock, Search, MessageSquare, Mail, Hash, Timer, Plus } fr
 import { Badge } from '@/components/ui/badge';
 import { getNodeDescription } from '@/components/AutomationSummary';
 import { cn } from '@/lib/utils';
+import { AIEnhanceButton } from '@/components/AIEnhanceButton';
+
+const LENGTH_OPTIONS = [
+  { value: '125', label: 'Tiny', desc: '¼ page' },
+  { value: '250', label: 'Short', desc: '½ page' },
+  { value: '500', label: 'Medium', desc: '1 page' },
+  { value: '1500', label: 'Long', desc: '3 pages' },
+  { value: '5000', label: 'Extended', desc: '10 pages' },
+];
 
 interface NodeConfigPanelProps {
   node: WorkflowNode | null;
@@ -235,9 +244,20 @@ function renderTypeConfig(
       return (
         <>
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              What to research? <span className="text-destructive">*</span>
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                What to research? <span className="text-destructive">*</span>
+              </Label>
+              <AIEnhanceButton
+                value={node.config.query || ''}
+                onChange={(v) => updateConfig('query', v)}
+                type="research"
+                context={{
+                  output_format: node.config.outputFormat,
+                  output_length: node.config.outputLength,
+                }}
+              />
+            </div>
             <Textarea
               value={node.config.query || ''}
               onChange={(e) => updateConfig('query', e.target.value)}
@@ -273,61 +293,26 @@ function renderTypeConfig(
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Target length</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { label: 'Tiny', pages: '0.25', words: 125 },
-                { label: 'Short', pages: '0.5', words: 250 },
-                { label: 'Medium', pages: '1', words: 500 },
-                { label: 'Long', pages: '3', words: 1500 },
-                { label: 'Extended', pages: '10', words: 5000 },
-                { label: 'Custom', pages: 'custom', words: null },
-              ].map((opt) => (
-                <button
-                  key={opt.pages}
-                  type="button"
-                  onClick={() => {
-                    if (opt.pages === 'custom') {
-                      updateConfig('outputLengthType', 'custom');
-                    } else {
-                      updateConfig('outputLength', String(opt.words));
-                      updateConfig('outputLengthType', opt.pages);
-                    }
-                  }}
-                  className={cn(
-                    "p-3 rounded-lg border text-left transition-all",
-                    (node.config.outputLengthType === opt.pages || 
-                     (!node.config.outputLengthType && opt.pages === '1'))
-                      ? 'border-primary bg-primary/5' 
-                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                  )}
-                >
-                  <p className="text-sm font-medium">{opt.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {opt.pages === 'custom' ? 'Set pages' : `${opt.pages} page${opt.pages !== '1' && opt.pages !== '0.25' && opt.pages !== '0.5' ? 's' : ''}`}
-                  </p>
-                </button>
-              ))}
-            </div>
-            {node.config.outputLengthType === 'custom' && (
-              <div className="flex items-center gap-2 mt-2">
-                <Input
-                  type="number"
-                  min="0.25"
-                  step="0.25"
-                  value={node.config.customPages || '1'}
-                  onChange={(e) => {
-                    const pages = parseFloat(e.target.value) || 1;
-                    updateConfig('customPages', e.target.value);
-                    updateConfig('outputLength', String(Math.round(pages * 500)));
-                  }}
-                  className="h-10 w-24"
-                  placeholder="1"
-                />
-                <span className="text-sm text-muted-foreground">pages (~{Math.round((parseFloat(node.config.customPages as string) || 1) * 500)} words)</span>
-              </div>
-            )}
+            <Select
+              value={node.config.outputLength || '500'}
+              onValueChange={(v) => updateConfig('outputLength', v)}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="Select length" />
+              </SelectTrigger>
+              <SelectContent>
+                {LENGTH_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="text-muted-foreground">({opt.desc})</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </>
       );
