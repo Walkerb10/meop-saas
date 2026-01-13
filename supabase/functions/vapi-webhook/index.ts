@@ -412,7 +412,71 @@ serve(async (req) => {
     // Get conversation_id if provided
     const conversationId = asString(body.conversation_id ?? body.conversationId) ?? null;
 
-    // Create automation with properly formatted steps for UI display
+    // Create automation in the same format the visual builder expects (nodes + connections)
+    const triggerNodeId = crypto.randomUUID();
+    const actionNodeId = crypto.randomUUID();
+
+    const triggerNode = {
+      id: triggerNodeId,
+      type: "trigger_schedule",
+      label: triggerLabel,
+      position: { x: 150, y: 100 },
+      config: {
+        frequency: body.frequency,
+        time: normalizedTime || null,
+        dayOfWeek: dayOfWeek || null,
+        dayOfMonth: dayOfMonthRaw || null,
+      },
+    };
+
+    const actionNode = {
+      id: actionNodeId,
+      type:
+        automationType === "research"
+          ? "action_research"
+          : automationType === "slack"
+          ? "action_slack"
+          : automationType === "discord"
+          ? "action_discord"
+          : automationType === "email"
+          ? "action_email"
+          : "action_text",
+      label:
+        automationType === "research"
+          ? "Research"
+          : automationType === "slack"
+          ? "Slack"
+          : automationType === "discord"
+          ? "Discord"
+          : automationType === "email"
+          ? "Email"
+          : "Text",
+      position: { x: 150, y: 250 },
+      config: (() => {
+        if (automationType === "research") {
+          return {
+            query: (actionConfig.research_query as string) || (actionConfig.original_query as string) || msg,
+            outputFormat: actionConfig.output_format,
+            outputLength: actionConfig.output_length,
+          };
+        }
+
+        if (automationType === "slack") {
+          return { channel: targetChannel, message: msg };
+        }
+
+        if (automationType === "discord") {
+          return { channel: targetChannel, message: msg };
+        }
+
+        if (automationType === "email") {
+          return { to: emailToRaw || "", subject: emailSubjectRaw || "", message: msg };
+        }
+
+        return { phone: asString(body.phone_number ?? body.phone) ?? null, message: msg };
+      })(),
+    };
+
     const automationData = {
       name: automationName,
       description: `Scheduled ${automationType}: "${msg}"`,
@@ -425,21 +489,12 @@ serve(async (req) => {
         custom_date: oneTimeDate || null,
         every_x_days: everyXDays ? Number(everyXDays) : null,
       },
-      steps: [
-        {
-          id: crypto.randomUUID(),
-          type: "trigger",
-          label: triggerLabel,
-        },
-        {
-          id: crypto.randomUUID(),
-          type: "action",
-          label: actionLabel,
-          config: actionConfig,
-        },
-      ],
+      steps: {
+        nodes: [triggerNode, actionNode],
+        connections: [{ id: crypto.randomUUID(), sourceId: triggerNodeId, targetId: actionNodeId }],
+      },
       n8n_webhook_url: n8nWebhookUrl,
-      is_active: body.frequency !== "one_time" && body.frequency !== "custom", // One-time and custom start inactive
+      is_active: body.frequency !== "one_time" && body.frequency !== "custom",
       conversation_id: conversationId,
     };
 

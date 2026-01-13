@@ -31,23 +31,54 @@ serve(async (req) => {
     const triggerType = trigger?.type || "manual";
     const triggerConfig = trigger?.config || {};
 
-    // Format steps for database
-    const formattedSteps = (steps || []).map((step: { type?: string; label?: string; config?: Record<string, unknown> }, index: number) => ({
-      id: crypto.randomUUID(),
-      type: step.type || "action",
-      label: step.label || `Step ${index + 1}`,
-      config: step.config || {},
-    }));
+    // Build workflow nodes/connections (visual builder format)
+    const nodes: Array<{ id: string; type: string; label: string; position: { x: number; y: number }; config: Record<string, unknown> }> = [];
+    const connections: Array<{ id: string; sourceId: string; targetId: string }> = [];
 
-    // Add trigger as first step if provided
-    if (trigger?.label) {
-      formattedSteps.unshift({
-        id: crypto.randomUUID(),
-        type: "trigger",
-        label: trigger.label,
-        config: triggerConfig,
-      });
-    }
+    const triggerId = crypto.randomUUID();
+    nodes.push({
+      id: triggerId,
+      type:
+        triggerType === "webhook" ? "trigger_webhook" : triggerType === "voice" ? "trigger_voice" : "trigger_schedule",
+      label: trigger?.label || "Trigger",
+      position: { x: 150, y: 100 },
+      config: triggerConfig,
+    });
+
+    let prevId = triggerId;
+    (steps || []).forEach(
+      (step: { type?: string; label?: string; config?: Record<string, unknown> }, index: number) => {
+        const stepId = crypto.randomUUID();
+        const cfg = step.config || {};
+        const actionType = String((cfg as any).action_type || "").toLowerCase();
+
+        const nodeType =
+          step.type === "condition"
+            ? "condition"
+            : step.type === "transform"
+            ? "transform"
+            : actionType === "research"
+            ? "action_research"
+            : actionType.includes("slack")
+            ? "action_slack"
+            : actionType.includes("discord")
+            ? "action_discord"
+            : actionType.includes("email")
+            ? "action_email"
+            : "action_text";
+
+        nodes.push({
+          id: stepId,
+          type: nodeType,
+          label: step.label || `Step ${index + 1}`,
+          position: { x: 150, y: 250 + index * 150 },
+          config: cfg,
+        });
+
+        connections.push({ id: crypto.randomUUID(), sourceId: prevId, targetId: stepId });
+        prevId = stepId;
+      }
+    );
 
     // Insert into database
     const { data: automation, error: insertError } = await supabase
@@ -57,7 +88,7 @@ serve(async (req) => {
         description: description || null,
         trigger_type: triggerType,
         trigger_config: triggerConfig,
-        steps: formattedSteps,
+        steps: { nodes, connections },
         n8n_webhook_url: n8nWebhookUrl || null,
         is_active: true,
       })
