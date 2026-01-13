@@ -5,19 +5,19 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { useSidebarState } from '@/hooks/useSidebarState';
 import {
   User,
-  Clock,
   Menu,
   X,
   PanelLeftClose,
   PanelLeft,
-  CalendarClock,
+  Zap,
   Settings,
   ListTodo,
   MessageSquare,
   SquarePen,
   Shield,
-  Sparkles,
+  Mic,
   Calendar,
+  Activity,
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
@@ -29,11 +29,9 @@ import {
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 
 const mainNavItems = [
-  { icon: Sparkles, label: 'Chat', path: '/' },
-  { icon: User, label: 'Agents', path: '/agent' },
-  { icon: CalendarClock, label: 'Automations', path: '/automations' },
-  { icon: ListTodo, label: 'Sequences', path: '/sequences' },
-  { icon: Clock, label: 'Executions', path: '/executions' },
+  { icon: Mic, label: 'Agent', path: '/agent' },
+  { icon: Zap, label: 'Automations', path: '/automations' },
+  { icon: Activity, label: 'Executions', path: '/executions' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
 ];
