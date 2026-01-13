@@ -85,6 +85,10 @@ export default function AgentPage() {
   }, [messages]);
 
   const handleToggle = () => {
+    // Start animation immediately on click, don't wait for SDK
+    if (!isActive) {
+      setHasStarted(true);
+    }
     toggle();
   };
 
