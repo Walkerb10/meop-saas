@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Clock, Webhook, Mic, Search, MessageSquare, Mail, Hash, Timer, 
-  GitBranch, Sparkles, Trash2, CheckCircle2, Loader2, GripVertical, Edit3
+  GitBranch, Sparkles, Trash2, CheckCircle2, Loader2, GripVertical, Edit3, Play
 } from 'lucide-react';
 import { WorkflowNode, WorkflowNodeType, NODE_STYLES } from '@/types/workflow';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,7 @@ const ICONS: Record<WorkflowNodeType, React.ReactNode> = {
   trigger_schedule: <Clock className="w-4 h-4" />,
   trigger_webhook: <Webhook className="w-4 h-4" />,
   trigger_voice: <Mic className="w-4 h-4" />,
+  trigger_manual: <Play className="w-4 h-4" />,
   action_research: <Search className="w-4 h-4" />,
   action_text: <MessageSquare className="w-4 h-4" />,
   action_email: <Mail className="w-4 h-4" />,
@@ -27,6 +28,7 @@ const TYPE_LABELS: Record<WorkflowNodeType, string> = {
   trigger_schedule: 'When',
   trigger_webhook: 'Trigger',
   trigger_voice: 'Listen',
+  trigger_manual: 'Manual',
   action_research: 'Research',
   action_text: 'Text',
   action_email: 'Email',

@@ -280,6 +280,7 @@ function getDefaultLabel(type: WorkflowNodeType): string {
     trigger_schedule: 'Schedule Trigger',
     trigger_webhook: 'Webhook Trigger',
     trigger_voice: 'Voice Trigger',
+    trigger_manual: 'Manual Trigger',
     action_research: 'Research',
     action_text: 'Send Text',
     action_email: 'Send Email',

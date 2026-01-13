@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Clock, Search, MessageSquare, Mail, Hash, Timer, ArrowDown,
-  CheckCircle2, Sparkles, Mic, Webhook
+  Sparkles, Mic, Webhook, Play
 } from 'lucide-react';
 import { WorkflowNode, WorkflowNodeType } from '@/types/workflow';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ const STEP_ICONS: Record<WorkflowNodeType, React.ElementType> = {
   trigger_schedule: Clock,
   trigger_webhook: Webhook,
   trigger_voice: Mic,
+  trigger_manual: Play,
   action_research: Search,
   action_text: MessageSquare,
   action_email: Mail,
@@ -25,6 +26,7 @@ const STEP_COLORS: Record<WorkflowNodeType, string> = {
   trigger_schedule: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
   trigger_webhook: 'bg-purple-500/10 text-purple-500 border-purple-500/30',
   trigger_voice: 'bg-pink-500/10 text-pink-500 border-pink-500/30',
+  trigger_manual: 'bg-slate-500/10 text-slate-500 border-slate-500/30',
   action_research: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30',
   action_text: 'bg-green-500/10 text-green-500 border-green-500/30',
   action_email: 'bg-orange-500/10 text-orange-500 border-orange-500/30',
@@ -51,6 +53,8 @@ export function getNodeDescription(node: WorkflowNode): string {
       return 'When webhook is triggered';
     case 'trigger_voice':
       return 'When voice command received';
+    case 'trigger_manual':
+      return 'Run manually';
     case 'action_research':
       return config.query ? `Research "${config.query.substring(0, 50)}${config.query.length > 50 ? '...' : ''}"` : 'Perform research';
     case 'action_text':

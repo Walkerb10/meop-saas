@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Clock, Webhook, Mic, Search, MessageSquare, Mail, Hash, Timer, 
-  GitBranch, Sparkles, X, ChevronRight
+  GitBranch, Sparkles, X, ChevronRight, Play
 } from 'lucide-react';
 import { WorkflowNodeType, NODE_CATEGORIES, NODE_STYLES } from '@/types/workflow';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ const ICONS: Record<WorkflowNodeType, React.ReactNode> = {
   trigger_schedule: <Clock className="w-4 h-4" />,
   trigger_webhook: <Webhook className="w-4 h-4" />,
   trigger_voice: <Mic className="w-4 h-4" />,
+  trigger_manual: <Play className="w-4 h-4" />,
   action_research: <Search className="w-4 h-4" />,
   action_text: <MessageSquare className="w-4 h-4" />,
   action_email: <Mail className="w-4 h-4" />,
