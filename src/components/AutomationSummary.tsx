@@ -74,17 +74,17 @@ export function getNodeDescription(node: WorkflowNode): string {
 
 // Generate summary text for entire workflow
 export function generateWorkflowSummary(nodes: WorkflowNode[]): string {
-  if (nodes.length === 0) return 'Empty workflow';
-  
+  if (nodes.length === 0) return 'No steps yet';
+
   // Sort by Y position to get flow order
   const sorted = [...nodes].sort((a, b) => a.position.y - b.position.y);
-  
+
   const parts: string[] = [];
-  
+
   for (const node of sorted) {
     parts.push(getNodeDescription(node));
   }
-  
+
   return parts.join(' → ');
 }
 
@@ -188,7 +188,16 @@ export const StepPreview = memo(function StepPreview({ nodes, maxSteps = 3 }: St
   const remaining = sortedNodes.length - maxSteps;
 
   if (sortedNodes.length === 0) {
-    return <span className="text-xs text-muted-foreground">No steps</span>;
+    return (
+      <div className="flex items-center gap-1">
+        <div className="w-6 h-6 rounded-full bg-secondary text-muted-foreground flex items-center justify-center">
+          <Search className="w-3 h-3" />
+        </div>
+        <div className="w-6 h-6 rounded-full bg-secondary text-muted-foreground flex items-center justify-center">
+          <MessageSquare className="w-3 h-3" />
+        </div>
+      </div>
+    );
   }
 
   return (

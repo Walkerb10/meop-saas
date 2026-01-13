@@ -35,6 +35,7 @@ import { Workflow, WorkflowNode, WorkflowConnection, WorkflowNodeType } from '@/
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { coerceAutomationStepsToWorkflow } from '@/lib/automationWorkflow';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 
@@ -97,8 +98,12 @@ export default function AutomationsPage() {
       if (error) throw error;
 
       const mapped: Workflow[] = (data || []).map((row) => {
-        // Parse steps as workflow data
-        const stepsData = row.steps as { nodes?: WorkflowNode[]; connections?: WorkflowConnection[] } | null;
+        const { nodes, connections } = coerceAutomationStepsToWorkflow({
+          steps: row.steps,
+          triggerConfig: row.trigger_config,
+          triggerType: row.trigger_type,
+        });
+
         return {
           id: row.id,
           name: row.name,
@@ -107,8 +112,8 @@ export default function AutomationsPage() {
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           lastRunAt: row.last_run_at || undefined,
-          nodes: stepsData?.nodes || [],
-          connections: stepsData?.connections || [],
+          nodes,
+          connections,
         };
       });
 
