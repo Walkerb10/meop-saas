@@ -1,16 +1,14 @@
-import { useState, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Play, Save, Loader2, ArrowLeft, MoreHorizontal, 
-  Power, PowerOff, Trash2, Copy
+  Trash2, Copy, X, Settings
 } from 'lucide-react';
 import { WorkflowCanvas } from './WorkflowCanvas';
-import { NodeLibrary } from './NodeLibrary';
 import { NodeConfigPanel } from './NodeConfigPanel';
 import { WorkflowNode, WorkflowConnection, WorkflowNodeType, Workflow } from '@/types/workflow';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import {
   DropdownMenu,
@@ -19,11 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from '@/components/ui/resizable';
 import { cn } from '@/lib/utils';
 
 interface WorkflowBuilderProps {
@@ -53,9 +46,7 @@ export function WorkflowBuilder({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [zoom, setZoom] = useState(1);
-  const [draggingType, setDraggingType] = useState<WorkflowNodeType | null>(null);
-  
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const [showConfigPanel, setShowConfigPanel] = useState(false);
 
   const selectedNode = nodes.find(n => n.id === selectedNodeId) || null;
 
@@ -70,25 +61,7 @@ export function WorkflowBuilder({
     };
     setNodes(prev => [...prev, newNode]);
     setSelectedNodeId(newNode.id);
-  }, []);
-
-  // Handle drop on canvas
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const type = e.dataTransfer.getData('nodeType') as WorkflowNodeType;
-    if (!type || !canvasRef.current) return;
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / zoom;
-    const y = (e.clientY - rect.top) / zoom;
-
-    handleAddNode(type, { x: Math.round(x / 20) * 20, y: Math.round(y / 20) * 20 });
-    setDraggingType(null);
-  }, [handleAddNode, zoom]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+    setShowConfigPanel(true);
   }, []);
 
   // Update a node
@@ -102,12 +75,12 @@ export function WorkflowBuilder({
     setConnections(prev => prev.filter(c => c.sourceId !== id && c.targetId !== id));
     if (selectedNodeId === id) {
       setSelectedNodeId(null);
+      setShowConfigPanel(false);
     }
   }, [selectedNodeId]);
 
   // Connect two nodes
   const handleConnect = useCallback((sourceId: string, targetId: string) => {
-    // Prevent duplicate connections
     const exists = connections.some(c => c.sourceId === sourceId && c.targetId === targetId);
     if (exists) return;
 
@@ -136,16 +109,23 @@ export function WorkflowBuilder({
     }
   }, [workflow, name, description, isActive, nodes, connections, onSave]);
 
+  // Handle node selection
+  const handleSelectNode = useCallback((id: string | null) => {
+    setSelectedNodeId(id);
+    if (id) {
+      setShowConfigPanel(true);
+    }
+  }, []);
+
   // Duplicate workflow
   const handleDuplicate = useCallback(() => {
     setName(`${name} (Copy)`);
-    // Clear IDs so it saves as new
   }, [name]);
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col bg-background relative">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm z-10">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={onBack}>
             <ArrowLeft className="w-4 h-4" />
@@ -229,122 +209,66 @@ export function WorkflowBuilder({
         </div>
       </header>
 
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden">
-        <ResizablePanelGroup direction="horizontal">
-          {/* Left panel - Node library */}
-          <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-            <div className="h-full border-r border-border bg-card">
-              <div className="p-4 border-b border-border">
-                <h2 className="font-semibold text-foreground">Nodes</h2>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Drag nodes to the canvas
-                </p>
-              </div>
-              
-              {/* Natural Language Input */}
-              <div className="p-4 border-b border-border space-y-2">
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe what you want automated... e.g. 'Research AI news daily at 9am and send to Slack'"
-                  className="resize-none h-20 text-sm"
-                />
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  className="w-full gap-2"
+      {/* Main canvas - full width */}
+      <div className="flex-1 relative overflow-hidden">
+        <WorkflowCanvas
+          nodes={nodes}
+          connections={connections}
+          selectedNodeId={selectedNodeId}
+          onSelectNode={handleSelectNode}
+          onUpdateNode={handleUpdateNode}
+          onDeleteNode={handleDeleteNode}
+          onConnect={handleConnect}
+          onAddNode={handleAddNode}
+          executingNodeId={executingNodeId}
+          completedNodeIds={completedNodeIds}
+          zoom={zoom}
+          onZoomChange={setZoom}
+        />
+
+        {/* Floating config panel */}
+        <AnimatePresence>
+          {showConfigPanel && selectedNode && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="absolute top-4 right-4 w-80 max-h-[calc(100%-2rem)] bg-card border border-border rounded-xl shadow-xl overflow-hidden z-20"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-secondary/30">
+                <div className="flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">Configure Node</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
                   onClick={() => {
-                    // Add a placeholder research step based on description
-                    if (description.trim()) {
-                      const newNode: WorkflowNode = {
-                        id: crypto.randomUUID(),
-                        type: 'action_research',
-                        label: 'Generated Step',
-                        position: { x: 150, y: 100 + nodes.length * 150 },
-                        config: { query: description },
-                      };
-                      setNodes(prev => [...prev, newNode]);
-                      setSelectedNodeId(newNode.id);
-                    }
+                    setShowConfigPanel(false);
+                    setSelectedNodeId(null);
                   }}
-                  disabled={!description.trim()}
                 >
-                  <Play className="w-4 h-4" />
-                  Generate Workflow
+                  <X className="w-4 h-4" />
                 </Button>
               </div>
-              
-              <NodeLibrary onDragStart={setDraggingType} />
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle />
-
-          {/* Center - Canvas */}
-          <ResizablePanel defaultSize={55}>
-            <div 
-              ref={canvasRef}
-              className="h-full"
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-            >
-              <WorkflowCanvas
-                nodes={nodes}
-                connections={connections}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
-                onUpdateNode={handleUpdateNode}
-                onDeleteNode={handleDeleteNode}
-                onConnect={handleConnect}
-                onAddNode={handleAddNode}
-                executingNodeId={executingNodeId}
-                completedNodeIds={completedNodeIds}
-                zoom={zoom}
-              />
-            </div>
-          </ResizablePanel>
-
-          <ResizableHandle />
-
-          {/* Right panel - Node config */}
-          <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-            <div className="h-full border-l border-border bg-card">
-              <NodeConfigPanel
-                node={selectedNode}
-                onUpdate={(updates) => {
-                  if (selectedNodeId) {
-                    handleUpdateNode(selectedNodeId, updates);
-                  }
-                }}
-                onClose={() => setSelectedNodeId(null)}
-              />
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </div>
-
-      {/* Zoom controls */}
-      <div className="absolute bottom-20 right-4 flex items-center gap-2 bg-background/80 backdrop-blur-sm border border-border rounded-lg p-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setZoom(z => Math.max(0.25, z - 0.1))}
-        >
-          -
-        </Button>
-        <span className="text-xs text-muted-foreground min-w-[3rem] text-center">
-          {Math.round(zoom * 100)}%
-        </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={() => setZoom(z => Math.min(2, z + 0.1))}
-        >
-          +
-        </Button>
+              <div className="overflow-y-auto max-h-[400px]">
+                <NodeConfigPanel
+                  node={selectedNode}
+                  onUpdate={(updates) => {
+                    if (selectedNodeId) {
+                      handleUpdateNode(selectedNodeId, updates);
+                    }
+                  }}
+                  onClose={() => {
+                    setShowConfigPanel(false);
+                    setSelectedNodeId(null);
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
