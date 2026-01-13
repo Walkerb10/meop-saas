@@ -2,19 +2,17 @@ import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Plus, Zap, PlayCircle,
-  MoreHorizontal, Trash2, Loader2, Users
+  Plus, Zap,
+  MoreHorizontal, Trash2, Loader2
 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
 import { CreateAutomationWizard } from '@/components/CreateAutomationWizard';
 import { StepPreview } from '@/components/AutomationSummary';
-import { CRMBoard } from '@/components/CRMBoard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +40,6 @@ import { Json } from '@/integrations/supabase/types';
 
 export default function AutomationsPage() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('automations');
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
@@ -431,41 +428,30 @@ export default function AutomationsPage() {
   return (
       <AppLayout>
       <div className="p-4 md:p-6 max-w-6xl mx-auto min-h-full pb-32">
-        {/* Header with Tabs */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <TabsList>
-                <TabsTrigger value="automations" className="gap-2">
-                  <Zap className="w-4 h-4" />
-                  Automations
-                </TabsTrigger>
-                <TabsTrigger value="crm" className="gap-2">
-                  <Users className="w-4 h-4" />
-                  CRM
-                </TabsTrigger>
-              </TabsList>
-              
-              {activeTab === 'automations' && (
-                <div className="flex gap-2 w-full sm:w-auto">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate('/executions')} 
-                    className="gap-2 flex-1 sm:flex-initial"
-                  >
-                    <PlayCircle className="w-4 h-4" />
-                    <span>Executions</span>
-                  </Button>
-                  <Button onClick={() => setIsCreatingWizard(true)} size="icon">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-              )}
-            </div>
+        {/* Header */}
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+              <Zap className="w-5 h-5 md:w-6 md:h-6" />
+              Automations
+            </h1>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate('/executions')} 
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Executions
+            </Button>
+          </div>
+          
+          <Button onClick={() => setIsCreatingWizard(true)} size="icon">
+            <Plus className="w-4 h-4" />
+          </Button>
+        </div>
 
-            <TabsContent value="automations" className="mt-6">
-              {/* Workflow list */}
-              <div className="space-y-3">
+        {/* Workflow list */}
+        <div className="space-y-3">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -579,6 +565,25 @@ export default function AutomationsPage() {
                 </Card>
               </motion.div>
             ))}
+            
+            {/* Create Automation button at the bottom of the list */}
+            {workflows.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: workflows.length * 0.05 }}
+                className="pt-4"
+              >
+                <Button 
+                  variant="outline" 
+                  className="w-full gap-2"
+                  onClick={() => setIsCreatingWizard(true)}
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Automation
+                </Button>
+              </motion.div>
+            )}
           </AnimatePresence>
           )}
 
@@ -599,13 +604,6 @@ export default function AutomationsPage() {
               </Button>
             </div>
           )}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="crm" className="mt-6">
-              <CRMBoard />
-            </TabsContent>
-          </Tabs>
         </div>
       </div>
 
