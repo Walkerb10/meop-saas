@@ -6,33 +6,44 @@ interface VoiceOrbProps {
   state: AIState;
   isActive: boolean;
   onToggle: () => void;
+  inputVolume?: number;
+  outputVolume?: number;
 }
 
-export function VoiceOrb({ state, isActive, onToggle }: VoiceOrbProps) {
-  const getStateClass = () => {
-    if (!isActive) return '';
-    if (state === 'speaking') return 'speaking';
-    if (state === 'listening' || state === 'thinking') return 'active';
-    return '';
-  };
+export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVolume = 0 }: VoiceOrbProps) {
+  // Calculate dynamic scale based on volume
+  const volume = state === 'speaking' ? outputVolume : inputVolume;
+  const volumeScale = 1 + (volume * 0.15); // Scale up to 15% based on volume
+  
+  // Number of wave bars based on volume
+  const waveBarCount = 5;
+  const waveHeights = Array.from({ length: waveBarCount }, (_, i) => {
+    const baseHeight = 8;
+    const maxExtraHeight = 28;
+    // Create varied heights based on position and volume
+    const positionFactor = 1 - Math.abs(i - 2) * 0.2; // Middle bars taller
+    return baseHeight + (volume * maxExtraHeight * positionFactor);
+  });
 
   return (
     <div className="relative flex items-center justify-center">
-      {/* Ripple effects when active */}
+      {/* Ripple effects when active - volume reactive */}
       <AnimatePresence>
         {isActive && (
           <>
             {[1, 2, 3].map((i) => (
               <motion.div
                 key={i}
-                className="absolute w-32 h-32 rounded-full border border-primary/30"
-                initial={{ scale: 1, opacity: 0.4 }}
-                animate={{ scale: 2.5, opacity: 0 }}
-                exit={{ opacity: 0 }}
+                className="absolute w-28 h-28 md:w-32 md:h-32 rounded-full border-2 border-primary/40"
+                initial={{ scale: 1, opacity: 0.5 }}
+                animate={{ 
+                  scale: [1, 1.8 + (volume * 0.5), 2.2 + (volume * 0.5)], 
+                  opacity: [0.5, 0.2, 0] 
+                }}
                 transition={{
-                  duration: 2,
+                  duration: 1.5,
                   repeat: Infinity,
-                  delay: i * 0.4,
+                  delay: i * 0.3,
                   ease: 'easeOut',
                 }}
               />
@@ -41,70 +52,85 @@ export function VoiceOrb({ state, isActive, onToggle }: VoiceOrbProps) {
         )}
       </AnimatePresence>
 
-      {/* Glow background */}
-      <div 
-        className={`absolute w-40 h-40 rounded-full blur-3xl transition-opacity duration-500 ${
-          isActive ? 'opacity-40' : 'opacity-0'
-        }`}
-        style={{ background: 'hsl(175 80% 50% / 0.3)' }}
+      {/* Glow background - intensity based on volume */}
+      <motion.div 
+        className="absolute w-40 h-40 md:w-48 md:h-48 rounded-full blur-3xl bg-primary/30"
+        animate={{
+          opacity: isActive ? 0.3 + (volume * 0.4) : 0,
+          scale: isActive ? volumeScale : 0.8,
+        }}
+        transition={{ duration: 0.15 }}
       />
 
       {/* Main orb button */}
       <motion.button
         onClick={onToggle}
-        className={`voice-orb relative w-28 h-28 md:w-32 md:h-32 rounded-full flex items-center justify-center ${getStateClass()}`}
+        className="voice-orb relative w-28 h-28 md:w-32 md:h-32 rounded-full flex items-center justify-center bg-primary shadow-lg shadow-primary/30"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+        animate={{ 
+          scale: isActive ? volumeScale : 1,
+        }}
+        transition={{ 
+          scale: { duration: 0.1 },
+          type: 'spring', 
+          stiffness: 300, 
+          damping: 20 
+        }}
       >
-        {/* Wave visualization when speaking */}
+        {/* Wave visualization when speaking or listening with volume */}
         <AnimatePresence>
-          {state === 'speaking' && isActive && (
-            <div className="absolute inset-0 flex items-center justify-center gap-1">
-              {[...Array(5)].map((_, i) => (
+          {isActive && volume > 0.05 && (
+            <motion.div 
+              className="absolute inset-0 flex items-center justify-center gap-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {waveHeights.map((height, i) => (
                 <motion.div
                   key={i}
-                  className="wave-bar w-1 bg-primary-foreground/80 rounded-full"
-                  initial={{ height: 8 }}
-                  animate={{ height: [8, 24, 8] }}
-                  transition={{
-                    duration: 0.6,
-                    repeat: Infinity,
-                    delay: i * 0.1,
-                  }}
+                  className="w-1.5 bg-primary-foreground/90 rounded-full"
+                  animate={{ height }}
+                  transition={{ duration: 0.1 }}
                 />
               ))}
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Icon */}
-        {state !== 'speaking' && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            {isActive ? (
-              <Mic className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
-            ) : (
-              <MicOff className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground/80" />
-            )}
-          </motion.div>
-        )}
+        {/* Icon - show when no significant volume */}
+        <AnimatePresence>
+          {(!isActive || volume <= 0.05) && (
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              {isActive ? (
+                <Mic className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
+              ) : (
+                <MicOff className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground/80" />
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.button>
 
       {/* State label */}
       <motion.div
-        className="absolute -bottom-12 text-center"
+        className="absolute -bottom-10 text-center"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.2 }}
       >
         <span className="text-sm font-medium text-muted-foreground capitalize">
-          {isActive ? state : 'Tap to start'}
+          {!isActive && 'Tap to talk'}
+          {isActive && state === 'thinking' && 'Connecting...'}
+          {isActive && state === 'listening' && 'Listening...'}
+          {isActive && state === 'speaking' && 'Speaking...'}
+          {isActive && state === 'idle' && 'Ready'}
         </span>
       </motion.div>
     </div>
