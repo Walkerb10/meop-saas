@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, ChevronRight, ArrowLeft, Trash2, Loader2, User, Bot, Zap, Pin, PinOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/AppLayout';
+import { PageTransition } from '@/components/PageTransition';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -189,6 +190,7 @@ const Conversations = () => {
 
   return (
     <AppLayout>
+      <PageTransition className="h-full">
       <div className="max-w-3xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
@@ -462,6 +464,7 @@ const Conversations = () => {
           )}
         </AnimatePresence>
       </div>
+      </PageTransition>
     </AppLayout>
   );
 };

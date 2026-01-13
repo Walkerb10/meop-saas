@@ -8,6 +8,8 @@ import { FeatureAccessManager } from '@/components/FeatureAccessManager';
 import { AdminFeedbackList } from '@/components/AdminFeedbackList';
 import { AITrainingManager } from '@/components/AITrainingManager';
 import { ContactsManager } from '@/components/ContactsManager';
+import { WebhooksManager } from '@/components/WebhooksManager';
+import { PageTransition } from '@/components/PageTransition';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,6 +42,7 @@ import {
   MessageSquare,
   Brain,
   Contact,
+  Webhook,
 } from 'lucide-react';
 
 function UserManagementTab() {
@@ -642,92 +645,102 @@ export default function AdminDashboard() {
 
   return (
     <AppLayout>
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="w-6 h-6 text-primary" />
-            Admin Dashboard
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your team, tasks, and calendar
-          </p>
+      <PageTransition className="h-full">
+        <div className="p-6 max-w-7xl mx-auto">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Shield className="w-6 h-6 text-primary" />
+              Admin Dashboard
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your team, tasks, and calendar
+            </p>
+          </div>
+
+          <Tabs defaultValue="users" className="space-y-6">
+            <TabsList className="bg-secondary/50 flex-wrap">
+              <TabsTrigger value="users" className="gap-2">
+                <Users className="w-4 h-4" />
+                Users
+              </TabsTrigger>
+              <TabsTrigger value="contacts" className="gap-2">
+                <Contact className="w-4 h-4" />
+                Contacts
+              </TabsTrigger>
+              <TabsTrigger value="feedback" className="gap-2">
+                <MessageSquare className="w-4 h-4" />
+                Feedback
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="gap-2">
+                <ListTodo className="w-4 h-4" />
+                Tasks
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="gap-2">
+                <Calendar className="w-4 h-4" />
+                Calendar
+              </TabsTrigger>
+              <TabsTrigger value="webhooks" className="gap-2">
+                <Webhook className="w-4 h-4" />
+                Webhooks
+              </TabsTrigger>
+              <TabsTrigger value="knowledge" className="gap-2">
+                Knowledge
+              </TabsTrigger>
+              <TabsTrigger value="training" className="gap-2">
+                <Brain className="w-4 h-4" />
+                AI Training
+              </TabsTrigger>
+              <TabsTrigger value="chat-permissions" className="gap-2">
+                Chat Data
+              </TabsTrigger>
+              <TabsTrigger value="feature-access" className="gap-2">
+                <Shield className="w-4 h-4" />
+                Features
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="users">
+              <UserManagementTab />
+            </TabsContent>
+
+            <TabsContent value="contacts">
+              <ContactsManager />
+            </TabsContent>
+
+            <TabsContent value="feedback">
+              <AdminFeedbackList />
+            </TabsContent>
+
+            <TabsContent value="tasks">
+              <TaskAssignmentTab />
+            </TabsContent>
+
+            <TabsContent value="calendar">
+              <CalendarTab />
+            </TabsContent>
+
+            <TabsContent value="webhooks">
+              <WebhooksManager />
+            </TabsContent>
+
+            <TabsContent value="knowledge">
+              <KnowledgeBaseManager />
+            </TabsContent>
+
+            <TabsContent value="training">
+              <AITrainingManager />
+            </TabsContent>
+
+            <TabsContent value="chat-permissions">
+              <ChatPermissionsManager />
+            </TabsContent>
+
+            <TabsContent value="feature-access">
+              <FeatureAccessManager />
+            </TabsContent>
+          </Tabs>
         </div>
-
-        <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="bg-secondary/50 flex-wrap">
-            <TabsTrigger value="users" className="gap-2">
-              <Users className="w-4 h-4" />
-              Users
-            </TabsTrigger>
-            <TabsTrigger value="contacts" className="gap-2">
-              <Contact className="w-4 h-4" />
-              Contacts
-            </TabsTrigger>
-            <TabsTrigger value="feedback" className="gap-2">
-              <MessageSquare className="w-4 h-4" />
-              Feedback
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="gap-2">
-              <ListTodo className="w-4 h-4" />
-              Tasks
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="gap-2">
-              <Calendar className="w-4 h-4" />
-              Calendar
-            </TabsTrigger>
-            <TabsTrigger value="knowledge" className="gap-2">
-              Knowledge
-            </TabsTrigger>
-            <TabsTrigger value="training" className="gap-2">
-              <Brain className="w-4 h-4" />
-              AI Training
-            </TabsTrigger>
-            <TabsTrigger value="chat-permissions" className="gap-2">
-              Chat Data
-            </TabsTrigger>
-            <TabsTrigger value="feature-access" className="gap-2">
-              <Shield className="w-4 h-4" />
-              Features
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="users">
-            <UserManagementTab />
-          </TabsContent>
-
-          <TabsContent value="contacts">
-            <ContactsManager />
-          </TabsContent>
-
-          <TabsContent value="feedback">
-            <AdminFeedbackList />
-          </TabsContent>
-
-          <TabsContent value="tasks">
-            <TaskAssignmentTab />
-          </TabsContent>
-
-          <TabsContent value="calendar">
-            <CalendarTab />
-          </TabsContent>
-
-          <TabsContent value="knowledge">
-            <KnowledgeBaseManager />
-          </TabsContent>
-
-          <TabsContent value="training">
-            <AITrainingManager />
-          </TabsContent>
-
-          <TabsContent value="chat-permissions">
-            <ChatPermissionsManager />
-          </TabsContent>
-
-          <TabsContent value="feature-access">
-            <FeatureAccessManager />
-          </TabsContent>
-        </Tabs>
-      </div>
+      </PageTransition>
     </AppLayout>
   );
 }
