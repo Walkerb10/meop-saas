@@ -266,39 +266,46 @@ export default function AgentPage() {
 
         {/* Bottom Input Bar */}
         <div className="sticky bottom-0 p-4 bg-background/80 backdrop-blur-sm border-t border-border">
-          <div className="max-w-2xl mx-auto flex gap-2">
-            {/* Dictation mic button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleDictation}
-              className={cn(
-                'shrink-0 transition-colors',
-                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-              )}
-            >
-              <Mic className="w-4 h-4" />
-            </Button>
-            
-            <Input
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={isActive ? "Type to send to agent..." : "Type a message..."}
-              className="flex-1 bg-muted/50"
-            />
-            <Button
-              onClick={handleSendText}
-              disabled={!inputValue.trim()}
-              size="icon"
-              className={cn(
-                'transition-all',
-                inputValue.trim() ? 'bg-primary hover:bg-primary/90' : 'bg-muted text-muted-foreground'
-              )}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+          <div className="max-w-2xl mx-auto">
+            <div className="flex items-center gap-2 bg-muted/50 rounded-full px-4 py-2">
+              <Input
+                ref={inputRef}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type message...."
+                className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+              />
+              
+              {/* Dictation mic button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleDictation}
+                className={cn(
+                  'shrink-0 h-8 w-8 transition-colors rounded-full',
+                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Mic className="w-4 h-4" />
+              </Button>
+              
+              {/* Send button */}
+              <Button
+                onClick={handleSendText}
+                disabled={!inputValue.trim()}
+                size="icon"
+                variant="ghost"
+                className={cn(
+                  'shrink-0 h-8 w-8 transition-all rounded-full',
+                  inputValue.trim() 
+                    ? 'text-primary hover:text-primary hover:bg-primary/10' 
+                    : 'text-muted-foreground'
+                )}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
