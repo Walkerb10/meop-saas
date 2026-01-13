@@ -9,6 +9,7 @@ import { AdminFeedbackList } from '@/components/AdminFeedbackList';
 import { AITrainingManager } from '@/components/AITrainingManager';
 import { ContactsManager } from '@/components/ContactsManager';
 import { WebhooksManager } from '@/components/WebhooksManager';
+import { MarketingEmailsManager } from '@/components/MarketingEmailsManager';
 import { PageTransition } from '@/components/PageTransition';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,6 +44,7 @@ import {
   Brain,
   Contact,
   Webhook,
+  Mail,
 } from 'lucide-react';
 
 function UserManagementTab() {
@@ -697,6 +699,10 @@ export default function AdminDashboard() {
                 <Shield className="w-4 h-4" />
                 Features
               </TabsTrigger>
+              <TabsTrigger value="marketing" className="gap-2">
+                <Mail className="w-4 h-4" />
+                Marketing
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="users">
@@ -721,6 +727,10 @@ export default function AdminDashboard() {
 
             <TabsContent value="webhooks">
               <WebhooksManager />
+            </TabsContent>
+
+            <TabsContent value="marketing">
+              <MarketingEmailsManager />
             </TabsContent>
 
             <TabsContent value="knowledge">
