@@ -500,32 +500,23 @@ export default function AutomationsPage() {
                   onClick={() => setSelectedWorkflow(workflow)}
                 >
                   <CardContent className="p-3 md:p-4">
-                    <div className="flex items-start gap-3 md:gap-4">
+                    <div className="flex items-center gap-3 md:gap-4">
                       {/* Step preview icons */}
-                      <div className="shrink-0 pt-0.5">
+                      <div className="shrink-0">
                         <StepPreview nodes={workflow.nodes} maxSteps={3} />
                       </div>
 
-                      {/* Info */}
+                      {/* Name only - simplified */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-sm md:text-base text-foreground truncate max-w-[200px] md:max-w-none">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-sm md:text-base text-foreground truncate">
                             {workflow.name}
                           </h3>
-                          <Badge variant={workflow.isActive ? 'default' : 'secondary'} className="text-[10px] md:text-xs">
+                          <Badge variant={workflow.isActive ? 'default' : 'secondary'} className="text-[10px] md:text-xs shrink-0">
                             {workflow.isActive ? 'Active' : 'Off'}
                           </Badge>
                         </div>
-                        
-                        {/* Step-by-step summary */}
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {generateWorkflowSummary(workflow.nodes)}
-                        </p>
-                        
-                        <div className="flex items-center gap-2 md:gap-4 mt-2 text-[10px] md:text-xs text-muted-foreground">
-                          <span className="font-medium">{workflow.nodes.length} step{workflow.nodes.length !== 1 ? 's' : ''}</span>
-                          <RecentExecutions automationId={workflow.id} maxItems={3} />
-                        </div>
+                        <RecentExecutions automationId={workflow.id} maxItems={3} />
                       </div>
 
                       {/* Actions */}
