@@ -66,6 +66,9 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
   const isTrigger = node.type.startsWith('trigger_');
   const description = getNodeDescription(node);
 
+  // Fixed node dimensions for consistent connection alignment
+  const NODE_WIDTH = 260;
+  
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
@@ -74,7 +77,7 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
       className={cn(
         'workflow-node absolute cursor-pointer select-none',
         'rounded-2xl border-2 shadow-xl backdrop-blur-sm',
-        'min-w-[260px] max-w-[300px] transition-all duration-150',
+        'transition-all duration-150',
         style.bgColor,
         isSelected && 'ring-2 ring-primary ring-offset-2 ring-offset-background shadow-primary/20',
         isExecuting && 'ring-2 ring-primary animate-pulse shadow-primary/30',
@@ -83,6 +86,7 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
       style={{
         left: node.position.x,
         top: node.position.y,
+        width: NODE_WIDTH,
       }}
       onClick={(e) => {
         e.stopPropagation();
@@ -91,10 +95,11 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
       onMouseDown={onDragStart}
       onMouseUp={onEndConnection}
     >
-      {/* Connection point - top (input) */}
+      {/* Connection point - top (input) - centered precisely */}
       {!isTrigger && (
         <div 
-          className="absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-background border-2 border-border hover:border-primary hover:bg-primary/20 transition-all hover:scale-110 cursor-crosshair shadow-sm"
+          className="absolute -top-3 w-5 h-5 rounded-full bg-background border-2 border-border hover:border-primary hover:bg-primary/20 transition-all hover:scale-110 cursor-crosshair shadow-sm"
+          style={{ left: '50%', transform: 'translateX(-50%)' }}
           onMouseUp={(e) => {
             e.stopPropagation();
             onEndConnection();
@@ -177,9 +182,10 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
         )}
       </div>
 
-      {/* Connection point - bottom (output) */}
+      {/* Connection point - bottom (output) - centered precisely */}
       <div 
-        className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-background border-2 border-border hover:border-primary hover:bg-primary/20 transition-all hover:scale-110 cursor-crosshair shadow-sm"
+        className="absolute -bottom-3 w-5 h-5 rounded-full bg-background border-2 border-border hover:border-primary hover:bg-primary/20 transition-all hover:scale-110 cursor-crosshair shadow-sm"
+        style={{ left: '50%', transform: 'translateX(-50%)' }}
         onMouseDown={(e) => {
           e.stopPropagation();
           onStartConnection();
