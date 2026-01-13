@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare,
@@ -25,6 +25,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { AIEnhanceButton } from '@/components/AIEnhanceButton';
+import { supabase } from '@/integrations/supabase/client';
 
 // Icons for action types - using custom SVGs for Discord and Slack
 const SlackIcon = () => (
@@ -158,6 +160,14 @@ const OUTPUT_FORMATS = [
   { value: 'problem_framework', label: 'Problem Framework' },
 ];
 
+const LENGTH_OPTIONS = [
+  { value: '125', label: 'Tiny', desc: '¼ page' },
+  { value: '250', label: 'Short', desc: '½ page' },
+  { value: '500', label: 'Medium', desc: '1 page' },
+  { value: '1500', label: 'Long', desc: '3 pages' },
+  { value: '5000', label: 'Extended', desc: '10 pages' },
+];
+
 interface CreateAutomationWizardProps {
   onComplete: (data: {
     name: string;
@@ -178,6 +188,8 @@ export function CreateAutomationWizard({
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState<ActionType | null>(null);
   const [name, setName] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [existingNames, setExistingNames] = useState<string[]>([]);
   const [config, setConfig] = useState<Record<string, string>>({});
   const [frequency, setFrequency] = useState<FrequencyType>('manual');
   const [frequencyConfig, setFrequencyConfig] = useState<Record<string, string | string[]>>({
@@ -188,11 +200,33 @@ export function CreateAutomationWizard({
 
   const selectedOption = ACTION_OPTIONS.find((o) => o.type === selectedType);
 
+  // Fetch existing automation names to check for duplicates
+  useEffect(() => {
+    const fetchNames = async () => {
+      const { data } = await supabase
+        .from('automations')
+        .select('name');
+      if (data) {
+        setExistingNames(data.map(a => a.name.toLowerCase()));
+      }
+    };
+    fetchNames();
+  }, []);
+
+  // Validate name on change
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (!value.trim()) {
+      setNameError('Name is required');
+    } else if (existingNames.includes(value.toLowerCase().trim())) {
+      setNameError('An automation with this name already exists');
+    } else {
+      setNameError('');
+    }
+  };
+
   const handleNext = () => {
     if (step === 1 && selectedType) {
-      if (!name) {
-        setName(selectedOption?.label || 'New Automation');
-      }
       setStep(2);
     } else if (step === 2 && isStep2Valid()) {
       setStep(3);
@@ -221,7 +255,7 @@ export function CreateAutomationWizard({
   };
 
   const isStep2Valid = () => {
-    if (!selectedType || !name.trim()) return false;
+    if (!selectedType || !name.trim() || nameError) return false;
     switch (selectedType) {
       case 'text':
         return !!config.phone && !!config.message;
@@ -279,7 +313,7 @@ export function CreateAutomationWizard({
             whileTap={{ scale: 0.98 }}
             onClick={() => {
               setSelectedType(option.type);
-              setName(option.label);
+              // Don't set default name - user must enter it
               setStep(2);
             }}
             className={cn(
@@ -330,13 +364,17 @@ export function CreateAutomationWizard({
         <div className="space-y-4">
           {/* Name field for all types */}
           <div className="space-y-2">
-            <Label htmlFor="name">Sequence Name *</Label>
+            <Label htmlFor="name">Automation Name <span className="text-destructive">*</span></Label>
             <Input
               id="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={`My ${selectedOption?.label} Sequence`}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="Enter a unique name..."
+              className={nameError ? 'border-destructive' : ''}
             />
+            {nameError && (
+              <p className="text-xs text-destructive">{nameError}</p>
+            )}
           </div>
 
           {/* Type-specific fields */}
@@ -483,7 +521,18 @@ export function CreateAutomationWizard({
           {selectedType === 'research' && (
             <>
               <div className="space-y-2">
-                <Label htmlFor="query">Research Query *</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="query">Research Query <span className="text-destructive">*</span></Label>
+                  <AIEnhanceButton
+                    value={config.query || ''}
+                    onChange={(v) => setConfig({ ...config, query: v })}
+                    type="research"
+                    context={{
+                      output_format: config.outputFormat,
+                      output_length: config.outputLength,
+                    }}
+                  />
+                </div>
                 <Textarea
                   id="query"
                   value={config.query || ''}
@@ -514,69 +563,28 @@ export function CreateAutomationWizard({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-3">
-                <Label>Target Length</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { label: 'Tiny', pages: '0.25', words: 125 },
-                    { label: 'Short', pages: '0.5', words: 250 },
-                    { label: 'Medium', pages: '1', words: 500 },
-                    { label: 'Long', pages: '3', words: 1500 },
-                    { label: 'Extended', pages: '10', words: 5000 },
-                    { label: 'Custom', pages: 'custom', words: null },
-                  ].map((opt) => (
-                    <button
-                      key={opt.pages}
-                      type="button"
-                      onClick={() => {
-                        if (opt.pages === 'custom') {
-                          setConfig({ ...config, outputLengthType: 'custom' });
-                        } else {
-                          setConfig({ 
-                            ...config, 
-                            outputLength: String(opt.words),
-                            outputLengthType: opt.pages 
-                          });
-                        }
-                      }}
-                      className={cn(
-                        "p-2.5 rounded-lg border text-left transition-all",
-                        (config.outputLengthType === opt.pages || 
-                         (!config.outputLengthType && opt.pages === '1'))
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                      )}
-                    >
-                      <p className="text-sm font-medium">{opt.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {opt.pages === 'custom' ? 'Set pages' : `${opt.pages} pg`}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-                {config.outputLengthType === 'custom' && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <Input
-                      type="number"
-                      min="0.25"
-                      step="0.25"
-                      value={config.customPages || '1'}
-                      onChange={(e) => {
-                        const pages = parseFloat(e.target.value) || 1;
-                        setConfig({ 
-                          ...config, 
-                          customPages: e.target.value,
-                          outputLength: String(Math.round(pages * 500))
-                        });
-                      }}
-                      className="h-10 w-24"
-                      placeholder="1"
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      pages (~{Math.round((parseFloat(config.customPages as string) || 1) * 500)} words)
-                    </span>
-                  </div>
-                )}
+              <div className="space-y-2">
+                <Label htmlFor="length">Target Length</Label>
+                <Select
+                  value={config.outputLength || '500'}
+                  onValueChange={(v) =>
+                    setConfig({ ...config, outputLength: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select length" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LENGTH_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium">{opt.label}</span>
+                          <span className="text-muted-foreground">({opt.desc})</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </>
           )}
