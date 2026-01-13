@@ -226,16 +226,13 @@ export function AppLayout({
         <header className="fixed top-0 right-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border"
           style={{ left: isMobile ? 0 : desktopSidebarOpen ? '200px' : '56px' }}
         >
-          {/* Left side - hamburger on mobile, Feedback button, New Chat */}
+          {/* Left side - hamburger on mobile, New Chat */}
           <div className="flex items-center gap-2">
             {isMobile && (
               <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
                 <Menu className="w-6 h-6" />
               </Button>
             )}
-            
-            {/* Feedback dialog - always visible in header */}
-            <FeedbackDialog />
             
             {showNewChatButton && onNewChat && (
               <Button 
@@ -250,27 +247,32 @@ export function AppLayout({
             )}
           </div>
 
-          {/* Right side - Tasks button always visible */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2 border-border text-foreground hover:bg-secondary relative"
-              >
-                <ListTodo className="w-4 h-4" />
-                Tasks
-                {taskCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-medium min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
-                    {taskCount}
-                  </span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-80 md:w-96">
-              {tasksContent || <div className="text-sm text-muted-foreground">No active tasks</div>}
-            </PopoverContent>
-          </Popover>
+          {/* Right side - Feedback and Tasks */}
+          <div className="flex items-center gap-2">
+            {/* Feedback dialog */}
+            <FeedbackDialog />
+            
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 border-border text-foreground hover:bg-secondary relative"
+                >
+                  <ListTodo className="w-4 h-4" />
+                  Tasks
+                  {taskCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-medium min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
+                      {taskCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 md:w-96">
+                {tasksContent || <div className="text-sm text-muted-foreground">No active tasks</div>}
+              </PopoverContent>
+            </Popover>
+          </div>
         </header>
 
         {/* Spacer for fixed header */}

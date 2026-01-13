@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useTasks } from '@/hooks/useTasks';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Workflow, WorkflowNode, WorkflowConnection } from '@/types/workflow';
+import { Workflow, WorkflowNode, WorkflowConnection, WorkflowNodeType } from '@/types/workflow';
 import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -197,68 +197,111 @@ export default function AutomationsPage() {
     ));
   }, []);
 
-  // Handle quick automation generation
-  const handleQuickGenerate = useCallback(async (data: {
-    input: string;
-    action: string;
-    output: string;
-    outputDestination: string;
-  }) => {
+  // Handle quick automation generation from natural language
+  const handleQuickGenerate = useCallback(async (description: string) => {
     setIsGenerating(true);
+    
+    // Parse the description to extract components
+    const lowerDesc = description.toLowerCase();
     
     // Simulate AI processing
     await new Promise(r => setTimeout(r, 1500));
     
-    // Create nodes based on input
+    // Create nodes based on description
     const nodes: WorkflowNode[] = [];
     const connections: WorkflowConnection[] = [];
     
-    // Add trigger node
+    // Determine trigger type from description
     const triggerId = crypto.randomUUID();
+    let triggerConfig: Record<string, string> = { frequency: 'daily', time: '09:00' };
+    let triggerLabel = 'Daily at 9 AM';
+    
+    if (lowerDesc.includes('morning')) {
+      triggerConfig = { frequency: 'daily', time: '09:00' };
+      triggerLabel = 'Every Morning';
+    } else if (lowerDesc.includes('evening') || lowerDesc.includes('night')) {
+      triggerConfig = { frequency: 'daily', time: '18:00' };
+      triggerLabel = 'Every Evening';
+    } else if (lowerDesc.includes('weekly') || lowerDesc.includes('week')) {
+      triggerConfig = { frequency: 'weekly', dayOfWeek: 'Monday', time: '09:00' };
+      triggerLabel = 'Weekly on Monday';
+    } else if (lowerDesc.includes('hourly') || lowerDesc.includes('hour')) {
+      triggerConfig = { frequency: 'hourly' };
+      triggerLabel = 'Every Hour';
+    }
+    
     nodes.push({
       id: triggerId,
       type: 'trigger_schedule',
-      label: data.input.slice(0, 30) || 'Trigger',
+      label: triggerLabel,
       position: { x: 150, y: 100 },
-      config: { frequency: 'daily', time: '09:00' },
+      config: triggerConfig,
     });
     
-    // Add action node
+    // Extract research query - everything between "research" and delivery method
+    let researchQuery = description;
+    const researchMatch = description.match(/research\s+(.+?)(?:\s+(?:and\s+)?(?:send|post|deliver|email|text|slack|discord)|$)/i);
+    if (researchMatch) {
+      researchQuery = researchMatch[1].trim();
+    }
+    
+    // Add research action node
     const actionId = crypto.randomUUID();
     nodes.push({
       id: actionId,
       type: 'action_research',
       label: 'Research',
       position: { x: 150, y: 250 },
-      config: { query: data.action },
+      config: { query: researchQuery, outputFormat: 'detailed', outputLength: '500' },
     });
     connections.push({ id: crypto.randomUUID(), sourceId: triggerId, targetId: actionId });
     
-    // Add output node
+    // Determine output destination
     const outputId = crypto.randomUUID();
-    const outputType = data.outputDestination === 'email' ? 'action_email' 
-      : data.outputDestination === 'text' ? 'action_text'
-      : data.outputDestination === 'discord' ? 'action_discord'
-      : 'action_slack';
+    let outputType: WorkflowNodeType = 'action_slack';
+    let outputLabel = 'Send to Slack';
+    let outputConfig: Record<string, string> = { channel: 'general', message: '{{result}}' };
+    
+    if (lowerDesc.includes('email')) {
+      outputType = 'action_email';
+      outputLabel = 'Send Email';
+      outputConfig = { to: 'team@company.com', subject: 'Research Results', message: '{{result}}' };
+    } else if (lowerDesc.includes('text') || lowerDesc.includes('sms')) {
+      outputType = 'action_text';
+      outputLabel = 'Send Text';
+      outputConfig = { to: '+1234567890', message: '{{result}}' };
+    } else if (lowerDesc.includes('discord')) {
+      outputType = 'action_discord';
+      outputLabel = 'Send to Discord';
+      outputConfig = { channel: 'general', message: '{{result}}' };
+    } else if (lowerDesc.includes('slack')) {
+      // Extract channel name if specified
+      const channelMatch = lowerDesc.match(/#(\w+)/);
+      if (channelMatch) {
+        outputConfig.channel = channelMatch[1];
+        outputLabel = `Send to #${channelMatch[1]}`;
+      }
+    }
     
     nodes.push({
       id: outputId,
       type: outputType,
-      label: `Send to ${data.outputDestination}`,
+      label: outputLabel,
       position: { x: 150, y: 400 },
-      config: { 
-        channel: data.output || 'general',
-        to: data.output,
-        message: '{{result}}',
-      },
+      config: outputConfig,
     });
     connections.push({ id: crypto.randomUUID(), sourceId: actionId, targetId: outputId });
+    
+    // Generate a meaningful name
+    const workflowName = researchQuery.length > 40 
+      ? researchQuery.slice(0, 40) + '...' 
+      : researchQuery;
     
     // Create the workflow
     const newWorkflow: Workflow = {
       id: crypto.randomUUID(),
-      name: `${data.action.slice(0, 30)}...`,
-      description: `${data.input} → ${data.action} → ${data.outputDestination}`,
+      name: workflowName,
+      description: description,
       nodes,
       connections,
       isActive: true,
@@ -308,7 +351,7 @@ export default function AutomationsPage() {
       tasksContent={<TasksPopoverContent />}
       taskCount={processingCount}
     >
-      <div className="p-4 md:p-6 max-w-6xl mx-auto">
+      <div className="p-4 md:p-6 max-w-6xl mx-auto pb-20">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
@@ -384,15 +427,13 @@ export default function AutomationsPage() {
           </Card>
         </div>
 
-        {/* Quick Create Form - Desktop only */}
-        {!isMobile && (
-          <div className="mb-6">
-            <QuickAutomationForm 
-              onGenerate={handleQuickGenerate}
-              isGenerating={isGenerating}
-            />
-          </div>
-        )}
+        {/* Quick Create Form */}
+        <div className="mb-6">
+          <QuickAutomationForm 
+            onGenerate={handleQuickGenerate}
+            isGenerating={isGenerating}
+          />
+        </div>
 
         {/* Workflow list */}
         <div className="space-y-3">
