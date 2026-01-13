@@ -241,6 +241,40 @@ export function WorkflowBuilder({
                   Drag nodes to the canvas
                 </p>
               </div>
+              
+              {/* Natural Language Input */}
+              <div className="p-4 border-b border-border space-y-2">
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe what you want automated... e.g. 'Research AI news daily at 9am and send to Slack'"
+                  className="resize-none h-20 text-sm"
+                />
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="w-full gap-2"
+                  onClick={() => {
+                    // Add a placeholder research step based on description
+                    if (description.trim()) {
+                      const newNode: WorkflowNode = {
+                        id: crypto.randomUUID(),
+                        type: 'action_research',
+                        label: 'Generated Step',
+                        position: { x: 150, y: 100 + nodes.length * 150 },
+                        config: { query: description },
+                      };
+                      setNodes(prev => [...prev, newNode]);
+                      setSelectedNodeId(newNode.id);
+                    }
+                  }}
+                  disabled={!description.trim()}
+                >
+                  <Play className="w-4 h-4" />
+                  Generate Workflow
+                </Button>
+              </div>
+              
               <NodeLibrary onDragStart={setDraggingType} />
             </div>
           </ResizablePanel>
