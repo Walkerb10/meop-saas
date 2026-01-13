@@ -534,7 +534,6 @@ export default function AutomationsPage() {
                             else if (freq === 'weekly') scheduleText = `Runs weekly at ${displayTime}`;
                             else if (freq === 'monthly') scheduleText = `Runs monthly at ${displayTime}`;
                             else if (freq === 'hourly') scheduleText = 'Runs hourly';
-                            else if (freq === 'once') scheduleText = `Runs once at ${displayTime}`;
                             
                             if (scheduleText) {
                               return (
