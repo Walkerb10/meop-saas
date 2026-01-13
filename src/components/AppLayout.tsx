@@ -11,13 +11,11 @@ import {
   PanelLeft,
   Zap,
   Settings,
-  ListTodo,
   MessageSquare,
   SquarePen,
   Shield,
   Bot,
   Calendar,
-  Activity,
   BarChart3,
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -28,11 +26,12 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
+import { ExecutionsPopover } from '@/components/ExecutionsPopover';
+import { useExecutions } from '@/hooks/useExecutions';
 
 const mainNavItems = [
   { icon: Bot, label: 'Agent', path: '/agent' },
   { icon: Zap, label: 'Automations', path: '/automations' },
-  { icon: Activity, label: 'Executions', path: '/executions' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
   { icon: BarChart3, label: 'Analytics', path: '/analytics' },
@@ -53,21 +52,16 @@ const getBottomNavItems = (isAdmin: boolean) => {
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  showTasksButton?: boolean;
-  tasksContent?: React.ReactNode;
-  taskCount?: number;
   onNewChat?: () => void;
   showNewChatButton?: boolean;
 }
 
 export function AppLayout({ 
   children, 
-  showTasksButton = false, 
-  tasksContent,
-  taskCount = 0,
   onNewChat,
   showNewChatButton = false,
 }: AppLayoutProps) {
+  const { runningCount } = useExecutions();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { desktopSidebarOpen, setDesktopSidebarOpen } = useSidebarState();
   const isMobile = useIsMobile();
@@ -249,7 +243,7 @@ export function AppLayout({
             )}
           </div>
 
-          {/* Right side - Feedback and Tasks */}
+          {/* Right side - Feedback and Executions */}
           <div className="flex items-center gap-2">
             {/* Feedback dialog */}
             <FeedbackDialog />
@@ -259,19 +253,18 @@ export function AppLayout({
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="gap-2 border-border text-foreground hover:bg-secondary relative"
+                  className="border-border text-foreground hover:bg-secondary relative"
                 >
-                  <ListTodo className="w-4 h-4" />
-                  Tasks
-                  {taskCount > 0 && (
+                  Executions
+                  {runningCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-medium min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
-                      {taskCount}
+                      {runningCount}
                     </span>
                   )}
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 md:w-96">
-                {tasksContent || <div className="text-sm text-muted-foreground">No active tasks</div>}
+                <ExecutionsPopover />
               </PopoverContent>
             </Popover>
           </div>

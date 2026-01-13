@@ -325,6 +325,22 @@ ${contextParts.join("\n")}
       throw new Error("AI request failed");
     }
 
+    // Save meaningful conversations to knowledge base for RAG
+    // Only save if the message seems substantive (not just a greeting or simple command)
+    if (userId && queryText.length > 50) {
+      try {
+        await supabase.from("knowledge_base").insert({
+          title: `Conversation: ${queryText.substring(0, 50)}...`,
+          content: queryText,
+          category: "team_conversation",
+          is_public: false,
+          created_by: userId,
+        });
+      } catch (e) {
+        console.log("Failed to save conversation to knowledge base:", e);
+      }
+    }
+
     // Stream the response
     return new Response(response.body, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
