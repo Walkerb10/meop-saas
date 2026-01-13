@@ -8,6 +8,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
 import { QuickAutomationForm } from '@/components/QuickAutomationForm';
+import { StepPreview, generateWorkflowSummary } from '@/components/AutomationSummary';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -474,44 +475,39 @@ export default function AutomationsPage() {
               >
                 <Card 
                   className={cn(
-                    'cursor-pointer transition-all hover:shadow-md hover:border-primary/30',
+                    'cursor-pointer transition-all hover:shadow-md hover:border-primary/30 group',
                     !workflow.isActive && 'opacity-60'
                   )}
                   onClick={() => setSelectedWorkflow(workflow)}
                 >
                   <CardContent className="p-3 md:p-4">
-                    <div className="flex items-center gap-3 md:gap-4">
-                      {/* Icon */}
-                      <div className={cn(
-                        'p-2 md:p-3 rounded-lg md:rounded-xl shrink-0',
-                        workflow.isActive ? 'bg-primary/10' : 'bg-muted'
-                      )}>
-                        <Zap className={cn(
-                          'w-4 h-4 md:w-5 md:h-5',
-                          workflow.isActive ? 'text-primary' : 'text-muted-foreground'
-                        )} />
+                    <div className="flex items-start gap-3 md:gap-4">
+                      {/* Step preview icons */}
+                      <div className="shrink-0 pt-0.5">
+                        <StepPreview nodes={workflow.nodes} maxSteps={3} />
                       </div>
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-sm md:text-base text-foreground truncate max-w-[150px] md:max-w-none">
+                          <h3 className="font-semibold text-sm md:text-base text-foreground truncate max-w-[200px] md:max-w-none">
                             {workflow.name}
                           </h3>
                           <Badge variant={workflow.isActive ? 'default' : 'secondary'} className="text-[10px] md:text-xs">
                             {workflow.isActive ? 'Active' : 'Off'}
                           </Badge>
                         </div>
-                        {workflow.description && (
-                          <p className="text-xs md:text-sm text-muted-foreground truncate mt-0.5 hidden sm:block">
-                            {workflow.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 md:gap-4 mt-1 md:mt-2 text-[10px] md:text-xs text-muted-foreground">
-                          <span>{workflow.nodes.length} steps</span>
+                        
+                        {/* Step-by-step summary */}
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                          {generateWorkflowSummary(workflow.nodes)}
+                        </p>
+                        
+                        <div className="flex items-center gap-2 md:gap-4 mt-2 text-[10px] md:text-xs text-muted-foreground">
+                          <span className="font-medium">{workflow.nodes.length} step{workflow.nodes.length !== 1 ? 's' : ''}</span>
                           {workflow.lastRunAt && (
                             <span className="hidden sm:inline">
-                              {formatDistanceToNow(new Date(workflow.lastRunAt), { addSuffix: true })}
+                              Last run {formatDistanceToNow(new Date(workflow.lastRunAt), { addSuffix: true })}
                             </span>
                           )}
                         </div>
