@@ -37,6 +37,7 @@ const TYPE_ICONS: Record<WorkflowNodeType, React.ElementType> = {
   trigger_schedule: Clock,
   trigger_webhook: Sparkles,
   trigger_voice: Sparkles,
+  trigger_manual: Sparkles,
   action_research: Search,
   action_text: MessageSquare,
   action_email: Mail,

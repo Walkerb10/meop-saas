@@ -2,6 +2,7 @@ export type WorkflowNodeType =
   | 'trigger_schedule'
   | 'trigger_webhook'
   | 'trigger_voice'
+  | 'trigger_manual'
   | 'action_research'
   | 'action_text'
   | 'action_email'
@@ -91,6 +92,7 @@ export const NODE_CATEGORIES = {
     { type: 'trigger_schedule' as const, label: 'Schedule', description: 'Run on a schedule' },
     { type: 'trigger_webhook' as const, label: 'Webhook', description: 'Trigger via HTTP' },
     { type: 'trigger_voice' as const, label: 'Voice Command', description: 'Trigger by voice' },
+    { type: 'trigger_manual' as const, label: 'Manual', description: 'Run manually' },
   ],
   actions: [
     { type: 'action_research' as const, label: 'Research', description: 'AI-powered research' },
@@ -111,6 +113,7 @@ export const NODE_STYLES: Record<WorkflowNodeType, { icon: string; color: string
   trigger_schedule: { icon: 'Clock', color: 'text-blue-500', bgColor: 'bg-blue-500/10 border-blue-500/30' },
   trigger_webhook: { icon: 'Webhook', color: 'text-purple-500', bgColor: 'bg-purple-500/10 border-purple-500/30' },
   trigger_voice: { icon: 'Mic', color: 'text-pink-500', bgColor: 'bg-pink-500/10 border-pink-500/30' },
+  trigger_manual: { icon: 'Play', color: 'text-slate-500', bgColor: 'bg-slate-500/10 border-slate-500/30' },
   action_research: { icon: 'Search', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10 border-emerald-500/30' },
   action_text: { icon: 'MessageSquare', color: 'text-green-500', bgColor: 'bg-green-500/10 border-green-500/30' },
   action_email: { icon: 'Mail', color: 'text-orange-500', bgColor: 'bg-orange-500/10 border-orange-500/30' },
