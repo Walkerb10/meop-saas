@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
+import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useTasks } from '@/hooks/useTasks';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Workflow, WorkflowNode, WorkflowConnection } from '@/types/workflow';
 import { format, formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -116,6 +118,7 @@ export default function AutomationsPage() {
   const [executingNodeId, setExecutingNodeId] = useState<string | null>(null);
   const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
   const { tasks } = useTasks();
+  const isMobile = useIsMobile();
   const processingCount = tasks.filter(t => t.status === 'processing').length;
 
   const filteredWorkflows = workflows.filter(w => 
@@ -194,6 +197,8 @@ export default function AutomationsPage() {
 
   // Show builder when editing or creating
   if (selectedWorkflow || isCreating) {
+    const BuilderComponent = isMobile ? MobileWorkflowBuilder : WorkflowBuilder;
+    
     return (
       <AppLayout 
         showTasksButton 
@@ -201,7 +206,7 @@ export default function AutomationsPage() {
         taskCount={processingCount}
       >
         <div className="h-[calc(100vh-3.5rem)]">
-          <WorkflowBuilder
+          <BuilderComponent
             workflow={selectedWorkflow || undefined}
             onSave={handleSaveWorkflow}
             onExecute={selectedWorkflow ? handleExecuteWorkflow : undefined}
