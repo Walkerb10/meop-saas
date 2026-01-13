@@ -1,7 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Plus, Zap,
+  Plus, Zap, PlayCircle,
   MoreHorizontal, Trash2, Loader2
 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
@@ -38,6 +39,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 
 export default function AutomationsPage() {
+  const navigate = useNavigate();
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
@@ -253,9 +255,23 @@ export default function AutomationsPage() {
     }
   }, [deleteWorkflowId, selectedWorkflow, fetchWorkflows]);
 
+  // Check if workflow has repeatable schedule (daily, weekly, monthly)
+  const isRepeatableSchedule = useCallback((workflow: Workflow) => {
+    const triggerNode = workflow.nodes.find(n => n.type === 'trigger_schedule');
+    if (!triggerNode?.config) return false;
+    const freq = triggerNode.config.frequency as string;
+    return freq === 'daily' || freq === 'weekly' || freq === 'monthly' || freq === 'hourly';
+  }, []);
+
   const handleToggleActive = useCallback(async (id: string) => {
     const workflow = workflows.find(w => w.id === id);
     if (!workflow) return;
+    
+    // If trying to turn on, check if it has a repeatable schedule
+    if (!workflow.isActive && !isRepeatableSchedule(workflow)) {
+      toast.error('Add a repeating schedule (daily, weekly, monthly) to enable this automation');
+      return;
+    }
     
     try {
       const { error } = await supabase
@@ -268,7 +284,7 @@ export default function AutomationsPage() {
     } catch (err) {
       console.error('Failed to toggle workflow:', err);
     }
-  }, [workflows, fetchWorkflows]);
+  }, [workflows, fetchWorkflows, isRepeatableSchedule]);
   // Handle wizard complete - create automation from wizard data
   const handleWizardComplete = useCallback(async (data: {
     name: string;
@@ -345,11 +361,14 @@ export default function AutomationsPage() {
       // Set the database trigger_type based on frequency
       const dbTriggerType = data.frequency === 'manual' ? 'manual' : 'schedule';
 
+      // Set is_active to false for manual or once frequencies (non-repeatable)
+      const isRepeatable = data.frequency === 'daily' || data.frequency === 'weekly' || data.frequency === 'monthly';
+      
       const { error } = await supabase
         .from('automations')
         .insert({
           name: data.name,
-          is_active: true,
+          is_active: isRepeatable,
           steps: stepsJson,
           trigger_type: dbTriggerType,
           trigger_config: triggerConfig as unknown as Json,
@@ -418,9 +437,16 @@ export default function AutomationsPage() {
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <Button onClick={() => setIsCreatingWizard(true)} className="gap-2 flex-1 sm:flex-initial">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/executions')} 
+              className="gap-2 flex-1 sm:flex-initial"
+            >
+              <PlayCircle className="w-4 h-4" />
+              <span>Executions</span>
+            </Button>
+            <Button onClick={() => setIsCreatingWizard(true)} size="icon">
               <Plus className="w-4 h-4" />
-              <span>New Automation</span>
             </Button>
           </div>
         </div>
@@ -500,16 +526,20 @@ export default function AutomationsPage() {
 
                       {/* On/Off toggle and menu */}
                       <div className="flex items-center gap-2">
-                        <Switch
-                          checked={workflow.isActive}
-                          onCheckedChange={(e) => {
-                            // Don't navigate when toggling
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleActive(workflow.id);
-                          }}
-                        />
+                        {(() => {
+                          const canToggle = isRepeatableSchedule(workflow) || workflow.isActive;
+                          return (
+                            <Switch
+                              checked={workflow.isActive}
+                              disabled={!canToggle && !workflow.isActive}
+                              onCheckedChange={() => {}}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleToggleActive(workflow.id);
+                              }}
+                            />
+                          );
+                        })()}
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
