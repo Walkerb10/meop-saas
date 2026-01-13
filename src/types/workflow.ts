@@ -26,6 +26,8 @@ export interface WorkflowNodeConfig {
   query?: string;
   outputFormat?: 'summary' | 'detailed' | 'bullets' | 'actionable' | 'problem';
   outputLength?: string;
+  outputLengthType?: string;
+  customPages?: string;
 
   // Message configs
   message?: string;

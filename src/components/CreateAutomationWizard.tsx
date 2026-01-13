@@ -514,17 +514,69 @@ export function CreateAutomationWizard({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="length">Target Word Count</Label>
-                <Input
-                  id="length"
-                  value={config.outputLength || '500'}
-                  onChange={(e) =>
-                    setConfig({ ...config, outputLength: e.target.value })
-                  }
-                  placeholder="500"
-                  type="number"
-                />
+              <div className="space-y-3">
+                <Label>Target Length</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: 'Tiny', pages: '0.25', words: 125 },
+                    { label: 'Short', pages: '0.5', words: 250 },
+                    { label: 'Medium', pages: '1', words: 500 },
+                    { label: 'Long', pages: '3', words: 1500 },
+                    { label: 'Extended', pages: '10', words: 5000 },
+                    { label: 'Custom', pages: 'custom', words: null },
+                  ].map((opt) => (
+                    <button
+                      key={opt.pages}
+                      type="button"
+                      onClick={() => {
+                        if (opt.pages === 'custom') {
+                          setConfig({ ...config, outputLengthType: 'custom' });
+                        } else {
+                          setConfig({ 
+                            ...config, 
+                            outputLength: String(opt.words),
+                            outputLengthType: opt.pages 
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "p-2.5 rounded-lg border text-left transition-all",
+                        (config.outputLengthType === opt.pages || 
+                         (!config.outputLengthType && opt.pages === '1'))
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                      )}
+                    >
+                      <p className="text-sm font-medium">{opt.label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {opt.pages === 'custom' ? 'Set pages' : `${opt.pages} pg`}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+                {config.outputLengthType === 'custom' && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input
+                      type="number"
+                      min="0.25"
+                      step="0.25"
+                      value={config.customPages || '1'}
+                      onChange={(e) => {
+                        const pages = parseFloat(e.target.value) || 1;
+                        setConfig({ 
+                          ...config, 
+                          customPages: e.target.value,
+                          outputLength: String(Math.round(pages * 500))
+                        });
+                      }}
+                      className="h-10 w-24"
+                      placeholder="1"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      pages (~{Math.round((parseFloat(config.customPages as string) || 1) * 500)} words)
+                    </span>
+                  </div>
+                )}
               </div>
             </>
           )}

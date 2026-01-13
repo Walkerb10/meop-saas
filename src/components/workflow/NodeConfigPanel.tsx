@@ -273,14 +273,61 @@ function renderTypeConfig(
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Target length (words)</Label>
-            <Input
-              type="number"
-              value={node.config.outputLength || '500'}
-              onChange={(e) => updateConfig('outputLength', e.target.value)}
-              className="h-12"
-            />
+          <div className="space-y-3">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Target length</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { label: 'Tiny', pages: '0.25', words: 125 },
+                { label: 'Short', pages: '0.5', words: 250 },
+                { label: 'Medium', pages: '1', words: 500 },
+                { label: 'Long', pages: '3', words: 1500 },
+                { label: 'Extended', pages: '10', words: 5000 },
+                { label: 'Custom', pages: 'custom', words: null },
+              ].map((opt) => (
+                <button
+                  key={opt.pages}
+                  type="button"
+                  onClick={() => {
+                    if (opt.pages === 'custom') {
+                      updateConfig('outputLengthType', 'custom');
+                    } else {
+                      updateConfig('outputLength', String(opt.words));
+                      updateConfig('outputLengthType', opt.pages);
+                    }
+                  }}
+                  className={cn(
+                    "p-3 rounded-lg border text-left transition-all",
+                    (node.config.outputLengthType === opt.pages || 
+                     (!node.config.outputLengthType && opt.pages === '1'))
+                      ? 'border-primary bg-primary/5' 
+                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                  )}
+                >
+                  <p className="text-sm font-medium">{opt.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {opt.pages === 'custom' ? 'Set pages' : `${opt.pages} page${opt.pages !== '1' && opt.pages !== '0.25' && opt.pages !== '0.5' ? 's' : ''}`}
+                  </p>
+                </button>
+              ))}
+            </div>
+            {node.config.outputLengthType === 'custom' && (
+              <div className="flex items-center gap-2 mt-2">
+                <Input
+                  type="number"
+                  min="0.25"
+                  step="0.25"
+                  value={node.config.customPages || '1'}
+                  onChange={(e) => {
+                    const pages = parseFloat(e.target.value) || 1;
+                    updateConfig('customPages', e.target.value);
+                    updateConfig('outputLength', String(Math.round(pages * 500)));
+                  }}
+                  className="h-10 w-24"
+                  placeholder="1"
+                />
+                <span className="text-sm text-muted-foreground">pages (~{Math.round((parseFloat(node.config.customPages as string) || 1) * 500)} words)</span>
+              </div>
+            )}
           </div>
         </>
       );
