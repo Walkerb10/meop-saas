@@ -8,6 +8,10 @@ import {
   ArrowRight,
   Check,
   Loader2,
+  Clock,
+  Calendar,
+  Repeat,
+  Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +40,7 @@ const DiscordIcon = () => (
 );
 
 type ActionType = 'text' | 'slack' | 'discord' | 'email' | 'research';
+type FrequencyType = 'manual' | 'once' | 'daily' | 'weekly' | 'monthly';
 
 interface ActionOption {
   type: ActionType;
@@ -43,6 +48,13 @@ interface ActionOption {
   description: string;
   icon: React.ReactNode;
   color: string;
+}
+
+interface FrequencyOption {
+  type: FrequencyType;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
 }
 
 const ACTION_OPTIONS: ActionOption[] = [
@@ -83,6 +95,49 @@ const ACTION_OPTIONS: ActionOption[] = [
   },
 ];
 
+const FREQUENCY_OPTIONS: FrequencyOption[] = [
+  {
+    type: 'manual',
+    label: 'Manual',
+    description: 'Run only when you trigger it',
+    icon: <Zap className="w-5 h-5" />,
+  },
+  {
+    type: 'once',
+    label: 'Once',
+    description: 'Run once at a specific time',
+    icon: <Clock className="w-5 h-5" />,
+  },
+  {
+    type: 'daily',
+    label: 'Daily',
+    description: 'Run every day at a set time',
+    icon: <Calendar className="w-5 h-5" />,
+  },
+  {
+    type: 'weekly',
+    label: 'Weekly',
+    description: 'Run on specific days each week',
+    icon: <Repeat className="w-5 h-5" />,
+  },
+  {
+    type: 'monthly',
+    label: 'Monthly',
+    description: 'Run on a specific day each month',
+    icon: <Calendar className="w-5 h-5" />,
+  },
+];
+
+const DAYS_OF_WEEK = [
+  { value: 'monday', label: 'Mon' },
+  { value: 'tuesday', label: 'Tue' },
+  { value: 'wednesday', label: 'Wed' },
+  { value: 'thursday', label: 'Thu' },
+  { value: 'friday', label: 'Fri' },
+  { value: 'saturday', label: 'Sat' },
+  { value: 'sunday', label: 'Sun' },
+];
+
 const SLACK_CHANNELS = [
   { value: 'all_bhva', label: '#all_bhva' },
   { value: 'general', label: '#general' },
@@ -108,6 +163,8 @@ interface CreateAutomationWizardProps {
     name: string;
     actionType: ActionType;
     config: Record<string, string>;
+    frequency: FrequencyType;
+    frequencyConfig: Record<string, string | string[]>;
   }) => void;
   onCancel: () => void;
   isSubmitting?: boolean;
@@ -122,21 +179,30 @@ export function CreateAutomationWizard({
   const [selectedType, setSelectedType] = useState<ActionType | null>(null);
   const [name, setName] = useState('');
   const [config, setConfig] = useState<Record<string, string>>({});
+  const [frequency, setFrequency] = useState<FrequencyType>('manual');
+  const [frequencyConfig, setFrequencyConfig] = useState<Record<string, string | string[]>>({
+    time: '09:00',
+    days: [],
+    dayOfMonth: '1',
+  });
 
   const selectedOption = ACTION_OPTIONS.find((o) => o.type === selectedType);
 
   const handleNext = () => {
     if (step === 1 && selectedType) {
-      // Set default name based on type
       if (!name) {
         setName(selectedOption?.label || 'New Automation');
       }
       setStep(2);
+    } else if (step === 2 && isStep2Valid()) {
+      setStep(3);
     }
   };
 
   const handleBack = () => {
-    if (step === 2) {
+    if (step === 3) {
+      setStep(2);
+    } else if (step === 2) {
       setStep(1);
     } else {
       onCancel();
@@ -149,11 +215,13 @@ export function CreateAutomationWizard({
       name: name || selectedOption?.label || 'New Automation',
       actionType: selectedType,
       config,
+      frequency,
+      frequencyConfig,
     });
   };
 
   const isStep2Valid = () => {
-    if (!selectedType) return false;
+    if (!selectedType || !name.trim()) return false;
     switch (selectedType) {
       case 'text':
         return !!config.phone && !!config.message;
@@ -170,12 +238,36 @@ export function CreateAutomationWizard({
     }
   };
 
+  const isStep3Valid = () => {
+    if (frequency === 'manual') return true;
+    if (frequency === 'weekly') {
+      const days = frequencyConfig.days as string[];
+      return days && days.length > 0;
+    }
+    return true;
+  };
+
+  const toggleDay = (day: string) => {
+    const currentDays = (frequencyConfig.days as string[]) || [];
+    if (currentDays.includes(day)) {
+      setFrequencyConfig({
+        ...frequencyConfig,
+        days: currentDays.filter((d) => d !== day),
+      });
+    } else {
+      setFrequencyConfig({
+        ...frequencyConfig,
+        days: [...currentDays, day],
+      });
+    }
+  };
+
   const renderStep1 = () => (
     <div className="space-y-4">
       <div className="text-center mb-6">
         <h2 className="text-xl font-semibold">What do you want to automate?</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Choose the type of action for your automation
+          Choose the type of action for your sequence
         </p>
       </div>
 
@@ -230,21 +322,21 @@ export function CreateAutomationWizard({
           >
             {selectedOption?.icon}
           </div>
-          <h2 className="text-xl font-semibold">{selectedOption?.label}</h2>
+          <h2 className="text-xl font-semibold">Configure {selectedOption?.label}</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Configure your automation details
+            Set up the details for your sequence
           </p>
         </div>
 
         <div className="space-y-4">
           {/* Name field for all types */}
           <div className="space-y-2">
-            <Label htmlFor="name">Automation Name</Label>
+            <Label htmlFor="name">Sequence Name *</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={`My ${selectedOption?.label} Automation`}
+              placeholder={`My ${selectedOption?.label} Sequence`}
             />
           </div>
 
@@ -442,6 +534,148 @@ export function CreateAutomationWizard({
     );
   };
 
+  const renderStep3 = () => (
+    <div className="space-y-4">
+      <div className="text-center mb-6">
+        <div className="w-14 h-14 rounded-xl flex items-center justify-center border bg-primary/10 text-primary border-primary/30 mx-auto mb-3">
+          <Clock className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-semibold">Set Frequency</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          How often should this sequence run?
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {FREQUENCY_OPTIONS.map((option) => (
+          <motion.button
+            key={option.type}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.99 }}
+            onClick={() => setFrequency(option.type)}
+            className={cn(
+              'flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left w-full',
+              frequency === option.type
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50 hover:bg-accent/50'
+            )}
+          >
+            <div
+              className={cn(
+                'w-10 h-10 rounded-lg flex items-center justify-center',
+                frequency === option.type
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {option.icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium">{option.label}</p>
+              <p className="text-xs text-muted-foreground">
+                {option.description}
+              </p>
+            </div>
+            {frequency === option.type && (
+              <Check className="w-5 h-5 text-primary shrink-0" />
+            )}
+          </motion.button>
+        ))}
+      </div>
+
+      {/* Frequency-specific configuration */}
+      <AnimatePresence mode="wait">
+        {frequency !== 'manual' && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-4 pt-4 border-t"
+          >
+            {/* Time picker for all scheduled options */}
+            <div className="space-y-2">
+              <Label htmlFor="time">Time</Label>
+              <Input
+                id="time"
+                type="time"
+                value={(frequencyConfig.time as string) || '09:00'}
+                onChange={(e) =>
+                  setFrequencyConfig({ ...frequencyConfig, time: e.target.value })
+                }
+              />
+            </div>
+
+            {/* Date picker for once */}
+            {frequency === 'once' && (
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={(frequencyConfig.date as string) || ''}
+                  onChange={(e) =>
+                    setFrequencyConfig({ ...frequencyConfig, date: e.target.value })
+                  }
+                />
+              </div>
+            )}
+
+            {/* Day picker for weekly */}
+            {frequency === 'weekly' && (
+              <div className="space-y-2">
+                <Label>Days of the Week *</Label>
+                <div className="flex flex-wrap gap-2">
+                  {DAYS_OF_WEEK.map((day) => {
+                    const isSelected = ((frequencyConfig.days as string[]) || []).includes(day.value);
+                    return (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => toggleDay(day.value)}
+                        className={cn(
+                          'px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isSelected
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                        )}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Day of month for monthly */}
+            {frequency === 'monthly' && (
+              <div className="space-y-2">
+                <Label htmlFor="dayOfMonth">Day of Month</Label>
+                <Select
+                  value={(frequencyConfig.dayOfMonth as string) || '1'}
+                  onValueChange={(v) =>
+                    setFrequencyConfig({ ...frequencyConfig, dayOfMonth: v })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map((day) => (
+                      <SelectItem key={day} value={day.toString()}>
+                        {day}{day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
   return (
     <div className="min-h-full flex flex-col">
       {/* Progress indicator */}
@@ -454,7 +688,7 @@ export function CreateAutomationWizard({
         >
           1
         </div>
-        <div className="w-12 h-0.5 bg-muted">
+        <div className="w-8 h-0.5 bg-muted">
           <div
             className={cn(
               'h-full bg-primary transition-all',
@@ -470,6 +704,29 @@ export function CreateAutomationWizard({
         >
           2
         </div>
+        <div className="w-8 h-0.5 bg-muted">
+          <div
+            className={cn(
+              'h-full bg-primary transition-all',
+              step >= 3 ? 'w-full' : 'w-0'
+            )}
+          />
+        </div>
+        <div
+          className={cn(
+            'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors',
+            step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          )}
+        >
+          3
+        </div>
+      </div>
+
+      {/* Step labels */}
+      <div className="flex items-center justify-center gap-4 px-4 py-2 text-xs text-muted-foreground">
+        <span className={cn(step === 1 && 'text-foreground font-medium')}>Type</span>
+        <span className={cn(step === 2 && 'text-foreground font-medium')}>Details</span>
+        <span className={cn(step === 3 && 'text-foreground font-medium')}>Frequency</span>
       </div>
 
       {/* Content */}
@@ -483,49 +740,47 @@ export function CreateAutomationWizard({
               exit={{ opacity: 0, x: step === 1 ? 20 : -20 }}
               transition={{ duration: 0.2 }}
             >
-              {step === 1 ? renderStep1() : renderStep2()}
+              {step === 1 && renderStep1()}
+              {step === 2 && renderStep2()}
+              {step === 3 && renderStep3()}
             </motion.div>
           </AnimatePresence>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="border-t p-4 bg-background">
-        <div className="max-w-xl mx-auto flex items-center justify-between">
-          <Button variant="outline" onClick={handleBack} className="gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            {step === 1 ? 'Cancel' : 'Back'}
-          </Button>
+      <div className="border-t p-4 flex items-center justify-between">
+        <Button variant="ghost" onClick={handleBack}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          {step === 1 ? 'Cancel' : 'Back'}
+        </Button>
 
-          {step === 1 ? (
-            <Button
-              onClick={handleNext}
-              disabled={!selectedType}
-              className="gap-2"
-            >
-              Next
-              <ArrowRight className="w-4 h-4" />
-            </Button>
-          ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={!isStep2Valid() || isSubmitting}
-              className="gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  Create Automation
-                </>
-              )}
-            </Button>
-          )}
-        </div>
+        {step < 3 ? (
+          <Button
+            onClick={handleNext}
+            disabled={step === 1 ? !selectedType : !isStep2Valid()}
+          >
+            Next
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !isStep3Valid()}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4 mr-2" />
+                Create Sequence
+              </>
+            )}
+          </Button>
+        )}
       </div>
     </div>
   );

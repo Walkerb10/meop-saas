@@ -312,6 +312,8 @@ export default function AutomationsPage() {
     name: string;
     actionType: 'text' | 'slack' | 'discord' | 'email' | 'research';
     config: Record<string, string>;
+    frequency: 'manual' | 'once' | 'daily' | 'weekly' | 'monthly';
+    frequencyConfig: Record<string, string | string[]>;
   }) => {
     try {
       // Map actionType to node type
@@ -323,16 +325,45 @@ export default function AutomationsPage() {
         research: 'action_research',
       };
 
+      // Determine trigger type based on frequency
+      const triggerTypeMap: Record<string, string> = {
+        manual: 'trigger_manual',
+        once: 'trigger_schedule',
+        daily: 'trigger_schedule',
+        weekly: 'trigger_schedule',
+        monthly: 'trigger_schedule',
+      };
+
       const triggerId = crypto.randomUUID();
       const actionId = crypto.randomUUID();
+
+      // Build trigger config based on frequency
+      const triggerConfig: Record<string, unknown> = {};
+      if (data.frequency !== 'manual') {
+        triggerConfig.frequency = data.frequency;
+        triggerConfig.time = data.frequencyConfig.time;
+        if (data.frequency === 'once') {
+          triggerConfig.date = data.frequencyConfig.date;
+        } else if (data.frequency === 'weekly') {
+          triggerConfig.days = data.frequencyConfig.days;
+        } else if (data.frequency === 'monthly') {
+          triggerConfig.dayOfMonth = data.frequencyConfig.dayOfMonth;
+        }
+      }
+
+      const triggerLabel = data.frequency === 'manual' 
+        ? 'Manual Trigger' 
+        : data.frequency === 'once'
+          ? 'Run Once'
+          : `${data.frequency.charAt(0).toUpperCase() + data.frequency.slice(1)} Schedule`;
 
       const nodes = [
         {
           id: triggerId,
-          type: 'trigger_manual',
-          label: 'Manual Trigger',
+          type: triggerTypeMap[data.frequency],
+          label: triggerLabel,
           position: { x: 150, y: 100 },
-          config: {},
+          config: triggerConfig,
         },
         {
           id: actionId,
@@ -349,23 +380,27 @@ export default function AutomationsPage() {
 
       const stepsJson = { nodes, connections } as unknown as Json;
 
+      // Set the database trigger_type based on frequency
+      const dbTriggerType = data.frequency === 'manual' ? 'manual' : 'schedule';
+
       const { error } = await supabase
         .from('automations')
         .insert({
           name: data.name,
           is_active: true,
           steps: stepsJson,
-          trigger_type: 'manual',
+          trigger_type: dbTriggerType,
+          trigger_config: triggerConfig as unknown as Json,
         });
 
       if (error) throw error;
 
-      toast.success('Automation created!');
+      toast.success('Sequence created!');
       setIsCreatingWizard(false);
       await fetchWorkflows();
     } catch (err) {
-      console.error('Failed to create automation:', err);
-      toast.error('Failed to create automation');
+      console.error('Failed to create sequence:', err);
+      toast.error('Failed to create sequence');
     }
   }, [fetchWorkflows]);
 
