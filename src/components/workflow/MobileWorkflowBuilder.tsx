@@ -168,43 +168,11 @@ export function MobileWorkflowBuilder({
         </div>
       </header>
 
-      {/* Active Toggle & Natural Language Input */}
-      <div className="px-4 py-3 border-b border-border space-y-3">
+      {/* Active Toggle */}
+      <div className="px-4 py-3 border-b border-border">
         <div className="flex items-center justify-between">
           <Label htmlFor="active-toggle">Active</Label>
           <Switch id="active-toggle" checked={isActive} onCheckedChange={setIsActive} />
-        </div>
-        <div className="space-y-2">
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe what you want automated in plain language... e.g. 'Every morning at 9am, research the latest AI news and send it to my email'"
-            className="resize-none h-24"
-          />
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            className="w-full gap-2"
-            onClick={() => {
-              // TODO: Call AI to parse natural language and generate steps
-              if (description.trim()) {
-                // For now, add a placeholder step
-                const newStep: WorkflowNode = {
-                  id: crypto.randomUUID(),
-                  type: 'action_research',
-                  label: 'AI Generated Step',
-                  position: { x: 0, y: steps.length * 100 },
-                  config: { query: description },
-                };
-                setSteps(prev => [...prev, newStep]);
-                setExpandedStepId(newStep.id);
-              }
-            }}
-            disabled={!description.trim()}
-          >
-            <Zap className="w-4 h-4" />
-            Generate from Description
-          </Button>
         </div>
       </div>
 
