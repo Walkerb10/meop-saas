@@ -580,6 +580,102 @@ export type Database = {
         }
         Relationships: []
       }
+      prompt_analytics: {
+        Row: {
+          analysis_period_end: string
+          analysis_period_start: string
+          avg_clarity_score: number | null
+          avg_context_score: number | null
+          avg_effectiveness_score: number | null
+          avg_specificity_score: number | null
+          created_at: string
+          id: string
+          improvement_areas: string[] | null
+          overall_score: number | null
+          recommendations: string | null
+          sample_prompts: Json | null
+          strengths: string[] | null
+          total_prompts: number | null
+          user_id: string
+        }
+        Insert: {
+          analysis_period_end: string
+          analysis_period_start: string
+          avg_clarity_score?: number | null
+          avg_context_score?: number | null
+          avg_effectiveness_score?: number | null
+          avg_specificity_score?: number | null
+          created_at?: string
+          id?: string
+          improvement_areas?: string[] | null
+          overall_score?: number | null
+          recommendations?: string | null
+          sample_prompts?: Json | null
+          strengths?: string[] | null
+          total_prompts?: number | null
+          user_id: string
+        }
+        Update: {
+          analysis_period_end?: string
+          analysis_period_start?: string
+          avg_clarity_score?: number | null
+          avg_context_score?: number | null
+          avg_effectiveness_score?: number | null
+          avg_specificity_score?: number | null
+          created_at?: string
+          id?: string
+          improvement_areas?: string[] | null
+          overall_score?: number | null
+          recommendations?: string | null
+          sample_prompts?: Json | null
+          strengths?: string[] | null
+          total_prompts?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      prompt_tracking: {
+        Row: {
+          clarity_score: number | null
+          context_score: number | null
+          created_at: string
+          effectiveness_score: number | null
+          feedback: string | null
+          id: string
+          prompt_text: string
+          prompt_type: string | null
+          session_id: string | null
+          specificity_score: number | null
+          user_id: string
+        }
+        Insert: {
+          clarity_score?: number | null
+          context_score?: number | null
+          created_at?: string
+          effectiveness_score?: number | null
+          feedback?: string | null
+          id?: string
+          prompt_text: string
+          prompt_type?: string | null
+          session_id?: string | null
+          specificity_score?: number | null
+          user_id: string
+        }
+        Update: {
+          clarity_score?: number | null
+          context_score?: number | null
+          created_at?: string
+          effectiveness_score?: number | null
+          feedback?: string | null
+          id?: string
+          prompt_text?: string
+          prompt_type?: string | null
+          session_id?: string | null
+          specificity_score?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       sequence_executions: {
         Row: {
           completed_at: string | null
