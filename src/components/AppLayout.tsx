@@ -15,7 +15,7 @@ import {
   MessageSquare,
   SquarePen,
   Shield,
-  Mic,
+  Bot,
   Calendar,
   Activity,
 } from 'lucide-react';
@@ -29,7 +29,7 @@ import {
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 
 const mainNavItems = [
-  { icon: Mic, label: 'Agent', path: '/agent' },
+  { icon: Bot, label: 'Agent', path: '/agent' },
   { icon: Zap, label: 'Automations', path: '/automations' },
   { icon: Activity, label: 'Executions', path: '/executions' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },

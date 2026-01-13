@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot } from 'lucide-react';
+import { Mic } from 'lucide-react';
 import { AIState } from '@/types/agent';
 
 interface VoiceOrbProps {
@@ -102,7 +102,7 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
           )}
         </AnimatePresence>
 
-        {/* Agent icon - always show the Bot icon (no slash for inactive) */}
+        {/* Mic icon - always show Mic (no slash) */}
         <AnimatePresence>
           {(!isActive || volume <= 0.05) && (
             <motion.div
@@ -111,7 +111,7 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
               exit={{ scale: 0, opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              <Bot className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
+              <Mic className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
             </motion.div>
           )}
         </AnimatePresence>
