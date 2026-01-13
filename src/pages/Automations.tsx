@@ -9,6 +9,7 @@ import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
 import { CreateAutomationWizard } from '@/components/CreateAutomationWizard';
 import { StepPreview, generateWorkflowSummary } from '@/components/AutomationSummary';
+import { RecentExecutions } from '@/components/RecentExecutions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -523,11 +524,7 @@ export default function AutomationsPage() {
                         
                         <div className="flex items-center gap-2 md:gap-4 mt-2 text-[10px] md:text-xs text-muted-foreground">
                           <span className="font-medium">{workflow.nodes.length} step{workflow.nodes.length !== 1 ? 's' : ''}</span>
-                          {workflow.lastRunAt && (
-                            <span className="hidden sm:inline">
-                              Last run {formatDistanceToNow(new Date(workflow.lastRunAt), { addSuffix: true })}
-                            </span>
-                          )}
+                          <RecentExecutions automationId={workflow.id} maxItems={3} />
                         </div>
                       </div>
 
