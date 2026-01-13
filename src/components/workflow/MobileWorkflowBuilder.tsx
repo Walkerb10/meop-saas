@@ -47,6 +47,7 @@ const NODE_TYPES: { type: WorkflowNodeType; label: string; icon: React.ReactNode
   { type: 'action_research', label: 'Research', icon: <Search className="w-4 h-4" />, category: 'Actions' },
   { type: 'action_email', label: 'Send Email', icon: <Mail className="w-4 h-4" />, category: 'Actions' },
   { type: 'action_slack', label: 'Slack', icon: <MessageSquare className="w-4 h-4" />, category: 'Actions' },
+  { type: 'action_discord', label: 'Discord', icon: <MessageSquare className="w-4 h-4" />, category: 'Actions' },
   { type: 'action_text', label: 'Send Text', icon: <MessageSquare className="w-4 h-4" />, category: 'Actions' },
   { type: 'action_delay', label: 'Delay', icon: <Timer className="w-4 h-4" />, category: 'Logic' },
 ];
@@ -452,20 +453,41 @@ function StepConfig({ step, onUpdate }: { step: WorkflowNode; onUpdate: (config:
       return (
         <div className="space-y-3">
           <div>
-            <Label>To</Label>
+            <Label>{step.type === 'action_email' ? 'To Email' : 'Phone Number'}</Label>
             <Input
-              value={step.config?.to as string || ''}
-              onChange={(e) => onUpdate({ to: e.target.value })}
-              placeholder={step.type === 'action_email' ? 'email@example.com' : '+1234567890'}
+              value={(step.type === 'action_email' ? step.config?.to : step.config?.phone) as string || ''}
+              onChange={(e) => onUpdate(step.type === 'action_email' ? { to: e.target.value } : { phone: e.target.value })}
+              placeholder={step.type === 'action_email' ? 'email@example.com' : '+18885551234'}
               className="mt-1"
             />
           </div>
+          {step.type === 'action_email' && (
+            <div>
+              <Label>Subject</Label>
+              <Input
+                value={step.config?.subject as string || ''}
+                onChange={(e) => onUpdate({ subject: e.target.value })}
+                placeholder="Email subject"
+                className="mt-1"
+              />
+            </div>
+          )}
           <div>
-            <Label>Message</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Message</Label>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => onUpdate({ message: ((step.config?.message as string) || '') + '{{result}}' })}
+              >
+                + Add Result
+              </Button>
+            </div>
             <Textarea
               value={step.config?.message as string || ''}
               onChange={(e) => onUpdate({ message: e.target.value })}
-              placeholder="Use {{result}} to include previous step output"
+              placeholder="Use {{result}} to include research output"
               className="mt-1"
             />
           </div>
@@ -477,23 +499,71 @@ function StepConfig({ step, onUpdate }: { step: WorkflowNode; onUpdate: (config:
         <div className="space-y-3">
           <div>
             <Label>Channel</Label>
-            <Select value={step.config?.channel as string || 'general'} onValueChange={(v) => onUpdate({ channel: v })}>
+            <Select value={step.config?.channel as string || 'all_bhva'} onValueChange={(v) => onUpdate({ channel: v })}>
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all_bhva">#all_bhva</SelectItem>
                 <SelectItem value="general">#general</SelectItem>
-                <SelectItem value="team">#team</SelectItem>
-                <SelectItem value="alerts">#alerts</SelectItem>
+                <SelectItem value="random">#random</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div>
-            <Label>Message</Label>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Message</Label>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => onUpdate({ message: ((step.config?.message as string) || '') + '{{result}}' })}
+              >
+                + Add Result
+              </Button>
+            </div>
             <Textarea
               value={step.config?.message as string || ''}
               onChange={(e) => onUpdate({ message: e.target.value })}
-              placeholder="Use {{result}} to include previous step output"
+              placeholder="Use {{result}} to include research output"
+              className="mt-1"
+            />
+          </div>
+        </div>
+      );
+
+    case 'action_discord':
+      return (
+        <div className="space-y-3">
+          <div>
+            <Label>Channel</Label>
+            <Select value={step.config?.channel as string || 'admin'} onValueChange={(v) => onUpdate({ channel: v })}>
+              <SelectTrigger className="mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">#admin</SelectItem>
+                <SelectItem value="general">#general</SelectItem>
+                <SelectItem value="announcements">#announcements</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Message</Label>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-6 text-xs"
+                onClick={() => onUpdate({ message: ((step.config?.message as string) || '') + '{{result}}' })}
+              >
+                + Add Result
+              </Button>
+            </div>
+            <Textarea
+              value={step.config?.message as string || ''}
+              onChange={(e) => onUpdate({ message: e.target.value })}
+              placeholder="Use {{result}} to include research output"
               className="mt-1"
             />
           </div>
