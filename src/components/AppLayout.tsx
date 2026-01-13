@@ -255,7 +255,7 @@ export function AppLayout({
                   size="sm" 
                   className="border-border text-foreground hover:bg-secondary relative"
                 >
-                  Executions
+                  Runs
                   {runningCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-medium min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
                       {runningCount}
