@@ -310,9 +310,15 @@ function renderTypeConfig(
     case 'action_email':
       const emailList = ((node.config.to as string) || '').split(',').map(e => e.trim()).filter(Boolean);
       
+      const updateEmailAtIndex = (index: number, value: string) => {
+        const newList = [...emailList];
+        newList[index] = value;
+        updateConfig('to', newList.filter(e => e.trim()).join(', '));
+      };
+
       const addEmailRecipient = () => {
-        const currentEmails = emailList.length > 0 ? emailList.join(', ') + ', ' : '';
-        updateConfig('to', currentEmails);
+        const newList = [...emailList, ''];
+        updateConfig('to', emailList.join(', ') + ', ');
       };
 
       const removeEmailRecipient = (index: number) => {
@@ -323,49 +329,49 @@ function renderTypeConfig(
       return (
         <>
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Send to emails <span className="text-destructive">*</span>
-              </Label>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="h-7 text-xs gap-1"
-                onClick={addEmailRecipient}
-              >
-                + Add Email
-              </Button>
-            </div>
-            <Input
-              value={node.config.to || ''}
-              onChange={(e) => updateConfig('to', e.target.value)}
-              placeholder="email1@example.com, email2@example.com"
-              className="h-12"
-              required
-            />
-            {emailList.length > 1 && (
-              <div className="flex flex-wrap gap-2">
-                {emailList.map((email, index) => (
-                  <Badge 
-                    key={index} 
-                    variant="secondary" 
-                    className="flex items-center gap-1 pr-1"
-                  >
-                    <span className="text-xs">{email}</span>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Send to emails <span className="text-destructive">*</span>
+            </Label>
+            <div className="space-y-2">
+              {(emailList.length > 0 ? emailList : ['']).map((email, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      if (emailList.length === 0) {
+                        updateConfig('to', e.target.value);
+                      } else {
+                        updateEmailAtIndex(index, e.target.value);
+                      }
+                    }}
+                    placeholder="email@example.com"
+                    className="h-10"
+                  />
+                  {emailList.length > 1 && (
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-4 w-4 hover:bg-destructive/20"
+                      className="h-10 w-10 shrink-0 hover:bg-destructive/10 hover:text-destructive"
                       onClick={() => removeEmailRecipient(index)}
                     >
-                      <X className="w-3 h-3" />
+                      <X className="h-4 w-4" />
                     </Button>
-                  </Badge>
-                ))}
-              </div>
-            )}
+                  )}
+                </div>
+              ))}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={addEmailRecipient}
+              className="w-full gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Another Email
+            </Button>
             <p className="text-xs text-muted-foreground">
-              Separate multiple emails with commas. Sent to n8n as: email1, email2
+              Sent to n8n as: email1, email2, email3
             </p>
           </div>
           <div className="space-y-2">
