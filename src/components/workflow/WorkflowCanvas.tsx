@@ -166,12 +166,12 @@ export function WorkflowCanvas({
     }
   }, []);
 
-  // Handle wheel for zoom and pan
+  // Handle wheel for zoom and pan - slower zoom speed
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) {
-      // Zoom with Ctrl/Cmd + scroll
+      // Zoom with Ctrl/Cmd + scroll - reduced delta for slower zoom
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      const delta = e.deltaY > 0 ? -0.03 : 0.03;
       const newZoom = Math.min(2, Math.max(0.25, zoom + delta));
       onZoomChange?.(newZoom);
     } else {
@@ -196,31 +196,44 @@ export function WorkflowCanvas({
     setConnectingFrom(null);
   }, [connectingFrom, onConnect]);
 
-  // Get node center position
-  const getNodeCenter = useCallback((node: WorkflowNode) => {
+  // Get node connection points (center of the circles)
+  // Node width is ~260px, so center is x + 130
+  // Top circle is at y - 3 (12px from top, but it's positioned at -top-3)
+  // Bottom circle is at y + nodeHeight - 3 (positioned at -bottom-3)
+  const NODE_WIDTH = 260;
+  const NODE_HEIGHT = 120; // Approximate height based on content
+  
+  const getNodeTopCenter = useCallback((node: WorkflowNode) => {
     return {
-      x: node.position.x + 120,
-      y: node.position.y + 40,
+      x: node.position.x + NODE_WIDTH / 2,
+      y: node.position.y, // Top connection point
+    };
+  }, []);
+  
+  const getNodeBottomCenter = useCallback((node: WorkflowNode) => {
+    return {
+      x: node.position.x + NODE_WIDTH / 2,
+      y: node.position.y + NODE_HEIGHT, // Bottom connection point
     };
   }, []);
 
-  // Render connection path
+  // Render connection path - connect from source bottom circle to target top circle
   const renderConnection = useCallback((connection: WorkflowConnection) => {
     const sourceNode = nodes.find(n => n.id === connection.sourceId);
     const targetNode = nodes.find(n => n.id === connection.targetId);
     if (!sourceNode || !targetNode) return null;
 
-    const sourceCenter = getNodeCenter(sourceNode);
-    const targetCenter = getNodeCenter(targetNode);
+    const sourcePoint = getNodeBottomCenter(sourceNode);
+    const targetPoint = getNodeTopCenter(targetNode);
 
-    const dx = targetCenter.x - sourceCenter.x;
-    const cx1 = sourceCenter.x + dx * 0.5;
-    const cx2 = targetCenter.x - dx * 0.5;
+    // Calculate bezier curve control points for smooth connection
+    const dy = targetPoint.y - sourcePoint.y;
+    const controlOffset = Math.min(Math.abs(dy) * 0.4, 60);
 
     const isExecuting = executingNodeId === connection.targetId;
     const isCompleted = completedNodeIds.includes(connection.targetId);
 
-    const pathD = `M ${sourceCenter.x} ${sourceCenter.y + 40} C ${cx1} ${sourceCenter.y + 80}, ${cx2} ${targetCenter.y - 40}, ${targetCenter.x} ${targetCenter.y - 40}`;
+    const pathD = `M ${sourcePoint.x} ${sourcePoint.y} C ${sourcePoint.x} ${sourcePoint.y + controlOffset}, ${targetPoint.x} ${targetPoint.y - controlOffset}, ${targetPoint.x} ${targetPoint.y}`;
 
     return (
       <g key={connection.id}>
@@ -242,15 +255,16 @@ export function WorkflowCanvas({
           strokeDasharray={isExecuting ? '5,5' : undefined}
           className={isExecuting ? 'animate-dash' : ''}
         />
+        {/* Arrow head at target */}
         <circle
-          cx={targetCenter.x}
-          cy={targetCenter.y - 40}
+          cx={targetPoint.x}
+          cy={targetPoint.y}
           r={4}
           fill={isCompleted ? 'hsl(142.1 76.2% 36.3%)' : isExecuting ? 'hsl(var(--primary))' : 'hsl(var(--border))'}
         />
       </g>
     );
-  }, [nodes, getNodeCenter, executingNodeId, completedNodeIds]);
+  }, [nodes, getNodeBottomCenter, getNodeTopCenter, executingNodeId, completedNodeIds]);
 
   // Render connecting line while dragging
   const renderConnectingLine = useCallback(() => {
@@ -259,14 +273,14 @@ export function WorkflowCanvas({
     const sourceNode = nodes.find(n => n.id === connectingFrom);
     if (!sourceNode) return null;
 
-    const sourceCenter = getNodeCenter(sourceNode);
+    const sourcePoint = getNodeBottomCenter(sourceNode);
     const rect = canvasRef.current.getBoundingClientRect();
     const targetX = (mousePos.x - rect.left - pan.x) / zoom;
     const targetY = (mousePos.y - rect.top - pan.y) / zoom;
 
     return (
       <path
-        d={`M ${sourceCenter.x} ${sourceCenter.y + 40} L ${targetX} ${targetY}`}
+        d={`M ${sourcePoint.x} ${sourcePoint.y} L ${targetX} ${targetY}`}
         fill="none"
         stroke="hsl(var(--primary))"
         strokeWidth={2}
@@ -274,7 +288,7 @@ export function WorkflowCanvas({
         opacity={0.6}
       />
     );
-  }, [connectingFrom, nodes, mousePos, getNodeCenter, pan, zoom]);
+  }, [connectingFrom, nodes, mousePos, getNodeBottomCenter, pan, zoom]);
 
   // Open node picker from + button
   const handleAddButtonClick = useCallback(() => {

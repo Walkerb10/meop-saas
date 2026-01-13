@@ -3,10 +3,9 @@ import { useState, useRef, useEffect } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { useRAGChat } from '@/hooks/useRAGChat';
-import { Send, Bot, User, Loader2, Trash2, Sparkles } from 'lucide-react';
+import { Send, Bot, User, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 export default function PlatformChat() {
   const [input, setInput] = useState('');
@@ -41,7 +40,7 @@ export default function PlatformChat() {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <div className="flex-1 overflow-y-auto p-4" ref={scrollRef}>
           {messages.length === 0 ? <div className="flex flex-col items-center justify-center h-full text-center">
               <div className="p-4 rounded-full bg-primary/10 mb-6">
                 <Bot className="h-10 w-10 text-primary" />
@@ -73,7 +72,7 @@ export default function PlatformChat() {
                   </CardContent>
                 </Card>)}
             </div>}
-        </ScrollArea>
+        </div>
 
         {/* Input */}
         <div className="p-4 border-t border-border">
