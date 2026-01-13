@@ -1,16 +1,14 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Plus, Search, Play, Clock, Zap, ChevronRight, 
-  MoreHorizontal, Trash2, Power, PowerOff, Loader2, Filter, Upload
+  Plus, Play, ChevronRight, Zap,
+  MoreHorizontal, Trash2, Power, PowerOff, Loader2
 } from 'lucide-react';
-import { RAGUploader } from '@/components/RAGUploader';
 import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
 import { QuickAutomationForm } from '@/components/QuickAutomationForm';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -114,7 +112,6 @@ export default function AutomationsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>(DEMO_WORKFLOWS);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [executingNodeId, setExecutingNodeId] = useState<string | null>(null);
@@ -123,11 +120,6 @@ export default function AutomationsPage() {
   const { tasks } = useTasks();
   const isMobile = useIsMobile();
   const processingCount = tasks.filter(t => t.status === 'processing').length;
-
-  const filteredWorkflows = workflows.filter(w => 
-    w.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    w.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const handleSaveWorkflow = useCallback(async (workflowData: Partial<Workflow>) => {
     if (selectedWorkflow) {
@@ -352,7 +344,7 @@ export default function AutomationsPage() {
       tasksContent={<TasksPopoverContent />}
       taskCount={processingCount}
     >
-      <div className="p-4 md:p-6 max-w-6xl mx-auto pb-20">
+      <div className="p-4 md:p-6 max-w-6xl mx-auto min-h-full pb-32">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
@@ -362,87 +354,21 @@ export default function AutomationsPage() {
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <RAGUploader />
+            <QuickAutomationForm 
+              onGenerate={handleQuickGenerate}
+              isGenerating={isGenerating}
+            />
             <Button onClick={() => setIsCreating(true)} className="gap-2 flex-1 sm:flex-initial">
               <Plus className="w-4 h-4" />
-              <span>New Workflow</span>
+              <span>New Automation</span>
             </Button>
           </div>
-        </div>
-
-        {/* Search and filters */}
-        <div className="flex items-center gap-2 md:gap-3 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
-              className="pl-10"
-            />
-          </div>
-          <Button variant="outline" size="icon" className="shrink-0">
-            <Filter className="w-4 h-4" />
-          </Button>
-        </div>
-
-        {/* Stats - responsive grid */}
-        <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
-          <Card>
-            <CardContent className="p-2 md:p-4">
-              <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 text-center md:text-left">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Zap className="w-4 h-4 md:w-5 md:h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-lg md:text-2xl font-bold">{workflows.length}</p>
-                  <p className="text-xs md:text-sm text-muted-foreground">Total</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-2 md:p-4">
-              <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 text-center md:text-left">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <Power className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
-                </div>
-                <div>
-                  <p className="text-lg md:text-2xl font-bold">{workflows.filter(w => w.isActive).length}</p>
-                  <p className="text-xs md:text-sm text-muted-foreground">Active</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-2 md:p-4">
-              <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 text-center md:text-left">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Clock className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className="text-lg md:text-2xl font-bold">
-                    {workflows.filter(w => w.lastRunAt).length}
-                  </p>
-                  <p className="text-xs md:text-sm text-muted-foreground">Ran</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Create Form */}
-        <div className="mb-6">
-          <QuickAutomationForm 
-            onGenerate={handleQuickGenerate}
-            isGenerating={isGenerating}
-          />
         </div>
 
         {/* Workflow list */}
         <div className="space-y-3">
           <AnimatePresence>
-            {filteredWorkflows.map((workflow, index) => (
+            {workflows.map((workflow, index) => (
               <motion.div
                 key={workflow.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -560,26 +486,21 @@ export default function AutomationsPage() {
             ))}
           </AnimatePresence>
 
-          {filteredWorkflows.length === 0 && (
+          {workflows.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
                 <Zap className="w-8 h-8 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-medium text-foreground mb-1">
-                {searchQuery ? 'No workflows found' : 'No workflows yet'}
+                No workflows yet
               </h3>
               <p className="text-muted-foreground mb-4">
-                {searchQuery 
-                  ? 'Try a different search term'
-                  : 'Create your first automation workflow'
-                }
+                Create your first automation workflow
               </p>
-              {!searchQuery && (
-                <Button onClick={() => setIsCreating(true)} className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Create Workflow
-                </Button>
-              )}
+              <Button onClick={() => setIsCreating(true)} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Create Workflow
+              </Button>
             </div>
           )}
         </div>
