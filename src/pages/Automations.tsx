@@ -7,7 +7,7 @@ import {
 import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
-import { QuickAutomationForm } from '@/components/QuickAutomationForm';
+import { CreateAutomationWizard } from '@/components/CreateAutomationWizard';
 import { StepPreview, generateWorkflowSummary } from '@/components/AutomationSummary';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useTasks } from '@/hooks/useTasks';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Workflow, WorkflowNode, WorkflowConnection, WorkflowNodeType } from '@/types/workflow';
+import { Workflow, WorkflowNode, WorkflowConnection } from '@/types/workflow';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -77,12 +77,13 @@ export default function AutomationsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingWizard, setIsCreatingWizard] = useState(false);
+  const [isCreatingCanvas, setIsCreatingCanvas] = useState(false);
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [executingNodeId, setExecutingNodeId] = useState<string | null>(null);
   const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
+  
   const { tasks } = useTasks();
   const isMobile = useIsMobile();
   const processingCount = tasks.filter(t => t.status === 'processing').length;
@@ -196,7 +197,7 @@ export default function AutomationsPage() {
         }
         toast.success('Automation created');
       }
-      setIsCreating(false);
+      setIsCreatingCanvas(false);
       await fetchWorkflows();
     } catch (err) {
       console.error('Failed to save workflow:', err);
@@ -306,145 +307,88 @@ export default function AutomationsPage() {
       console.error('Failed to toggle workflow:', err);
     }
   }, [workflows, fetchWorkflows]);
-
-  // Handle quick automation generation from natural language
-  const handleQuickGenerate = useCallback(async (description: string) => {
-    setIsGenerating(true);
-    
-    const lowerDesc = description.toLowerCase();
-    
-    // Create nodes based on description
-    const nodes: WorkflowNode[] = [];
-    const connections: WorkflowConnection[] = [];
-    
-    // Determine trigger type
-    const triggerId = crypto.randomUUID();
-    let triggerConfig: Record<string, string> = { frequency: 'daily', time: '09:00' };
-    let triggerLabel = 'Daily at 9 AM';
-    
-    if (lowerDesc.includes('morning')) {
-      triggerConfig = { frequency: 'daily', time: '09:00' };
-      triggerLabel = 'Every Morning';
-    } else if (lowerDesc.includes('evening') || lowerDesc.includes('night')) {
-      triggerConfig = { frequency: 'daily', time: '18:00' };
-      triggerLabel = 'Every Evening';
-    } else if (lowerDesc.includes('weekly') || lowerDesc.includes('week')) {
-      triggerConfig = { frequency: 'weekly', dayOfWeek: 'Monday', time: '09:00' };
-      triggerLabel = 'Weekly on Monday';
-    } else if (lowerDesc.includes('hourly') || lowerDesc.includes('hour')) {
-      triggerConfig = { frequency: 'hourly' };
-      triggerLabel = 'Every Hour';
-    }
-    
-    nodes.push({
-      id: triggerId,
-      type: 'trigger_schedule',
-      label: triggerLabel,
-      position: { x: 150, y: 100 },
-      config: triggerConfig,
-    });
-    
-    // Extract research query
-    let researchQuery = description;
-    const researchMatch = description.match(/research\s+(.+?)(?:\s+(?:and\s+)?(?:send|post|deliver|email|text|slack|discord)|$)/i);
-    if (researchMatch) {
-      researchQuery = researchMatch[1].trim();
-    }
-    
-    // Add research action node
-    const actionId = crypto.randomUUID();
-    nodes.push({
-      id: actionId,
-      type: 'action_research',
-      label: 'Research',
-      position: { x: 150, y: 250 },
-      config: { query: researchQuery, outputFormat: 'detailed', outputLength: '500' },
-    });
-    connections.push({ id: crypto.randomUUID(), sourceId: triggerId, targetId: actionId });
-    
-    // Determine output destination
-    const outputId = crypto.randomUUID();
-    let outputType: WorkflowNodeType = 'action_slack';
-    let outputLabel = 'Send to Slack';
-    let outputConfig: Record<string, string> = { channel: 'general', message: '{{result}}' };
-    
-    if (lowerDesc.includes('email')) {
-      outputType = 'action_email';
-      outputLabel = 'Send Email';
-      outputConfig = { to: 'team@company.com', subject: 'Research Results', message: '{{result}}' };
-    } else if (lowerDesc.includes('text') || lowerDesc.includes('sms')) {
-      outputType = 'action_text';
-      outputLabel = 'Send Text';
-      outputConfig = { to: '+1234567890', message: '{{result}}' };
-    } else if (lowerDesc.includes('discord')) {
-      outputType = 'action_discord';
-      outputLabel = 'Send to Discord';
-      outputConfig = { channel: 'general', message: '{{result}}' };
-    } else if (lowerDesc.includes('slack')) {
-      const channelMatch = lowerDesc.match(/#(\w+)/);
-      if (channelMatch) {
-        outputConfig.channel = channelMatch[1];
-        outputLabel = `Send to #${channelMatch[1]}`;
-      }
-    }
-    
-    nodes.push({
-      id: outputId,
-      type: outputType,
-      label: outputLabel,
-      position: { x: 150, y: 400 },
-      config: outputConfig,
-    });
-    connections.push({ id: crypto.randomUUID(), sourceId: actionId, targetId: outputId });
-    
-    // Generate a meaningful name
-    const workflowName = researchQuery.length > 40 
-      ? researchQuery.slice(0, 40) + '...' 
-      : researchQuery;
-    
-    // Save to database
+  // Handle wizard complete - create automation from wizard data
+  const handleWizardComplete = useCallback(async (data: {
+    name: string;
+    actionType: 'text' | 'slack' | 'discord' | 'email' | 'research';
+    config: Record<string, string>;
+  }) => {
     try {
+      // Map actionType to node type
+      const nodeTypeMap: Record<string, string> = {
+        text: 'action_text',
+        slack: 'action_slack',
+        discord: 'action_discord',
+        email: 'action_email',
+        research: 'action_research',
+      };
+
+      const triggerId = crypto.randomUUID();
+      const actionId = crypto.randomUUID();
+
+      const nodes = [
+        {
+          id: triggerId,
+          type: 'trigger_manual',
+          label: 'Manual Trigger',
+          position: { x: 150, y: 100 },
+          config: {},
+        },
+        {
+          id: actionId,
+          type: nodeTypeMap[data.actionType],
+          label: data.name,
+          position: { x: 150, y: 250 },
+          config: data.config,
+        },
+      ];
+
+      const connections = [
+        { id: crypto.randomUUID(), sourceId: triggerId, targetId: actionId },
+      ];
+
       const stepsJson = { nodes, connections } as unknown as Json;
-      const { data, error } = await supabase
+
+      const { error } = await supabase
         .from('automations')
         .insert({
-          name: workflowName,
-          description: description,
+          name: data.name,
           is_active: true,
           steps: stepsJson,
-          trigger_type: 'scheduled',
-        })
-        .select()
-        .single();
+          trigger_type: 'manual',
+        });
 
       if (error) throw error;
 
-      if (data) {
-        const stepsData = data.steps as { nodes?: WorkflowNode[]; connections?: WorkflowConnection[] } | null;
-        setSelectedWorkflow({
-          id: data.id,
-          name: data.name,
-          description: data.description || undefined,
-          isActive: data.is_active,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at,
-          nodes: stepsData?.nodes || [],
-          connections: stepsData?.connections || [],
-        });
-      }
-      
-      toast.success('Automation created! Review and save.');
+      toast.success('Automation created!');
+      setIsCreatingWizard(false);
       await fetchWorkflows();
     } catch (err) {
       console.error('Failed to create automation:', err);
       toast.error('Failed to create automation');
-    } finally {
-      setIsGenerating(false);
     }
   }, [fetchWorkflows]);
 
-  // Show builder when editing or creating
-  if (selectedWorkflow || isCreating) {
+  // Show wizard when creating new automation
+  if (isCreatingWizard) {
+    return (
+      <AppLayout 
+        showTasksButton 
+        tasksContent={<TasksPopoverContent />}
+        taskCount={processingCount}
+      >
+        <div className="h-[calc(100vh-3.5rem)]">
+          <CreateAutomationWizard
+            onComplete={handleWizardComplete}
+            onCancel={() => setIsCreatingWizard(false)}
+          />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Show builder when editing or creating via canvas
+  if (selectedWorkflow || isCreatingCanvas) {
     const BuilderComponent = isMobile ? MobileWorkflowBuilder : WorkflowBuilder;
     
     return (
@@ -460,7 +404,7 @@ export default function AutomationsPage() {
             onExecute={selectedWorkflow ? handleExecuteWorkflow : undefined}
             onBack={() => {
               setSelectedWorkflow(null);
-              setIsCreating(false);
+              setIsCreatingCanvas(false);
               setCompletedNodeIds([]);
             }}
             isExecuting={executingId === selectedWorkflow?.id}
@@ -489,11 +433,7 @@ export default function AutomationsPage() {
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
-            <QuickAutomationForm 
-              onGenerate={handleQuickGenerate}
-              isGenerating={isGenerating}
-            />
-            <Button onClick={() => setIsCreating(true)} className="gap-2 flex-1 sm:flex-initial">
+            <Button onClick={() => setIsCreatingWizard(true)} className="gap-2 flex-1 sm:flex-initial">
               <Plus className="w-4 h-4" />
               <span>New Automation</span>
             </Button>
@@ -633,7 +573,7 @@ export default function AutomationsPage() {
               <p className="text-muted-foreground mb-4">
                 Create your first automation
               </p>
-              <Button onClick={() => setIsCreating(true)} className="gap-2">
+              <Button onClick={() => setIsCreatingWizard(true)} className="gap-2">
                 <Plus className="w-4 h-4" />
                 Create Automation
               </Button>
