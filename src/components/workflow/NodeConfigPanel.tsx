@@ -15,7 +15,9 @@ const LENGTH_OPTIONS = [
   { value: '250', label: 'Short', desc: '½ page' },
   { value: '500', label: 'Medium', desc: '1 page' },
   { value: '1500', label: 'Long', desc: '3 pages' },
-  { value: '5000', label: 'Extended', desc: '10 pages' },
+  { value: '2500', label: 'Extended', desc: '5 pages' },
+  { value: '5000', label: 'Extra Long', desc: '10 pages' },
+  { value: 'custom', label: 'Custom', desc: 'Enter pages' },
 ];
 
 interface NodeConfigPanelProps {
@@ -267,37 +269,39 @@ function renderTypeConfig(
             />
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Output style</Label>
-            <div className="grid gap-2">
-              {OUTPUT_FORMATS.map(f => (
-                <button
-                  key={f.value}
-                  onClick={() => updateConfig('outputFormat', f.value)}
-                  className={cn(
-                    'p-3 rounded-xl border-2 text-left transition-all flex items-center justify-between',
-                    node.config.outputFormat === f.value 
-                      ? 'border-primary bg-primary/5' 
-                      : 'border-border hover:border-primary/50 hover:bg-muted/50'
-                  )}
-                >
-                  <div>
-                    <p className="text-sm font-medium">{f.label}</p>
-                    <p className="text-xs text-muted-foreground">{f.desc}</p>
-                  </div>
-                  {node.config.outputFormat === f.value && (
-                    <span className="text-primary">✓</span>
-                  )}
-                </button>
-              ))}
-            </div>
+            <Select
+              value={node.config.outputFormat || 'summary'}
+              onValueChange={(v) => updateConfig('outputFormat', v)}
+            >
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="Select style" />
+              </SelectTrigger>
+              <SelectContent>
+                {OUTPUT_FORMATS.map((f) => (
+                  <SelectItem key={f.value} value={f.value}>
+                    <span className="flex items-center gap-2">
+                      <span className="font-medium">{f.label}</span>
+                      <span className="text-muted-foreground">— {f.desc}</span>
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Target length</Label>
             <Select
-              value={node.config.outputLength || '500'}
-              onValueChange={(v) => updateConfig('outputLength', v)}
+              value={node.config.outputLengthType || '500'}
+              onValueChange={(v) => {
+                updateConfig('outputLengthType', v);
+                if (v !== 'custom') {
+                  updateConfig('outputLength', v);
+                  updateConfig('customPages', undefined);
+                }
+              }}
             >
               <SelectTrigger className="h-11">
                 <SelectValue placeholder="Select length" />
@@ -313,6 +317,25 @@ function renderTypeConfig(
                 ))}
               </SelectContent>
             </Select>
+            
+            {node.config.outputLengthType === 'custom' && (
+              <div className="flex items-center gap-2 mt-2">
+                <Input
+                  type="number"
+                  min={0.25}
+                  step={0.25}
+                  value={node.config.customPages || ''}
+                  onChange={(e) => {
+                    const pages = parseFloat(e.target.value) || 1;
+                    updateConfig('customPages', e.target.value);
+                    updateConfig('outputLength', String(Math.round(pages * 500)));
+                  }}
+                  placeholder="1"
+                  className="w-24 h-10"
+                />
+                <span className="text-sm text-muted-foreground">pages (~{node.config.outputLength || 500} words)</span>
+              </div>
+            )}
           </div>
         </>
       );

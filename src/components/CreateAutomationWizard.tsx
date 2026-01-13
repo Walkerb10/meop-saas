@@ -164,9 +164,17 @@ const LENGTH_OPTIONS = [{
   label: 'Long',
   desc: '3 pages'
 }, {
-  value: '5000',
+  value: '2500',
   label: 'Extended',
+  desc: '5 pages'
+}, {
+  value: '5000',
+  label: 'Extra Long',
   desc: '10 pages'
+}, {
+  value: 'custom',
+  label: 'Custom',
+  desc: 'Enter pages'
 }];
 interface CreateAutomationWizardProps {
   onComplete: (data: {
@@ -468,10 +476,13 @@ export function CreateAutomationWizard({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="length">Target Length</Label>
-                <Select value={config.outputLength || '500'} onValueChange={v => setConfig({
-              ...config,
-              outputLength: v
-            })}>
+                <Select value={config.outputLengthType || '500'} onValueChange={v => {
+                  setConfig({
+                    ...config,
+                    outputLengthType: v,
+                    outputLength: v !== 'custom' ? v : config.outputLength
+                  });
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select length" />
                   </SelectTrigger>
@@ -484,6 +495,28 @@ export function CreateAutomationWizard({
                       </SelectItem>)}
                   </SelectContent>
                 </Select>
+                
+                {config.outputLengthType === 'custom' && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Input
+                      type="number"
+                      min={0.25}
+                      step={0.25}
+                      value={config.customPages || ''}
+                      onChange={e => {
+                        const pages = parseFloat(e.target.value) || 1;
+                        setConfig({
+                          ...config,
+                          customPages: e.target.value,
+                          outputLength: String(Math.round(pages * 500))
+                        });
+                      }}
+                      placeholder="1"
+                      className="w-24 h-10"
+                    />
+                    <span className="text-sm text-muted-foreground">pages (~{config.outputLength || 500} words)</span>
+                  </div>
+                )}
               </div>
             </>}
         </div>

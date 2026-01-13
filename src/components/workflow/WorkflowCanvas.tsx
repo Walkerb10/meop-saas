@@ -219,24 +219,22 @@ export function WorkflowCanvas({
     setConnectingFrom(null);
   }, [connectingFrom, onConnect]);
 
-  // Get node connection points (center of the circles)
-  // Node width is ~260px, so center is x + 130
-  // Top circle is at y - 3 (12px from top, but it's positioned at -top-3)
-  // Bottom circle is at y + nodeHeight - 3 (positioned at -bottom-3)
+  // Fixed node dimensions for consistent connection alignment
   const NODE_WIDTH = 260;
-  const NODE_HEIGHT = 120; // Approximate height based on content
+  const NODE_HEIGHT = 140; // Consistent height for connection alignment
   
+  // Get node connection points - precisely centered
   const getNodeTopCenter = useCallback((node: WorkflowNode) => {
     return {
       x: node.position.x + NODE_WIDTH / 2,
-      y: node.position.y, // Top connection point
+      y: node.position.y - 2, // Offset to meet circle center
     };
   }, []);
   
   const getNodeBottomCenter = useCallback((node: WorkflowNode) => {
     return {
       x: node.position.x + NODE_WIDTH / 2,
-      y: node.position.y + NODE_HEIGHT, // Bottom connection point
+      y: node.position.y + NODE_HEIGHT + 2, // Offset to meet circle center
     };
   }, []);
 
