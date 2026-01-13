@@ -2,11 +2,12 @@ import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Clock, Webhook, Mic, Search, MessageSquare, Mail, Hash, Timer, 
-  GitBranch, Sparkles, Trash2, CheckCircle2, Loader2, GripVertical
+  GitBranch, Sparkles, Trash2, CheckCircle2, Loader2, GripVertical, Edit3
 } from 'lucide-react';
 import { WorkflowNode, WorkflowNodeType, NODE_STYLES } from '@/types/workflow';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { getNodeDescription } from '@/components/AutomationSummary';
 
 const ICONS: Record<WorkflowNodeType, React.ReactNode> = {
   trigger_schedule: <Clock className="w-4 h-4" />,
@@ -23,16 +24,16 @@ const ICONS: Record<WorkflowNodeType, React.ReactNode> = {
 };
 
 const TYPE_LABELS: Record<WorkflowNodeType, string> = {
-  trigger_schedule: 'Schedule',
-  trigger_webhook: 'Webhook',
-  trigger_voice: 'Voice',
+  trigger_schedule: 'When',
+  trigger_webhook: 'Trigger',
+  trigger_voice: 'Listen',
   action_research: 'Research',
   action_text: 'Text',
   action_email: 'Email',
   action_slack: 'Slack',
   action_discord: 'Discord',
-  action_delay: 'Delay',
-  condition: 'Condition',
+  action_delay: 'Wait',
+  condition: 'Check',
   transform: 'Transform',
 };
 
@@ -61,6 +62,7 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
 }: WorkflowNodeProps) {
   const style = NODE_STYLES[node.type];
   const isTrigger = node.type.startsWith('trigger_');
+  const description = getNodeDescription(node);
 
   return (
     <motion.div
@@ -69,12 +71,12 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
       exit={{ opacity: 0, scale: 0.8 }}
       className={cn(
         'workflow-node absolute cursor-pointer select-none',
-        'rounded-xl border-2 shadow-lg',
-        'min-w-[240px] transition-all duration-150',
+        'rounded-2xl border-2 shadow-xl backdrop-blur-sm',
+        'min-w-[260px] max-w-[300px] transition-all duration-150',
         style.bgColor,
-        isSelected && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
-        isExecuting && 'ring-2 ring-primary animate-pulse',
-        isCompleted && 'ring-2 ring-green-500'
+        isSelected && 'ring-2 ring-primary ring-offset-2 ring-offset-background shadow-primary/20',
+        isExecuting && 'ring-2 ring-primary animate-pulse shadow-primary/30',
+        isCompleted && 'ring-2 ring-green-500 shadow-green-500/20'
       )}
       style={{
         left: node.position.x,
@@ -90,7 +92,7 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
       {/* Connection point - top (input) */}
       {!isTrigger && (
         <div 
-          className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-background border-2 border-border hover:border-primary hover:bg-primary/20 transition-colors cursor-crosshair"
+          className="absolute -top-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-background border-2 border-border hover:border-primary hover:bg-primary/20 transition-all hover:scale-110 cursor-crosshair shadow-sm"
           onMouseUp={(e) => {
             e.stopPropagation();
             onEndConnection();
@@ -99,78 +101,83 @@ export const WorkflowNodeComponent = memo(function WorkflowNodeComponent({
       )}
 
       {/* Node content */}
-      <div className="p-3">
-        {/* Header */}
-        <div className="flex items-center gap-2">
-          <div className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted-foreground hover:text-foreground">
+      <div className="p-4">
+        {/* Header with type badge */}
+        <div className="flex items-start gap-3">
+          <div className="cursor-grab active:cursor-grabbing p-1 -ml-1 -mt-1 text-muted-foreground/50 hover:text-muted-foreground">
             <GripVertical className="w-4 h-4" />
           </div>
-          <div className={cn('p-1.5 rounded-lg', style.bgColor, style.color)}>
+          
+          <div className={cn('p-2.5 rounded-xl shrink-0', style.bgColor, style.color)}>
             {ICONS[node.type]}
           </div>
+          
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className={cn('text-[10px] font-bold uppercase tracking-wider', style.color)}>
+                {TYPE_LABELS[node.type]}
+              </span>
+              {/* Status indicators */}
+              {isExecuting && (
+                <Loader2 className="w-3 h-3 text-primary animate-spin" />
+              )}
+              {isCompleted && (
+                <CheckCircle2 className="w-3 h-3 text-green-500" />
+              )}
+            </div>
+            <p className="text-sm font-semibold text-foreground leading-snug">
               {node.label}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {TYPE_LABELS[node.type]}
             </p>
           </div>
           
-          {/* Status indicators */}
-          {isExecuting && (
-            <Loader2 className="w-4 h-4 text-primary animate-spin" />
-          )}
-          {isCompleted && (
-            <CheckCircle2 className="w-4 h-4 text-green-500" />
-          )}
-          
-          {/* Delete button - only when selected */}
+          {/* Actions - only when selected */}
           {isSelected && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Select triggers config panel focus
+                }}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           )}
         </div>
 
-        {/* Config preview */}
-        {node.config && Object.keys(node.config).length > 0 && (
-          <div className="mt-2 pt-2 border-t border-border/50">
-            <div className="text-xs text-muted-foreground space-y-1">
-              {node.config.query && (
-                <p className="truncate">Query: {node.config.query}</p>
-              )}
-              {node.config.message && (
-                <p className="truncate">Message: {node.config.message.substring(0, 30)}...</p>
-              )}
-              {node.config.schedule && (
-                <p>Schedule: {node.config.schedule}</p>
-              )}
-              {node.config.time && (
-                <p>Time: {node.config.time}</p>
-              )}
-              {node.config.delayMinutes && (
-                <p>Delay: {node.config.delayMinutes} min</p>
-              )}
-              {node.config.channel && (
-                <p>Channel: #{node.config.channel}</p>
-              )}
-            </div>
+        {/* Human-readable description */}
+        <div className="mt-3 pt-3 border-t border-border/30">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {description}
+          </p>
+        </div>
+        
+        {/* Quick edit hint */}
+        {isSelected && (
+          <div className="mt-2 text-[10px] text-muted-foreground/60 flex items-center gap-1">
+            <Edit3 className="w-3 h-3" />
+            Click to edit in the panel →
           </div>
         )}
       </div>
 
       {/* Connection point - bottom (output) */}
       <div 
-        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-background border-2 border-border hover:border-primary hover:bg-primary/20 transition-colors cursor-crosshair"
+        className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-background border-2 border-border hover:border-primary hover:bg-primary/20 transition-all hover:scale-110 cursor-crosshair shadow-sm"
         onMouseDown={(e) => {
           e.stopPropagation();
           onStartConnection();
