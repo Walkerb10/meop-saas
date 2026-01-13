@@ -232,25 +232,30 @@ export default function AutomationsPage() {
     await fetchWorkflows();
   }, [selectedWorkflow, fetchWorkflows]);
 
-  const handleDeleteWorkflow = useCallback(async () => {
-    if (!deleteWorkflowId) return;
+  const handleDeleteWorkflow = useCallback(async (idToDelete?: string) => {
+    const targetId = idToDelete || deleteWorkflowId;
+    if (!targetId) return;
     
     try {
       const { error } = await supabase
         .from('automations')
         .delete()
-        .eq('id', deleteWorkflowId);
+        .eq('id', targetId);
 
       if (error) throw error;
       
       setDeleteWorkflowId(null);
+      // If we're in the builder view of this workflow, go back
+      if (selectedWorkflow?.id === targetId) {
+        setSelectedWorkflow(null);
+      }
       toast.success('Automation deleted');
       await fetchWorkflows();
     } catch (err) {
       console.error('Failed to delete workflow:', err);
       toast.error('Failed to delete automation');
     }
-  }, [deleteWorkflowId, fetchWorkflows]);
+  }, [deleteWorkflowId, selectedWorkflow, fetchWorkflows]);
 
   const handleToggleActive = useCallback(async (id: string) => {
     const workflow = workflows.find(w => w.id === id);
@@ -615,7 +620,7 @@ export default function AutomationsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteWorkflow} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={() => handleDeleteWorkflow()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

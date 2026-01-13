@@ -165,17 +165,17 @@ export default function AgentPage() {
             />
           </motion.div>
 
-          {/* Transcript display - takes remaining space when started */}
+          {/* Transcript display - below the orb with proper spacing */}
           <AnimatePresence>
             {hasStarted && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto', flex: 1 }}
                 exit={{ opacity: 0, height: 0 }}
-                className="flex-1 overflow-hidden px-4"
+                className="flex-1 overflow-hidden px-4 mt-4"
               >
                 <ScrollArea className="h-full" ref={scrollRef}>
-                  <div className="max-w-2xl mx-auto space-y-4 py-4">
+                  <div className="max-w-2xl mx-auto space-y-4 py-4 pb-8">
                     {messages.length === 0 ? (
                       <motion.div 
                         initial={{ opacity: 0 }}

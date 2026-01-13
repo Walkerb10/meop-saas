@@ -272,15 +272,21 @@ function renderTypeConfig(
       return (
         <>
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Send to phone number</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Send to phone number <span className="text-destructive">*</span>
+            </Label>
             <Input
               value={node.config.phone || ''}
               onChange={(e) => updateConfig('phone', e.target.value)}
-              placeholder="+1 (555) 123-4567"
+              placeholder="+18885551234"
               className="h-12 text-lg"
+              required
             />
+            <p className="text-xs text-muted-foreground">
+              Format: +1XXXXXXXXXX (no spaces or dashes)
+            </p>
           </div>
-          <MessageField node={node} updateConfig={updateConfig} />
+          <MessageField node={node} updateConfig={updateConfig} required />
         </>
       );
 
@@ -386,15 +392,19 @@ function renderTypeConfig(
 
 function MessageField({ 
   node, 
-  updateConfig 
+  updateConfig,
+  required = false
 }: { 
   node: WorkflowNode;
   updateConfig: (key: keyof WorkflowNodeConfig, value: unknown) => void;
+  required?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Message content</Label>
+        <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          Message content {required && <span className="text-destructive">*</span>}
+        </Label>
         <Button
           variant="secondary"
           size="sm"
@@ -409,6 +419,7 @@ function MessageField({
         onChange={(e) => updateConfig('message', e.target.value)}
         placeholder="Write your message here..."
         className="min-h-[100px]"
+        required={required}
       />
       <div className="p-3 rounded-xl bg-muted/50 border border-border">
         <p className="text-xs text-muted-foreground">
