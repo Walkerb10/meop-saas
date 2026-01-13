@@ -210,26 +210,59 @@ export default function AutomationsPage() {
     setExecutingId(selectedWorkflow.id);
     setCompletedNodeIds([]);
 
-    // Simulate execution by stepping through nodes
+    // Sort nodes by Y position
     const sortedNodes = [...selectedWorkflow.nodes].sort((a, b) => a.position.y - b.position.y);
-    
-    for (const node of sortedNodes) {
-      setExecutingNodeId(node.id);
-      await new Promise(r => setTimeout(r, 1500));
-      setCompletedNodeIds(prev => [...prev, node.id]);
-    }
 
-    setExecutingNodeId(null);
-    setExecutingId(null);
-    
-    // Update last run in database
-    await supabase
-      .from('automations')
-      .update({ last_run_at: new Date().toISOString() })
-      .eq('id', selectedWorkflow.id);
-    
-    toast.success('Workflow completed successfully');
-    await fetchWorkflows();
+    try {
+      // Call the execute-automation edge function
+      const { data, error } = await supabase.functions.invoke('execute-automation', {
+        body: { automationId: selectedWorkflow.id },
+      });
+
+      if (error) {
+        console.error('Execution error:', error);
+        toast.error(`Execution failed: ${error.message}`);
+        setExecutingId(null);
+        return;
+      }
+
+      console.log('Execution result:', data);
+
+      // Animate through nodes based on step results
+      if (data?.stepResults) {
+        for (const step of data.stepResults) {
+          const node = sortedNodes.find(n => n.id === step.nodeId);
+          if (node) {
+            setExecutingNodeId(node.id);
+            await new Promise(r => setTimeout(r, 300)); // Brief animation
+            setCompletedNodeIds(prev => [...prev, node.id]);
+          }
+        }
+      } else {
+        // Fallback: animate all nodes
+        for (const node of sortedNodes) {
+          setExecutingNodeId(node.id);
+          await new Promise(r => setTimeout(r, 300));
+          setCompletedNodeIds(prev => [...prev, node.id]);
+        }
+      }
+
+      setExecutingNodeId(null);
+      setExecutingId(null);
+      
+      if (data?.success) {
+        toast.success('Automation executed successfully!');
+      } else {
+        toast.error(data?.error || 'Execution completed with issues');
+      }
+      
+      await fetchWorkflows();
+    } catch (err) {
+      console.error('Execution error:', err);
+      toast.error('Failed to execute automation');
+      setExecutingId(null);
+      setExecutingNodeId(null);
+    }
   }, [selectedWorkflow, fetchWorkflows]);
 
   const handleDeleteWorkflow = useCallback(async (idToDelete?: string) => {
