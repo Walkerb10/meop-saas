@@ -77,9 +77,12 @@ export default function AgentPage() {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    // Use requestAnimationFrame to ensure scroll happens after render
+    requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    });
   }, [messages]);
 
   const handleToggle = () => {
@@ -137,15 +140,15 @@ export default function AgentPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -40, transition: { duration: 0.2 } }}
                   transition={{ duration: 0.4 }}
-                  className="text-center mb-12"
+                  className="text-center mb-12 space-y-3"
                 >
-                  <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
+                  <p className="text-xl md:text-3xl font-light text-foreground tracking-wide">
                     Speak your problem.
                   </p>
-                  <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
+                  <p className="text-xl md:text-3xl font-light text-foreground tracking-wide">
                     Agents handle it.
                   </p>
-                  <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
+                  <p className="text-xl md:text-3xl font-light text-foreground tracking-wide">
                     Start to finish.
                   </p>
                 </motion.div>

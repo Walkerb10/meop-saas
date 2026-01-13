@@ -1,8 +1,14 @@
 import { useState } from 'react';
-import { Sparkles, Loader2, Send } from 'lucide-react';
+import { Sparkles, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
 
 interface QuickAutomationFormProps {
   onGenerate: (description: string) => void;
@@ -11,59 +17,68 @@ interface QuickAutomationFormProps {
 
 export function QuickAutomationForm({ onGenerate, isGenerating = false }: QuickAutomationFormProps) {
   const [description, setDescription] = useState('');
+  const [open, setOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim()) return;
     onGenerate(description.trim());
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
+    setDescription('');
+    setOpen(false);
   };
 
   return (
-    <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-transparent">
-      <CardContent className="p-4">
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-1.5 rounded-lg bg-primary/10">
-              <Sparkles className="w-4 h-4 text-primary" />
-            </div>
-            <span className="text-sm font-medium text-foreground">Quick Create</span>
-          </div>
-          
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-2">
+          <Sparkles className="w-4 h-4" />
+          <span className="hidden sm:inline">Quick Create</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            Quick Create Automation
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Describe what you want automated... e.g., 'Every morning at 9am, research the latest AI news and send it to Slack #general'"
-            className="resize-none min-h-[80px] bg-background/50"
+            placeholder="Describe what you want automated...
+
+Example: Every morning at 9am, research the latest AI news and send it to Slack #general"
+            className="min-h-[120px] resize-none"
             disabled={isGenerating}
+            autoFocus
           />
-          
-          <Button
-            type="submit"
-            className="w-full gap-2"
-            disabled={!description.trim() || isGenerating}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                Create Automation
-              </>
-            )}
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setOpen(false)}
+              disabled={isGenerating}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={!description.trim() || isGenerating}
+              className="gap-2"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Automation'
+              )}
+            </Button>
+          </div>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
