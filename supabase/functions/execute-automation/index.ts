@@ -8,10 +8,10 @@ const corsHeaders = {
 
 // n8n webhook URLs for different platforms
 const N8N_WEBHOOKS = {
-  text: "https://n8n-n8n.swm5hc.easypanel.host/webhook/067d7cbd-f49b-4641-aaab-6cb65617cb68",
-  slack: "https://n8n-n8n.swm5hc.easypanel.host/webhook/067d7cbd-f49b-4641-aaab-6cb65617cb68",
-  discord: "https://n8n-n8n.swm5hc.easypanel.host/webhook/de3262c9-cf10-4ba9-bf0f-87ba31a1144c",
-  email: "https://n8n-n8n.swm5hc.easypanel.host/webhook/0bad5a52-1f17-4c90-9ca2-6d4aee1661f7",
+  text: "https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2",
+  slack: "https://walkerb.app.n8n.cloud/webhook/067d7cbd-f49b-4641-aaab-6cb65617cb68",
+  discord: "https://walkerb.app.n8n.cloud/webhook/de3262c9-cf10-4ba9-bf0f-87ba31a1144c",
+  email: "https://walkerb.app.n8n.cloud/webhook/0bad5a52-1f17-4c90-9ca2-6d4aee1661f7",
 };
 
 const DEFAULT_CHANNELS = {
