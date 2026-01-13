@@ -358,6 +358,57 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_leads: {
+        Row: {
+          assigned_to: string | null
+          company: string | null
+          created_at: string
+          created_by: string
+          email: string | null
+          id: string
+          name: string
+          notes: string | null
+          phone: string | null
+          position: number
+          source: string | null
+          stage: string
+          updated_at: string
+          value: number | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          company?: string | null
+          created_at?: string
+          created_by: string
+          email?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          phone?: string | null
+          position?: number
+          source?: string | null
+          stage?: string
+          updated_at?: string
+          value?: number | null
+        }
+        Update: {
+          assigned_to?: string | null
+          company?: string | null
+          created_at?: string
+          created_by?: string
+          email?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          position?: number
+          source?: string | null
+          stage?: string
+          updated_at?: string
+          value?: number | null
+        }
+        Relationships: []
+      }
       executions: {
         Row: {
           completed_at: string | null
@@ -550,6 +601,45 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_emails: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          recipient_count: number | null
+          scheduled_for: string | null
+          sent_at: string | null
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          recipient_count?: number | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          recipient_count?: number | null
+          scheduled_for?: string | null
+          sent_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       n8n_tools: {
         Row: {
           created_at: string
@@ -577,6 +667,33 @@ export type Database = {
           updated_at?: string
           user_id?: string
           webhook_url?: string
+        }
+        Relationships: []
+      }
+      newsletter_subscribers: {
+        Row: {
+          email: string
+          id: string
+          is_active: boolean
+          name: string | null
+          source: string | null
+          subscribed_at: string
+        }
+        Insert: {
+          email: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          source?: string | null
+          subscribed_at?: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          is_active?: boolean
+          name?: string | null
+          source?: string | null
+          subscribed_at?: string
         }
         Relationships: []
       }
