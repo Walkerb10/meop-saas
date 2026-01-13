@@ -655,14 +655,14 @@ function EventForm({
       </div>
       <div>
         <Label>Assign to</Label>
-        <Select value={form.assigned_to} onValueChange={(v) => setForm({ ...form, assigned_to: v })}>
+        <Select value={form.assigned_to || "unassigned"} onValueChange={(v) => setForm({ ...form, assigned_to: v === "unassigned" ? "" : v })}>
           <SelectTrigger>
             <SelectValue placeholder="Select team member" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Unassigned</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
             {members.map(m => (
-              <SelectItem key={m.user_id} value={m.user_id}>
+              <SelectItem key={m.user_id} value={m.user_id || `member-${m.email}`}>
                 {m.display_name || m.email}
               </SelectItem>
             ))}
@@ -742,14 +742,14 @@ function TaskForm({
       </div>
       <div>
         <Label>Assign to</Label>
-        <Select value={form.assigned_to} onValueChange={(v) => setForm({ ...form, assigned_to: v })}>
+        <Select value={form.assigned_to || "unassigned"} onValueChange={(v) => setForm({ ...form, assigned_to: v === "unassigned" ? "" : v })}>
           <SelectTrigger>
             <SelectValue placeholder="Select team member" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Unassigned</SelectItem>
+            <SelectItem value="unassigned">Unassigned</SelectItem>
             {members.map(m => (
-              <SelectItem key={m.user_id} value={m.user_id}>
+              <SelectItem key={m.user_id} value={m.user_id || `member-${m.email}`}>
                 {m.display_name || m.email}
               </SelectItem>
             ))}
@@ -796,14 +796,14 @@ function QuickAddTask({ members, onAdd }: { members: { user_id: string; display_
         onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
       />
       <div className="flex gap-2">
-        <Select value={assignee} onValueChange={setAssignee}>
+        <Select value={assignee || "me"} onValueChange={(v) => setAssignee(v === "me" ? "" : v)}>
           <SelectTrigger className="flex-1">
             <SelectValue placeholder="Assign..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Me</SelectItem>
+            <SelectItem value="me">Me</SelectItem>
             {members.map(m => (
-              <SelectItem key={m.user_id} value={m.user_id}>
+              <SelectItem key={m.user_id} value={m.user_id || `member-${m.email}`}>
                 {m.display_name || m.email}
               </SelectItem>
             ))}
