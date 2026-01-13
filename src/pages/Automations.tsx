@@ -28,7 +28,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useTasks } from '@/hooks/useTasks';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Workflow, WorkflowNode, WorkflowConnection } from '@/types/workflow';
 import { formatDistanceToNow } from 'date-fns';
@@ -37,40 +36,6 @@ import { cn } from '@/lib/utils';
 import { coerceAutomationStepsToWorkflow } from '@/lib/automationWorkflow';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
-
-function TasksPopoverContent() {
-  const { tasks, loading } = useTasks();
-  const processingTasks = tasks.filter(t => t.status === 'processing');
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-6">
-        <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
-      </div>
-    );
-  }
-
-  if (processingTasks.length === 0) {
-    return (
-      <div className="text-center py-6">
-        <p className="text-sm text-muted-foreground">No running workflows</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {processingTasks.map(task => (
-        <div key={task.id} className="rounded-lg border border-primary/30 bg-primary/5 p-2.5">
-          <div className="flex items-center gap-2">
-            <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
-            <p className="text-sm font-medium">{task.name}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function AutomationsPage() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
@@ -83,9 +48,7 @@ export default function AutomationsPage() {
   const [executingNodeId, setExecutingNodeId] = useState<string | null>(null);
   const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
   
-  const { tasks } = useTasks();
   const isMobile = useIsMobile();
-  const processingCount = tasks.filter(t => t.status === 'processing').length;
 
   // Fetch workflows from database
   const fetchWorkflows = useCallback(async () => {
@@ -406,11 +369,7 @@ export default function AutomationsPage() {
   // Show wizard when creating new automation
   if (isCreatingWizard) {
     return (
-      <AppLayout 
-        showTasksButton 
-        tasksContent={<TasksPopoverContent />}
-        taskCount={processingCount}
-      >
+      <AppLayout>
         <div className="h-[calc(100vh-3.5rem)]">
           <CreateAutomationWizard
             onComplete={handleWizardComplete}
@@ -426,11 +385,7 @@ export default function AutomationsPage() {
     const BuilderComponent = isMobile ? MobileWorkflowBuilder : WorkflowBuilder;
     
     return (
-      <AppLayout 
-        showTasksButton 
-        tasksContent={<TasksPopoverContent />}
-        taskCount={processingCount}
-      >
+      <AppLayout>
         <div className="h-[calc(100vh-3.5rem)]">
           <BuilderComponent
             workflow={selectedWorkflow || undefined}
@@ -452,11 +407,7 @@ export default function AutomationsPage() {
 
   // Show workflow list
   return (
-    <AppLayout 
-      showTasksButton 
-      tasksContent={<TasksPopoverContent />}
-      taskCount={processingCount}
-    >
+      <AppLayout>
       <div className="p-4 md:p-6 max-w-6xl mx-auto min-h-full pb-32">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
