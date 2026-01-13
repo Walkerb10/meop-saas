@@ -45,17 +45,30 @@ export function useVapiAgent({
     statusRef.current = status;
   }, [onTranscript, onError, conversationId, status]);
 
-  // Save transcript to database
+  // Save transcript to database and generate embedding
   const saveTranscript = useCallback(async (text: string, role: 'user' | 'assistant') => {
     if (!conversationIdRef.current || !text.trim()) return;
     
     try {
-      await supabase.from('conversation_transcripts').insert({
-        role,
-        content: text.trim(),
-        conversation_id: conversationIdRef.current,
-        raw_payload: { source: 'vapi', timestamp: new Date().toISOString() },
-      });
+      const { data: inserted, error } = await supabase
+        .from('conversation_transcripts')
+        .insert({
+          role,
+          content: text.trim(),
+          conversation_id: conversationIdRef.current,
+          raw_payload: { source: 'vapi', timestamp: new Date().toISOString() },
+        })
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      
+      // Generate embedding asynchronously (don't await to avoid blocking)
+      if (inserted?.id) {
+        supabase.functions.invoke('generate-conversation-embedding', {
+          body: { transcriptId: inserted.id, content: text.trim() },
+        }).catch(err => console.error('Embedding generation failed:', err));
+      }
     } catch (error) {
       console.error('Failed to save transcript:', error);
     }
