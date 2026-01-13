@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Play, ChevronRight, Zap,
@@ -31,48 +31,11 @@ import {
 import { useTasks } from '@/hooks/useTasks';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Workflow, WorkflowNode, WorkflowConnection, WorkflowNodeType } from '@/types/workflow';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-
-// Demo workflows for showcase
-const DEMO_WORKFLOWS: Workflow[] = [
-  {
-    id: 'demo-1',
-    name: 'Daily Market Research',
-    description: 'Research market trends every morning and send to Slack',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    lastRunAt: new Date(Date.now() - 3600000).toISOString(),
-    nodes: [
-      { id: 'n1', type: 'trigger_schedule', label: 'Daily at 9 AM', position: { x: 100, y: 100 }, config: { frequency: 'daily', time: '09:00' } },
-      { id: 'n2', type: 'action_research', label: 'Market Research', position: { x: 100, y: 250 }, config: { query: 'Latest market trends in AI', outputFormat: 'problem', outputLength: '500' } },
-      { id: 'n3', type: 'action_slack', label: 'Post to Slack', position: { x: 100, y: 400 }, config: { channel: 'market-updates', message: '{{result}}' } },
-    ],
-    connections: [
-      { id: 'c1', sourceId: 'n1', targetId: 'n2' },
-      { id: 'c2', sourceId: 'n2', targetId: 'n3' },
-    ],
-  },
-  {
-    id: 'demo-2',
-    name: 'Competitor Analysis',
-    description: 'Weekly competitor analysis sent via email',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    nodes: [
-      { id: 'n1', type: 'trigger_schedule', label: 'Weekly Monday', position: { x: 100, y: 100 }, config: { frequency: 'weekly', dayOfWeek: 'Monday', time: '08:00' } },
-      { id: 'n2', type: 'action_research', label: 'Competitor Research', position: { x: 100, y: 250 }, config: { query: 'Competitor analysis for tech startups', outputFormat: 'detailed' } },
-      { id: 'n3', type: 'action_email', label: 'Send Report', position: { x: 100, y: 400 }, config: { to: 'team@company.com', subject: 'Weekly Competitor Report', message: '{{result}}' } },
-    ],
-    connections: [
-      { id: 'c1', sourceId: 'n1', targetId: 'n2' },
-      { id: 'c2', sourceId: 'n2', targetId: 'n3' },
-    ],
-  },
-];
+import { supabase } from '@/integrations/supabase/client';
+import { Json } from '@/integrations/supabase/types';
 
 function TasksPopoverContent() {
   const { tasks, loading } = useTasks();
@@ -109,7 +72,8 @@ function TasksPopoverContent() {
 }
 
 export default function AutomationsPage() {
-  const [workflows, setWorkflows] = useState<Workflow[]>(DEMO_WORKFLOWS);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deleteWorkflowId, setDeleteWorkflowId] = useState<string | null>(null);
@@ -121,33 +85,118 @@ export default function AutomationsPage() {
   const isMobile = useIsMobile();
   const processingCount = tasks.filter(t => t.status === 'processing').length;
 
+  // Fetch workflows from database
+  const fetchWorkflows = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('automations')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped: Workflow[] = (data || []).map((row) => {
+        // Parse steps as workflow data
+        const stepsData = row.steps as { nodes?: WorkflowNode[]; connections?: WorkflowConnection[] } | null;
+        return {
+          id: row.id,
+          name: row.name,
+          description: row.description || undefined,
+          isActive: row.is_active,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          lastRunAt: row.last_run_at || undefined,
+          nodes: stepsData?.nodes || [],
+          connections: stepsData?.connections || [],
+        };
+      });
+
+      setWorkflows(mapped);
+    } catch (err) {
+      console.error('Failed to fetch workflows:', err);
+      toast.error('Failed to load automations');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Load on mount and subscribe to changes
+  useEffect(() => {
+    fetchWorkflows();
+
+    const channel = supabase
+      .channel('automations-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'automations' }, () => {
+        fetchWorkflows();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchWorkflows]);
+
   const handleSaveWorkflow = useCallback(async (workflowData: Partial<Workflow>) => {
-    if (selectedWorkflow) {
-      // Update existing
-      setWorkflows(prev => prev.map(w => 
-        w.id === selectedWorkflow.id 
-          ? { ...w, ...workflowData, updatedAt: new Date().toISOString() } as Workflow
-          : w
-      ));
-      toast.success('Workflow saved');
-    } else {
-      // Create new
-      const newWorkflow: Workflow = {
-        id: crypto.randomUUID(),
-        name: workflowData.name || 'New Workflow',
-        description: workflowData.description,
+    try {
+      const stepsJson = {
         nodes: workflowData.nodes || [],
         connections: workflowData.connections || [],
-        isActive: workflowData.isActive ?? true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      setWorkflows(prev => [...prev, newWorkflow]);
-      setSelectedWorkflow(newWorkflow);
-      toast.success('Workflow created');
+      } as unknown as Json;
+
+      if (selectedWorkflow) {
+        // Update existing
+        const { error } = await supabase
+          .from('automations')
+          .update({
+            name: workflowData.name || selectedWorkflow.name,
+            description: workflowData.description || null,
+            is_active: workflowData.isActive ?? selectedWorkflow.isActive,
+            steps: stepsJson,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', selectedWorkflow.id);
+
+        if (error) throw error;
+        toast.success('Automation saved');
+      } else {
+        // Create new
+        const { data, error } = await supabase
+          .from('automations')
+          .insert({
+            name: workflowData.name || 'New Automation',
+            description: workflowData.description || null,
+            is_active: workflowData.isActive ?? true,
+            steps: stepsJson,
+            trigger_type: 'manual',
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        
+        // Select the newly created workflow
+        if (data) {
+          const stepsData = data.steps as { nodes?: WorkflowNode[]; connections?: WorkflowConnection[] } | null;
+          setSelectedWorkflow({
+            id: data.id,
+            name: data.name,
+            description: data.description || undefined,
+            isActive: data.is_active,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+            nodes: stepsData?.nodes || [],
+            connections: stepsData?.connections || [],
+          });
+        }
+        toast.success('Automation created');
+      }
+      setIsCreating(false);
+      await fetchWorkflows();
+    } catch (err) {
+      console.error('Failed to save workflow:', err);
+      toast.error('Failed to save automation');
     }
-    setIsCreating(false);
-  }, [selectedWorkflow]);
+  }, [selectedWorkflow, fetchWorkflows]);
 
   const handleExecuteWorkflow = useCallback(async () => {
     if (!selectedWorkflow) return;
@@ -160,51 +209,71 @@ export default function AutomationsPage() {
     
     for (const node of sortedNodes) {
       setExecutingNodeId(node.id);
-      await new Promise(r => setTimeout(r, 1500)); // Simulate execution time
+      await new Promise(r => setTimeout(r, 1500));
       setCompletedNodeIds(prev => [...prev, node.id]);
     }
 
     setExecutingNodeId(null);
     setExecutingId(null);
     
-    // Update last run
-    setWorkflows(prev => prev.map(w => 
-      w.id === selectedWorkflow.id 
-        ? { ...w, lastRunAt: new Date().toISOString() }
-        : w
-    ));
+    // Update last run in database
+    await supabase
+      .from('automations')
+      .update({ last_run_at: new Date().toISOString() })
+      .eq('id', selectedWorkflow.id);
     
     toast.success('Workflow completed successfully');
-  }, [selectedWorkflow]);
+    await fetchWorkflows();
+  }, [selectedWorkflow, fetchWorkflows]);
 
-  const handleDeleteWorkflow = useCallback(() => {
+  const handleDeleteWorkflow = useCallback(async () => {
     if (!deleteWorkflowId) return;
-    setWorkflows(prev => prev.filter(w => w.id !== deleteWorkflowId));
-    setDeleteWorkflowId(null);
-    toast.success('Workflow deleted');
-  }, [deleteWorkflowId]);
+    
+    try {
+      const { error } = await supabase
+        .from('automations')
+        .delete()
+        .eq('id', deleteWorkflowId);
 
-  const handleToggleActive = useCallback((id: string) => {
-    setWorkflows(prev => prev.map(w => 
-      w.id === id ? { ...w, isActive: !w.isActive } : w
-    ));
-  }, []);
+      if (error) throw error;
+      
+      setDeleteWorkflowId(null);
+      toast.success('Automation deleted');
+      await fetchWorkflows();
+    } catch (err) {
+      console.error('Failed to delete workflow:', err);
+      toast.error('Failed to delete automation');
+    }
+  }, [deleteWorkflowId, fetchWorkflows]);
+
+  const handleToggleActive = useCallback(async (id: string) => {
+    const workflow = workflows.find(w => w.id === id);
+    if (!workflow) return;
+    
+    try {
+      const { error } = await supabase
+        .from('automations')
+        .update({ is_active: !workflow.isActive })
+        .eq('id', id);
+
+      if (error) throw error;
+      await fetchWorkflows();
+    } catch (err) {
+      console.error('Failed to toggle workflow:', err);
+    }
+  }, [workflows, fetchWorkflows]);
 
   // Handle quick automation generation from natural language
   const handleQuickGenerate = useCallback(async (description: string) => {
     setIsGenerating(true);
     
-    // Parse the description to extract components
     const lowerDesc = description.toLowerCase();
-    
-    // Simulate AI processing
-    await new Promise(r => setTimeout(r, 1500));
     
     // Create nodes based on description
     const nodes: WorkflowNode[] = [];
     const connections: WorkflowConnection[] = [];
     
-    // Determine trigger type from description
+    // Determine trigger type
     const triggerId = crypto.randomUUID();
     let triggerConfig: Record<string, string> = { frequency: 'daily', time: '09:00' };
     let triggerLabel = 'Daily at 9 AM';
@@ -231,7 +300,7 @@ export default function AutomationsPage() {
       config: triggerConfig,
     });
     
-    // Extract research query - everything between "research" and delivery method
+    // Extract research query
     let researchQuery = description;
     const researchMatch = description.match(/research\s+(.+?)(?:\s+(?:and\s+)?(?:send|post|deliver|email|text|slack|discord)|$)/i);
     if (researchMatch) {
@@ -268,7 +337,6 @@ export default function AutomationsPage() {
       outputLabel = 'Send to Discord';
       outputConfig = { channel: 'general', message: '{{result}}' };
     } else if (lowerDesc.includes('slack')) {
-      // Extract channel name if specified
       const channelMatch = lowerDesc.match(/#(\w+)/);
       if (channelMatch) {
         outputConfig.channel = channelMatch[1];
@@ -290,23 +358,46 @@ export default function AutomationsPage() {
       ? researchQuery.slice(0, 40) + '...' 
       : researchQuery;
     
-    // Create the workflow
-    const newWorkflow: Workflow = {
-      id: crypto.randomUUID(),
-      name: workflowName,
-      description: description,
-      nodes,
-      connections,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    setWorkflows(prev => [...prev, newWorkflow]);
-    setSelectedWorkflow(newWorkflow);
-    setIsGenerating(false);
-    toast.success('Automation created! Review and save.');
-  }, []);
+    // Save to database
+    try {
+      const stepsJson = { nodes, connections } as unknown as Json;
+      const { data, error } = await supabase
+        .from('automations')
+        .insert({
+          name: workflowName,
+          description: description,
+          is_active: true,
+          steps: stepsJson,
+          trigger_type: 'scheduled',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        const stepsData = data.steps as { nodes?: WorkflowNode[]; connections?: WorkflowConnection[] } | null;
+        setSelectedWorkflow({
+          id: data.id,
+          name: data.name,
+          description: data.description || undefined,
+          isActive: data.is_active,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+          nodes: stepsData?.nodes || [],
+          connections: stepsData?.connections || [],
+        });
+      }
+      
+      toast.success('Automation created! Review and save.');
+      await fetchWorkflows();
+    } catch (err) {
+      console.error('Failed to create automation:', err);
+      toast.error('Failed to create automation');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [fetchWorkflows]);
 
   // Show builder when editing or creating
   if (selectedWorkflow || isCreating) {
@@ -367,6 +458,11 @@ export default function AutomationsPage() {
 
         {/* Workflow list */}
         <div className="space-y-3">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
           <AnimatePresence>
             {workflows.map((workflow, index) => (
               <motion.div
@@ -485,21 +581,22 @@ export default function AutomationsPage() {
               </motion.div>
             ))}
           </AnimatePresence>
+          )}
 
-          {workflows.length === 0 && (
+          {!loading && workflows.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
                 <Zap className="w-8 h-8 text-muted-foreground" />
               </div>
               <h3 className="text-lg font-medium text-foreground mb-1">
-                No workflows yet
+                No automations yet
               </h3>
               <p className="text-muted-foreground mb-4">
-                Create your first automation workflow
+                Create your first automation
               </p>
               <Button onClick={() => setIsCreating(true)} className="gap-2">
                 <Plus className="w-4 h-4" />
-                Create Workflow
+                Create Automation
               </Button>
             </div>
           )}
