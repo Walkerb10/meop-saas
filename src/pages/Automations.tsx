@@ -519,11 +519,22 @@ export default function AutomationsPage() {
                             const config = triggerNode.config;
                             const freq = config.frequency as string;
                             const time = config.time as string || '9:00 AM';
+                            // Format time for display (convert 24h to 12h)
+                            const formatTime = (t: string) => {
+                              const [hours, minutes] = t.split(':');
+                              const h = parseInt(hours);
+                              const ampm = h >= 12 ? 'PM' : 'AM';
+                              const h12 = h % 12 || 12;
+                              return `${h12}:${minutes} ${ampm}`;
+                            };
+                            const displayTime = formatTime(time);
+                            
                             let scheduleText = '';
-                            if (freq === 'daily') scheduleText = `Daily at ${time}`;
-                            else if (freq === 'weekly') scheduleText = `Weekly on ${config.dayOfWeek || 'Monday'} at ${time}`;
-                            else if (freq === 'hourly') scheduleText = 'Every hour';
-                            else if (freq === 'once') scheduleText = `Once at ${time}`;
+                            if (freq === 'daily') scheduleText = `Runs daily at ${displayTime}`;
+                            else if (freq === 'weekly') scheduleText = `Runs weekly at ${displayTime}`;
+                            else if (freq === 'monthly') scheduleText = `Runs monthly at ${displayTime}`;
+                            else if (freq === 'hourly') scheduleText = 'Runs hourly';
+                            else if (freq === 'once') scheduleText = `Runs once at ${displayTime}`;
                             
                             if (scheduleText) {
                               return (

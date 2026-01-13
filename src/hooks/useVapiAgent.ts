@@ -14,19 +14,25 @@ interface UseVapiAgentOptions {
 // Vapi assistant ID
 const VAPI_ASSISTANT_ID = '9526dfda-7749-42f3-af9c-0dfec7fdd6cd';
 
+// Session timeout in milliseconds (10 minutes)
+const SESSION_TIMEOUT_MS = 10 * 60 * 1000;
+const CONVERSATION_ID_KEY = 'vapi_conversation_id';
+const LAST_ACTIVITY_KEY = 'vapi_last_activity';
+
 export function useVapiAgent({
   onTranscript,
   onError,
-  conversationId,
+  conversationId: externalConversationId,
 }: UseVapiAgentOptions = {}) {
   const [status, setStatus] = useState<AgentStatus>('idle');
   const [isActive, setIsActive] = useState(false);
   const [inputVolume, setInputVolume] = useState(0);
   const [outputVolume, setOutputVolume] = useState(0);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  
   const vapiRef = useRef<Vapi | null>(null);
   const onTranscriptRef = useRef(onTranscript);
   const onErrorRef = useRef(onError);
-  const conversationIdRef = useRef(conversationId);
   const statusRef = useRef<AgentStatus>('idle');
   
   // Audio analyzer refs for real mic detection
@@ -41,13 +47,46 @@ export function useVapiAgent({
   useEffect(() => {
     onTranscriptRef.current = onTranscript;
     onErrorRef.current = onError;
-    conversationIdRef.current = conversationId;
     statusRef.current = status;
-  }, [onTranscript, onError, conversationId, status]);
+  }, [onTranscript, onError, status]);
+
+  // Initialize or restore conversation ID
+  useEffect(() => {
+    if (externalConversationId) {
+      setConversationId(externalConversationId);
+      return;
+    }
+    
+    // Check for existing session
+    const storedId = localStorage.getItem(CONVERSATION_ID_KEY);
+    const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+    
+    if (storedId && lastActivity) {
+      const elapsed = Date.now() - parseInt(lastActivity, 10);
+      if (elapsed < SESSION_TIMEOUT_MS) {
+        // Session still valid
+        setConversationId(storedId);
+        return;
+      }
+    }
+    
+    // Create new conversation ID
+    const newId = crypto.randomUUID();
+    setConversationId(newId);
+    localStorage.setItem(CONVERSATION_ID_KEY, newId);
+    localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+  }, [externalConversationId]);
+
+  // Update last activity timestamp on any interaction
+  const updateActivity = useCallback(() => {
+    localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+  }, []);
 
   // Save transcript to database and generate embedding
   const saveTranscript = useCallback(async (text: string, role: 'user' | 'assistant') => {
-    if (!conversationIdRef.current || !text.trim()) return;
+    if (!conversationId || !text.trim()) return;
+    
+    updateActivity();
     
     try {
       const { data: inserted, error } = await supabase
@@ -55,7 +94,7 @@ export function useVapiAgent({
         .insert({
           role,
           content: text.trim(),
-          conversation_id: conversationIdRef.current,
+          conversation_id: conversationId,
           raw_payload: { source: 'vapi', timestamp: new Date().toISOString() },
         })
         .select('id')
@@ -72,12 +111,21 @@ export function useVapiAgent({
     } catch (error) {
       console.error('Failed to save transcript:', error);
     }
-  }, []);
+  }, [conversationId, updateActivity]);
 
   // Reset volume levels
   const resetVolumes = useCallback(() => {
     setInputVolume(0);
     setOutputVolume(0);
+  }, []);
+
+  // Start new conversation (resets session)
+  const startNewConversation = useCallback(() => {
+    const newId = crypto.randomUUID();
+    setConversationId(newId);
+    localStorage.setItem(CONVERSATION_ID_KEY, newId);
+    localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+    return newId;
   }, []);
 
   // Start real-time microphone volume detection using Web Audio API
@@ -169,6 +217,7 @@ export function useVapiAgent({
         console.log('✅ Vapi call started');
         setStatus('listening');
         setIsActive(true);
+        updateActivity();
         
         // Start our local mic analyzer for real-time volume
         startMicAnalyzerRef.current?.();
@@ -213,6 +262,7 @@ export function useVapiAgent({
 
       vapi.on('message', (message) => {
         console.log('📨 Vapi message:', message);
+        updateActivity();
 
         if (message.type === 'transcript' && message.transcriptType === 'final') {
           const transcript = message.transcript;
@@ -246,7 +296,35 @@ export function useVapiAgent({
         vapiRef.current.stop();
       }
     };
-  }, [saveTranscript]);
+  }, [saveTranscript, updateActivity]);
+
+  // Send text message to Vapi
+  const sendMessage = useCallback((text: string) => {
+    if (!vapiRef.current || !text.trim()) return false;
+    
+    updateActivity();
+    
+    try {
+      // Send the message to the active Vapi session
+      vapiRef.current.send({
+        type: 'add-message',
+        message: {
+          role: 'user',
+          content: text.trim(),
+        },
+      });
+      
+      // Also save and show in transcript
+      onTranscriptRef.current?.(text.trim(), 'user');
+      saveTranscript(text.trim(), 'user');
+      
+      console.log('📤 Sent text message to Vapi:', text);
+      return true;
+    } catch (error) {
+      console.error('Failed to send message to Vapi:', error);
+      return false;
+    }
+  }, [saveTranscript, updateActivity]);
 
   const start = useCallback(async () => {
     if (!vapiRef.current) {
@@ -258,7 +336,18 @@ export function useVapiAgent({
       return;
     }
 
+    // Check if session expired
+    const lastActivity = localStorage.getItem(LAST_ACTIVITY_KEY);
+    if (lastActivity) {
+      const elapsed = Date.now() - parseInt(lastActivity, 10);
+      if (elapsed >= SESSION_TIMEOUT_MS) {
+        // Session expired, start new one
+        startNewConversation();
+      }
+    }
+
     setStatus('connecting');
+    updateActivity();
 
     try {
       console.log('📞 Starting Vapi call with assistant:', VAPI_ASSISTANT_ID);
@@ -268,7 +357,7 @@ export function useVapiAgent({
       setStatus('idle');
       onErrorRef.current?.(error instanceof Error ? error.message : 'Failed to connect');
     }
-  }, [isActive]);
+  }, [isActive, startNewConversation, updateActivity]);
 
   const stop = useCallback(() => {
     setInputVolume(0);
@@ -295,8 +384,11 @@ export function useVapiAgent({
     isSpeaking: status === 'speaking',
     inputVolume,
     outputVolume,
+    conversationId,
     start,
     stop,
     toggle,
+    sendMessage,
+    startNewConversation,
   };
 }
