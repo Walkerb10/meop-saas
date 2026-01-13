@@ -137,13 +137,36 @@ export function WorkflowCanvas({
     const newX = (e.clientX - rect.left - pan.x) / zoom - dragOffset.x;
     const newY = (e.clientY - rect.top - pan.y) / zoom - dragOffset.y;
 
+    // Snap to grid - use finer grid (10px) for better vertical alignment
+    const snappedX = Math.max(0, Math.round(newX / 10) * 10);
+    const snappedY = Math.max(0, Math.round(newY / 10) * 10);
+
+    // Check for vertical alignment with other nodes (allow snapping to exact same X position)
+    const draggedNode = nodes.find(n => n.id === draggedNodeId);
+    let finalX = snappedX;
+    
+    if (draggedNode) {
+      const NODE_CENTER = 130; // Half of node width (260/2)
+      const SNAP_THRESHOLD = 15;
+      
+      for (const node of nodes) {
+        if (node.id === draggedNodeId) continue;
+        
+        // Check if we're close to another node's X position (for vertical alignment)
+        if (Math.abs(snappedX - node.position.x) < SNAP_THRESHOLD) {
+          finalX = node.position.x;
+          break;
+        }
+      }
+    }
+
     onUpdateNode(draggedNodeId, {
       position: {
-        x: Math.max(0, Math.round(newX / 20) * 20),
-        y: Math.max(0, Math.round(newY / 20) * 20),
+        x: finalX,
+        y: snappedY,
       },
     });
-  }, [isDragging, draggedNodeId, dragOffset, onUpdateNode, pan, zoom, isPanning, panStart]);
+  }, [isDragging, draggedNodeId, dragOffset, onUpdateNode, pan, zoom, isPanning, panStart, nodes]);
 
   // Handle mouse up
   const handleMouseUp = useCallback(() => {

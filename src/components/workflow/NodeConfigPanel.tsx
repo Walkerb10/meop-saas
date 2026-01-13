@@ -4,7 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Sparkles, Clock, Search, MessageSquare, Mail, Hash, Timer } from 'lucide-react';
+import { X, Sparkles, Clock, Search, MessageSquare, Mail, Hash, Timer, Plus } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { getNodeDescription } from '@/components/AutomationSummary';
 import { cn } from '@/lib/utils';
 
@@ -307,19 +308,65 @@ function renderTypeConfig(
       );
 
     case 'action_email':
+      const emailList = ((node.config.to as string) || '').split(',').map(e => e.trim()).filter(Boolean);
+      
+      const addEmailRecipient = () => {
+        const currentEmails = emailList.length > 0 ? emailList.join(', ') + ', ' : '';
+        updateConfig('to', currentEmails);
+      };
+
+      const removeEmailRecipient = (index: number) => {
+        const newList = emailList.filter((_, i) => i !== index);
+        updateConfig('to', newList.join(', '));
+      };
+
       return (
         <>
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Send to email <span className="text-destructive">*</span>
-            </Label>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Send to emails <span className="text-destructive">*</span>
+              </Label>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={addEmailRecipient}
+              >
+                + Add Email
+              </Button>
+            </div>
             <Input
               value={node.config.to || ''}
               onChange={(e) => updateConfig('to', e.target.value)}
-              placeholder="email@example.com"
+              placeholder="email1@example.com, email2@example.com"
               className="h-12"
               required
             />
+            {emailList.length > 1 && (
+              <div className="flex flex-wrap gap-2">
+                {emailList.map((email, index) => (
+                  <Badge 
+                    key={index} 
+                    variant="secondary" 
+                    className="flex items-center gap-1 pr-1"
+                  >
+                    <span className="text-xs">{email}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 hover:bg-destructive/20"
+                      onClick={() => removeEmailRecipient(index)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Separate multiple emails with commas. Sent to n8n as: email1, email2
+            </p>
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

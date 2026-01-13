@@ -536,10 +536,60 @@ export default function AutomationsPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            setSelectedWorkflow(workflow);
-                            handleExecuteWorkflow();
+                            // Execute directly without relying on state update
+                            setExecutingId(workflow.id);
+                            setCompletedNodeIds([]);
+                            
+                            const sortedNodes = [...workflow.nodes].sort((a, b) => a.position.y - b.position.y);
+                            
+                            try {
+                              const { data, error } = await supabase.functions.invoke('execute-automation', {
+                                body: { automationId: workflow.id },
+                              });
+
+                              if (error) {
+                                console.error('Execution error:', error);
+                                toast.error(`Execution failed: ${error.message}`);
+                                setExecutingId(null);
+                                return;
+                              }
+
+                              // Animate through nodes
+                              if (data?.stepResults) {
+                                for (const step of data.stepResults) {
+                                  const node = sortedNodes.find(n => n.id === step.nodeId);
+                                  if (node) {
+                                    setExecutingNodeId(node.id);
+                                    await new Promise(r => setTimeout(r, 300));
+                                    setCompletedNodeIds(prev => [...prev, node.id]);
+                                  }
+                                }
+                              } else {
+                                for (const node of sortedNodes) {
+                                  setExecutingNodeId(node.id);
+                                  await new Promise(r => setTimeout(r, 300));
+                                  setCompletedNodeIds(prev => [...prev, node.id]);
+                                }
+                              }
+
+                              setExecutingNodeId(null);
+                              setExecutingId(null);
+                              
+                              if (data?.success) {
+                                toast.success('Automation executed successfully!');
+                              } else {
+                                toast.error(data?.error || 'Execution completed with issues');
+                              }
+                              
+                              await fetchWorkflows();
+                            } catch (err) {
+                              console.error('Execution error:', err);
+                              toast.error('Failed to execute automation');
+                              setExecutingId(null);
+                              setExecutingNodeId(null);
+                            }
                           }}
                           disabled={!workflow.isActive || executingId === workflow.id}
                         >
