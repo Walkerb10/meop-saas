@@ -277,12 +277,14 @@ export function CreateAutomationWizard({
             key={option.type}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => setSelectedType(option.type)}
+            onClick={() => {
+              setSelectedType(option.type);
+              setName(option.label);
+              setStep(2);
+            }}
             className={cn(
               'flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left',
-              selectedType === option.type
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-primary/50 hover:bg-accent/50'
+              'border-border hover:border-primary/50 hover:bg-accent/50'
             )}
           >
             <div
@@ -299,9 +301,6 @@ export function CreateAutomationWizard({
                 {option.description}
               </p>
             </div>
-            {selectedType === option.type && (
-              <Check className="w-5 h-5 text-primary shrink-0" />
-            )}
           </motion.button>
         ))}
       </div>

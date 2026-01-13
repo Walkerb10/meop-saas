@@ -33,6 +33,18 @@ const DAYS_OF_WEEK = [
   'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
 ];
 
+const SLACK_CHANNELS = [
+  { value: 'all_bhva', label: '#all_bhva' },
+  { value: 'general', label: '#general' },
+  { value: 'random', label: '#random' },
+];
+
+const DISCORD_CHANNELS = [
+  { value: 'admin', label: '#admin' },
+  { value: 'general', label: '#general' },
+  { value: 'announcements', label: '#announcements' },
+];
+
 const TYPE_ICONS: Record<WorkflowNodeType, React.ElementType> = {
   trigger_schedule: Clock,
   trigger_webhook: Sparkles,
@@ -222,12 +234,15 @@ function renderTypeConfig(
       return (
         <>
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">What to research?</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              What to research? <span className="text-destructive">*</span>
+            </Label>
             <Textarea
               value={node.config.query || ''}
               onChange={(e) => updateConfig('query', e.target.value)}
               placeholder="e.g., Latest AI news and breakthroughs"
               className="min-h-[100px] text-base"
+              required
             />
           </div>
 
@@ -295,44 +310,84 @@ function renderTypeConfig(
       return (
         <>
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Send to email</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Send to email <span className="text-destructive">*</span>
+            </Label>
             <Input
               value={node.config.to || ''}
               onChange={(e) => updateConfig('to', e.target.value)}
               placeholder="email@example.com"
               className="h-12"
+              required
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Subject line</Label>
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Subject line <span className="text-destructive">*</span>
+            </Label>
             <Input
               value={node.config.subject || ''}
               onChange={(e) => updateConfig('subject', e.target.value)}
               placeholder="Your research results"
               className="h-12"
+              required
             />
           </div>
-          <MessageField node={node} updateConfig={updateConfig} />
+          <MessageField node={node} updateConfig={updateConfig} required />
         </>
       );
 
     case 'action_slack':
+      return (
+        <>
+          <div className="space-y-2">
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Channel name <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={node.config.channel || ''}
+              onValueChange={(v) => updateConfig('channel', v)}
+            >
+              <SelectTrigger className="h-12">
+                <SelectValue placeholder="Select a channel" />
+              </SelectTrigger>
+              <SelectContent>
+                {SLACK_CHANNELS.map((ch) => (
+                  <SelectItem key={ch.value} value={ch.value}>
+                    {ch.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <MessageField node={node} updateConfig={updateConfig} required />
+        </>
+      );
+
     case 'action_discord':
       return (
         <>
           <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Channel name</Label>
-            <Input
+            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Channel name <span className="text-destructive">*</span>
+            </Label>
+            <Select
               value={node.config.channel || ''}
-              onChange={(e) => updateConfig('channel', e.target.value)}
-              placeholder={node.type === 'action_slack' ? 'general' : 'general'}
-              className="h-12"
-            />
-            <p className="text-xs text-muted-foreground">
-              {node.type === 'action_slack' ? '💬 Without the # symbol' : '💬 Your Discord channel'}
-            </p>
+              onValueChange={(v) => updateConfig('channel', v)}
+            >
+              <SelectTrigger className="h-12">
+                <SelectValue placeholder="Select a channel" />
+              </SelectTrigger>
+              <SelectContent>
+                {DISCORD_CHANNELS.map((ch) => (
+                  <SelectItem key={ch.value} value={ch.value}>
+                    {ch.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <MessageField node={node} updateConfig={updateConfig} />
+          <MessageField node={node} updateConfig={updateConfig} required />
         </>
       );
 
