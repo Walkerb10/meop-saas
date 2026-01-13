@@ -290,9 +290,7 @@ export function CreateAutomationWizard({
   const renderStep1 = () => <div className="space-y-4">
       <div className="text-center mb-6">
         <h2 className="text-xl font-semibold">What do you want to automate?</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Choose the type of action for your sequence
-        </p>
+        
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
