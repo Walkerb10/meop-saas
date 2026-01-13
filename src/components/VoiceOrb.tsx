@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic } from 'lucide-react';
+import { Mic, MicOff, Radio, Square } from 'lucide-react';
 import { AIState } from '@/types/agent';
 
 interface VoiceOrbProps {
@@ -13,20 +13,33 @@ interface VoiceOrbProps {
 export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVolume = 0 }: VoiceOrbProps) {
   // Calculate dynamic scale based on volume
   const volume = state === 'speaking' ? outputVolume : inputVolume;
-  const volumeScale = 1 + (volume * 0.15); // Scale up to 15% based on volume
+  const volumeScale = 1 + (volume * 0.15);
   
   // Number of wave bars based on volume
   const waveBarCount = 5;
   const waveHeights = Array.from({ length: waveBarCount }, (_, i) => {
     const baseHeight = 8;
     const maxExtraHeight = 28;
-    // Create varied heights based on position and volume
-    const positionFactor = 1 - Math.abs(i - 2) * 0.2; // Middle bars taller
+    const positionFactor = 1 - Math.abs(i - 2) * 0.2;
     return baseHeight + (volume * maxExtraHeight * positionFactor);
   });
 
-  // Only show status label when active and doing something
-  const showStatusLabel = isActive && (state === 'speaking' || state === 'listening' || state === 'thinking');
+  // Determine which icon to show based on state
+  const getIcon = () => {
+    if (!isActive) {
+      // Not active - show mic (ready to start)
+      return <Mic className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />;
+    }
+    if (state === 'thinking') {
+      // Connecting - show pulsing indicator
+      return <Radio className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground animate-pulse" />;
+    }
+    // Active call - show stop icon
+    return <Square className="w-8 h-8 md:w-10 md:h-10 text-primary-foreground fill-primary-foreground rounded-sm" />;
+  };
+
+  // Only show waves when there's volume
+  const showWaves = isActive && volume > 0.05;
 
   return (
     <div className="relative flex items-center justify-center">
@@ -83,7 +96,7 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
       >
         {/* Wave visualization when speaking or listening with volume */}
         <AnimatePresence>
-          {isActive && volume > 0.05 && (
+          {showWaves && (
             <motion.div 
               className="absolute inset-0 flex items-center justify-center gap-1"
               initial={{ opacity: 0 }}
@@ -102,44 +115,27 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
           )}
         </AnimatePresence>
 
-        {/* Mic icon - always show Mic (no slash) */}
-        <AnimatePresence>
-          {(!isActive || volume <= 0.05) && (
+        {/* Icon - changes based on state */}
+        <AnimatePresence mode="wait">
+          {!showWaves && (
             <motion.div
+              key={isActive ? 'active' : 'inactive'}
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              <Mic className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
+              {getIcon()}
             </motion.div>
           )}
         </AnimatePresence>
       </motion.button>
 
-      {/* State label - only show when active and doing something */}
-      <AnimatePresence>
-        {showStatusLabel && (
+      {/* State label - show connection status or tap to talk */}
+      <AnimatePresence mode="wait">
+        {!isActive ? (
           <motion.div
-            className="absolute -bottom-10 text-center"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.2 }}
-          >
-            <span className="text-sm font-medium text-muted-foreground capitalize">
-              {state === 'thinking' && 'Connecting...'}
-              {state === 'listening' && 'Listening...'}
-              {state === 'speaking' && 'Speaking...'}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Tap to talk - only show when inactive */}
-      <AnimatePresence>
-        {!isActive && (
-          <motion.div
+            key="tap"
             className="absolute -bottom-10 text-center"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -148,6 +144,32 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
           >
             <span className="text-sm font-medium text-muted-foreground">
               Tap to talk
+            </span>
+          </motion.div>
+        ) : state === 'thinking' ? (
+          <motion.div
+            key="connecting"
+            className="absolute -bottom-10 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.2 }}
+          >
+            <span className="text-sm font-medium text-muted-foreground">
+              Connecting...
+            </span>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="active"
+            className="absolute -bottom-10 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.2 }}
+          >
+            <span className="text-sm font-medium text-primary">
+              {state === 'speaking' ? 'Agent speaking' : 'Listening'}
             </span>
           </motion.div>
         )}

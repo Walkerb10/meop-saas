@@ -7,6 +7,7 @@ import {
 import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
+import { QuickAutomationForm } from '@/components/QuickAutomationForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -117,6 +118,7 @@ export default function AutomationsPage() {
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [executingNodeId, setExecutingNodeId] = useState<string | null>(null);
   const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
   const { tasks } = useTasks();
   const isMobile = useIsMobile();
   const processingCount = tasks.filter(t => t.status === 'processing').length;
@@ -195,6 +197,81 @@ export default function AutomationsPage() {
     ));
   }, []);
 
+  // Handle quick automation generation
+  const handleQuickGenerate = useCallback(async (data: {
+    input: string;
+    action: string;
+    output: string;
+    outputDestination: string;
+  }) => {
+    setIsGenerating(true);
+    
+    // Simulate AI processing
+    await new Promise(r => setTimeout(r, 1500));
+    
+    // Create nodes based on input
+    const nodes: WorkflowNode[] = [];
+    const connections: WorkflowConnection[] = [];
+    
+    // Add trigger node
+    const triggerId = crypto.randomUUID();
+    nodes.push({
+      id: triggerId,
+      type: 'trigger_schedule',
+      label: data.input.slice(0, 30) || 'Trigger',
+      position: { x: 150, y: 100 },
+      config: { frequency: 'daily', time: '09:00' },
+    });
+    
+    // Add action node
+    const actionId = crypto.randomUUID();
+    nodes.push({
+      id: actionId,
+      type: 'action_research',
+      label: 'Research',
+      position: { x: 150, y: 250 },
+      config: { query: data.action },
+    });
+    connections.push({ id: crypto.randomUUID(), sourceId: triggerId, targetId: actionId });
+    
+    // Add output node
+    const outputId = crypto.randomUUID();
+    const outputType = data.outputDestination === 'email' ? 'action_email' 
+      : data.outputDestination === 'text' ? 'action_text'
+      : data.outputDestination === 'discord' ? 'action_discord'
+      : 'action_slack';
+    
+    nodes.push({
+      id: outputId,
+      type: outputType,
+      label: `Send to ${data.outputDestination}`,
+      position: { x: 150, y: 400 },
+      config: { 
+        channel: data.output || 'general',
+        to: data.output,
+        message: '{{result}}',
+      },
+    });
+    connections.push({ id: crypto.randomUUID(), sourceId: actionId, targetId: outputId });
+    
+    // Create the workflow
+    const newWorkflow: Workflow = {
+      id: crypto.randomUUID(),
+      name: `${data.action.slice(0, 30)}...`,
+      description: `${data.input} → ${data.action} → ${data.outputDestination}`,
+      nodes,
+      connections,
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    setWorkflows(prev => [...prev, newWorkflow]);
+    setSelectedWorkflow(newWorkflow);
+    setIsGenerating(false);
+    toast.success('Automation created! Review and save.');
+  }, []);
+
   // Show builder when editing or creating
   if (selectedWorkflow || isCreating) {
     const BuilderComponent = isMobile ? MobileWorkflowBuilder : WorkflowBuilder;
@@ -231,81 +308,91 @@ export default function AutomationsPage() {
       tasksContent={<TasksPopoverContent />}
       taskCount={processingCount}
     >
-      <div className="p-6 max-w-6xl mx-auto">
+      <div className="p-4 md:p-6 max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Automations</h1>
-            <p className="text-muted-foreground mt-1">
-              Build visual workflows that automate your tasks
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">Automations</h1>
+            <p className="text-sm md:text-base text-muted-foreground mt-1">
+              Build workflows that automate your tasks
             </p>
           </div>
-          <Button onClick={() => setIsCreating(true)} className="gap-2">
+          <Button onClick={() => setIsCreating(true)} className="gap-2 w-full sm:w-auto">
             <Plus className="w-4 h-4" />
-            New Workflow
+            <span>New Workflow</span>
           </Button>
         </div>
 
         {/* Search and filters */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex items-center gap-2 md:gap-3 mb-6">
+          <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search workflows..."
+              placeholder="Search..."
               className="pl-10"
             />
           </div>
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
           </Button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        {/* Stats - responsive grid */}
+        <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
+            <CardContent className="p-2 md:p-4">
+              <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 text-center md:text-left">
                 <div className="p-2 rounded-lg bg-primary/10">
-                  <Zap className="w-5 h-5 text-primary" />
+                  <Zap className="w-4 h-4 md:w-5 md:h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{workflows.length}</p>
-                  <p className="text-sm text-muted-foreground">Total Workflows</p>
+                  <p className="text-lg md:text-2xl font-bold">{workflows.length}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Total</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
+            <CardContent className="p-2 md:p-4">
+              <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 text-center md:text-left">
                 <div className="p-2 rounded-lg bg-green-500/10">
-                  <Power className="w-5 h-5 text-green-500" />
+                  <Power className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{workflows.filter(w => w.isActive).length}</p>
-                  <p className="text-sm text-muted-foreground">Active</p>
+                  <p className="text-lg md:text-2xl font-bold">{workflows.filter(w => w.isActive).length}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Active</p>
                 </div>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
+            <CardContent className="p-2 md:p-4">
+              <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3 text-center md:text-left">
                 <div className="p-2 rounded-lg bg-blue-500/10">
-                  <Clock className="w-5 h-5 text-blue-500" />
+                  <Clock className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
+                  <p className="text-lg md:text-2xl font-bold">
                     {workflows.filter(w => w.lastRunAt).length}
                   </p>
-                  <p className="text-sm text-muted-foreground">Ran This Week</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Ran</p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Quick Create Form - Desktop only */}
+        {!isMobile && (
+          <div className="mb-6">
+            <QuickAutomationForm 
+              onGenerate={handleQuickGenerate}
+              isGenerating={isGenerating}
+            />
+          </div>
+        )}
 
         {/* Workflow list */}
         <div className="space-y-3">
@@ -325,39 +412,39 @@ export default function AutomationsPage() {
                   )}
                   onClick={() => setSelectedWorkflow(workflow)}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
+                  <CardContent className="p-3 md:p-4">
+                    <div className="flex items-center gap-3 md:gap-4">
                       {/* Icon */}
                       <div className={cn(
-                        'p-3 rounded-xl',
+                        'p-2 md:p-3 rounded-lg md:rounded-xl shrink-0',
                         workflow.isActive ? 'bg-primary/10' : 'bg-muted'
                       )}>
                         <Zap className={cn(
-                          'w-5 h-5',
+                          'w-4 h-4 md:w-5 md:h-5',
                           workflow.isActive ? 'text-primary' : 'text-muted-foreground'
                         )} />
                       </div>
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-foreground truncate">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-sm md:text-base text-foreground truncate max-w-[150px] md:max-w-none">
                             {workflow.name}
                           </h3>
-                          <Badge variant={workflow.isActive ? 'default' : 'secondary'} className="text-xs">
-                            {workflow.isActive ? 'Active' : 'Inactive'}
+                          <Badge variant={workflow.isActive ? 'default' : 'secondary'} className="text-[10px] md:text-xs">
+                            {workflow.isActive ? 'Active' : 'Off'}
                           </Badge>
                         </div>
                         {workflow.description && (
-                          <p className="text-sm text-muted-foreground truncate mt-0.5">
+                          <p className="text-xs md:text-sm text-muted-foreground truncate mt-0.5 hidden sm:block">
                             {workflow.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 md:gap-4 mt-1 md:mt-2 text-[10px] md:text-xs text-muted-foreground">
                           <span>{workflow.nodes.length} steps</span>
                           {workflow.lastRunAt && (
-                            <span>
-                              Last run {formatDistanceToNow(new Date(workflow.lastRunAt), { addSuffix: true })}
+                            <span className="hidden sm:inline">
+                              {formatDistanceToNow(new Date(workflow.lastRunAt), { addSuffix: true })}
                             </span>
                           )}
                         </div>

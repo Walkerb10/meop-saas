@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Bot, User } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
@@ -10,9 +10,9 @@ import { useVapiAgent, AgentStatus } from '@/hooks/useVapiAgent';
 import { cn } from '@/lib/utils';
 import { AIState } from '@/types/agent';
 
-interface TranscriptItem {
+interface TranscriptMessage {
   id: string;
-  text: string;
+  lines: string[];
   role: 'user' | 'assistant';
   timestamp: Date;
 }
@@ -34,19 +34,36 @@ const mapStatusToState = (status: AgentStatus): AIState => {
 export default function AgentPage() {
   const [inputValue, setInputValue] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
-  const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
+  const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastRoleRef = useRef<'user' | 'assistant' | null>(null);
 
-  const { isActive, status, toggle, inputVolume, outputVolume } = useVapiAgent({
-    onTranscript: (text, role) => {
-      setTranscript(prev => [...prev, { 
+  // Handle incoming transcripts - consolidate same speaker messages
+  const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
+    setMessages(prev => {
+      // If same role as last message, append to existing message
+      if (prev.length > 0 && prev[prev.length - 1].role === role) {
+        const updated = [...prev];
+        const lastMsg = { ...updated[updated.length - 1] };
+        lastMsg.lines = [...lastMsg.lines, text];
+        updated[updated.length - 1] = lastMsg;
+        return updated;
+      }
+      
+      // New speaker, create new message
+      return [...prev, {
         id: crypto.randomUUID(),
-        text, 
+        lines: [text],
         role,
         timestamp: new Date()
-      }]);
-    },
+      }];
+    });
+    lastRoleRef.current = role;
+  }, []);
+
+  const { isActive, status, toggle, inputVolume, outputVolume } = useVapiAgent({
+    onTranscript: handleTranscript,
   });
 
   const aiState = mapStatusToState(status);
@@ -63,7 +80,7 @@ export default function AgentPage() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [transcript]);
+  }, [messages]);
 
   const handleToggle = () => {
     toggle();
@@ -88,7 +105,8 @@ export default function AgentPage() {
 
   const handleNewChat = () => {
     setHasStarted(false);
-    setTranscript([]);
+    setMessages([]);
+    lastRoleRef.current = null;
     if (isActive) {
       toggle();
     }
@@ -155,7 +173,7 @@ export default function AgentPage() {
               >
                 <ScrollArea className="h-full" ref={scrollRef}>
                   <div className="max-w-2xl mx-auto space-y-4 py-4">
-                    {transcript.length === 0 ? (
+                    {messages.length === 0 ? (
                       <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -164,17 +182,17 @@ export default function AgentPage() {
                         {isActive ? 'Listening...' : 'Tap the mic to start talking'}
                       </motion.div>
                     ) : (
-                      transcript.map((item) => (
+                      messages.map((message) => (
                         <motion.div
-                          key={item.id}
+                          key={message.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           className={cn(
                             'flex gap-3',
-                            item.role === 'user' ? 'justify-end' : 'justify-start'
+                            message.role === 'user' ? 'justify-end' : 'justify-start'
                           )}
                         >
-                          {item.role === 'assistant' && (
+                          {message.role === 'assistant' && (
                             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                               <Bot className="w-4 h-4 text-primary" />
                             </div>
@@ -182,14 +200,19 @@ export default function AgentPage() {
                           <div
                             className={cn(
                               'max-w-[80%] rounded-2xl px-4 py-3',
-                              item.role === 'user'
+                              message.role === 'user'
                                 ? 'bg-primary text-primary-foreground'
                                 : 'bg-muted text-foreground'
                             )}
                           >
-                            <p className="text-sm whitespace-pre-wrap">{item.text}</p>
+                            {/* Render each line, with line breaks between them */}
+                            <div className="text-sm space-y-1">
+                              {message.lines.map((line, idx) => (
+                                <p key={idx} className="whitespace-pre-wrap">{line}</p>
+                              ))}
+                            </div>
                           </div>
-                          {item.role === 'user' && (
+                          {message.role === 'user' && (
                             <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
                               <User className="w-4 h-4 text-muted-foreground" />
                             </div>
