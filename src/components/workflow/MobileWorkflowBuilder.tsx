@@ -337,29 +337,49 @@ export function MobileWorkflowBuilder({
             </SheetHeader>
             <ScrollArea className="h-full mt-4">
               <div className="space-y-4 pb-8">
-                {['Triggers', 'Actions', 'Logic'].map(category => {
-                  const categoryNodes = NODE_TYPES.filter(n => n.category === category);
-                  if (categoryNodes.length === 0) return null;
-
-                  return (
-                    <div key={category}>
-                      <p className="text-sm font-medium text-muted-foreground mb-2">{category}</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {categoryNodes.map(node => (
-                          <Button
-                            key={node.type}
-                            variant="outline"
-                            className="justify-start gap-2 h-auto py-3"
-                            onClick={() => addStep(node.type)}
-                          >
-                            {node.icon}
-                            {node.label}
-                          </Button>
-                        ))}
-                      </div>
+                {/* Show Triggers only if no steps yet, otherwise show Actions/Logic */}
+                {steps.length === 0 ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Start with a Trigger</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {NODE_TYPES.filter(n => n.category === 'Triggers').map(node => (
+                        <Button
+                          key={node.type}
+                          variant="outline"
+                          className="justify-start gap-2 h-auto py-3"
+                          onClick={() => addStep(node.type)}
+                        >
+                          {node.icon}
+                          {node.label}
+                        </Button>
+                      ))}
                     </div>
-                  );
-                })}
+                  </div>
+                ) : (
+                  ['Actions', 'Logic'].map(category => {
+                    const categoryNodes = NODE_TYPES.filter(n => n.category === category);
+                    if (categoryNodes.length === 0) return null;
+
+                    return (
+                      <div key={category}>
+                        <p className="text-sm font-medium text-muted-foreground mb-2">{category}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {categoryNodes.map(node => (
+                            <Button
+                              key={node.type}
+                              variant="outline"
+                              className="justify-start gap-2 h-auto py-3"
+                              onClick={() => addStep(node.type)}
+                            >
+                              {node.icon}
+                              {node.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </ScrollArea>
           </SheetContent>
