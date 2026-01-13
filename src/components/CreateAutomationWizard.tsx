@@ -296,30 +296,23 @@ export function CreateAutomationWizard({
     }
   };
   const renderStep1 = () => <div className="space-y-4">
-      <div className="text-center mb-6">
+      <div className="text-center mb-4">
         <h2 className="text-xl font-semibold">What do you want to automate?</h2>
-        
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {ACTION_OPTIONS.map(option => <motion.button key={option.type} whileHover={{
         scale: 1.02
       }} whileTap={{
         scale: 0.98
       }} onClick={() => {
         setSelectedType(option.type);
-        // Don't set default name - user must enter it
         setStep(2);
-      }} className={cn('flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left', 'border-border hover:border-primary/50 hover:bg-accent/50')}>
-            <div className={cn('w-12 h-12 rounded-lg flex items-center justify-center border', option.color)}>
+      }} className={cn('flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center', 'border-border hover:border-primary/50 hover:bg-accent/50')}>
+            <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center border', option.color)}>
               {option.icon}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium">{option.label}</p>
-              <p className="text-xs text-muted-foreground truncate">
-                {option.description}
-              </p>
-            </div>
+            <p className="font-medium text-sm">{option.label}</p>
           </motion.button>)}
       </div>
     </div>;
@@ -619,7 +612,7 @@ export function CreateAutomationWizard({
     </div>;
   return <div className="min-h-full flex flex-col">
       {/* Progress indicator */}
-      <div className="flex items-center justify-center gap-2 py-4 border-b">
+      <div className="flex items-center justify-center gap-2 py-4">
         <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors', step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
           1
         </div>

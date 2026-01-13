@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User } from 'lucide-react';
+import { Send, Bot, User, Mic } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,7 +63,15 @@ export default function AgentPage() {
     lastRoleRef.current = role;
   }, []);
 
-  const { isActive, status, toggle, inputVolume, outputVolume } = useVapiAgent({
+  const { 
+    isActive, 
+    status, 
+    toggle, 
+    inputVolume, 
+    outputVolume, 
+    sendMessage,
+    startNewConversation 
+  } = useVapiAgent({
     onTranscript: handleTranscript,
   });
 
@@ -94,12 +102,20 @@ export default function AgentPage() {
 
   const handleSendText = () => {
     if (!inputValue.trim()) return;
-    // For now, start voice if not active
-    if (!isActive) {
+    
+    if (isActive) {
+      // Send to live Vapi session
+      sendMessage(inputValue);
+    } else {
+      // Start voice and queue message
+      setHasStarted(true);
       toggle();
+      // After short delay, send the message
+      setTimeout(() => {
+        sendMessage(inputValue);
+      }, 1500);
     }
     setInputValue('');
-    setHasStarted(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -113,9 +129,19 @@ export default function AgentPage() {
     setHasStarted(false);
     setMessages([]);
     lastRoleRef.current = null;
+    startNewConversation();
     if (isActive) {
       toggle();
     }
+  };
+
+  // Dictation handler
+  const handleDictation = () => {
+    if (!isActive) {
+      setHasStarted(true);
+      toggle();
+    }
+    inputRef.current?.focus();
   };
 
   return (
@@ -241,12 +267,25 @@ export default function AgentPage() {
         {/* Bottom Input Bar */}
         <div className="sticky bottom-0 p-4 bg-background/80 backdrop-blur-sm border-t border-border">
           <div className="max-w-2xl mx-auto flex gap-2">
+            {/* Dictation mic button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDictation}
+              className={cn(
+                'shrink-0 transition-colors',
+                isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Mic className="w-4 h-4" />
+            </Button>
+            
             <Input
               ref={inputRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
+              placeholder={isActive ? "Type to send to agent..." : "Type a message..."}
               className="flex-1 bg-muted/50"
             />
             <Button
