@@ -30,6 +30,26 @@ export function useRAGChat() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      const userId = session?.user?.id;
+
+      // Save user message to database for embedding
+      if (userId) {
+        const conversationId = crypto.randomUUID();
+        supabase.from('conversation_transcripts').insert({
+          role: 'user',
+          content,
+          conversation_id: conversationId,
+          user_id: userId,
+          raw_payload: { source: 'rag-chat', timestamp: new Date().toISOString() },
+        }).select('id').single().then(({ data }) => {
+          if (data?.id) {
+            // Generate embedding asynchronously
+            supabase.functions.invoke('generate-conversation-embedding', {
+              body: { transcriptId: data.id, content },
+            });
+          }
+        });
+      }
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/rag-chat`,

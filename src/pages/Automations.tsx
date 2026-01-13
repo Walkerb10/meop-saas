@@ -2,8 +2,9 @@ import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Search, Play, Clock, Zap, ChevronRight, 
-  MoreHorizontal, Trash2, Power, PowerOff, Loader2, Filter
+  MoreHorizontal, Trash2, Power, PowerOff, Loader2, Filter, Upload
 } from 'lucide-react';
+import { RAGUploader } from '@/components/RAGUploader';
 import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
@@ -360,10 +361,13 @@ export default function AutomationsPage() {
               Build workflows that automate your tasks
             </p>
           </div>
-          <Button onClick={() => setIsCreating(true)} className="gap-2 w-full sm:w-auto">
-            <Plus className="w-4 h-4" />
-            <span>New Workflow</span>
-          </Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <RAGUploader />
+            <Button onClick={() => setIsCreating(true)} className="gap-2 flex-1 sm:flex-initial">
+              <Plus className="w-4 h-4" />
+              <span>New Workflow</span>
+            </Button>
+          </div>
         </div>
 
         {/* Search and filters */}
