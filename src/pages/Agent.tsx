@@ -133,7 +133,7 @@ export default function AgentPage() {
               hasStarted ? "py-6" : "flex-1"
             )}
             layout
-            transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+            transition={{ type: 'spring', stiffness: 80, damping: 20, duration: 0.8 }}
           >
             {/* Tagline - Only show when not started */}
             <AnimatePresence>
