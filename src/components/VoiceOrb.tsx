@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import { AIState } from '@/types/agent';
 
 interface VoiceOrbProps {
@@ -24,6 +24,9 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
     const positionFactor = 1 - Math.abs(i - 2) * 0.2; // Middle bars taller
     return baseHeight + (volume * maxExtraHeight * positionFactor);
   });
+
+  // Only show status label when active and doing something
+  const showStatusLabel = isActive && (state === 'speaking' || state === 'listening' || state === 'thinking');
 
   return (
     <div className="relative flex items-center justify-center">
@@ -99,7 +102,7 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
           )}
         </AnimatePresence>
 
-        {/* Icon - show when no significant volume */}
+        {/* Agent icon - always show the Bot icon (no slash for inactive) */}
         <AnimatePresence>
           {(!isActive || volume <= 0.05) && (
             <motion.div
@@ -108,31 +111,47 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
               exit={{ scale: 0, opacity: 0 }}
               transition={{ duration: 0.15 }}
             >
-              {isActive ? (
-                <Mic className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
-              ) : (
-                <MicOff className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground/80" />
-              )}
+              <Bot className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
             </motion.div>
           )}
         </AnimatePresence>
       </motion.button>
 
-      {/* State label */}
-      <motion.div
-        className="absolute -bottom-10 text-center"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <span className="text-sm font-medium text-muted-foreground capitalize">
-          {!isActive && 'Tap to talk'}
-          {isActive && state === 'thinking' && 'Connecting...'}
-          {isActive && state === 'listening' && 'Listening...'}
-          {isActive && state === 'speaking' && 'Speaking...'}
-          {isActive && state === 'idle' && 'Ready'}
-        </span>
-      </motion.div>
+      {/* State label - only show when active and doing something */}
+      <AnimatePresence>
+        {showStatusLabel && (
+          <motion.div
+            className="absolute -bottom-10 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.2 }}
+          >
+            <span className="text-sm font-medium text-muted-foreground capitalize">
+              {state === 'thinking' && 'Connecting...'}
+              {state === 'listening' && 'Listening...'}
+              {state === 'speaking' && 'Speaking...'}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tap to talk - only show when inactive */}
+      <AnimatePresence>
+        {!isActive && (
+          <motion.div
+            className="absolute -bottom-10 text-center"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.2 }}
+          >
+            <span className="text-sm font-medium text-muted-foreground">
+              Tap to talk
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
