@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useVapiPreload } from "@/hooks/useVapiPreload";
 import Index from "./pages/Index";
 import Agent from "./pages/Agent";
 import ScheduledActions from "./pages/ScheduledActions";
@@ -21,9 +22,16 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Preload Vapi SDK on app mount
+function VapiPreloader() {
+  useVapiPreload();
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      <VapiPreloader />
       <Toaster />
       <Sonner />
       <BrowserRouter>

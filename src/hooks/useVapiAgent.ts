@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Vapi from '@vapi-ai/web';
 import { supabase } from '@/integrations/supabase/client';
+import { getVapiInstance } from './useVapiPreload';
 
 export type AgentStatus = 'idle' | 'connecting' | 'listening' | 'speaking';
 
@@ -10,8 +11,7 @@ interface UseVapiAgentOptions {
   conversationId?: string;
 }
 
-// Vapi public key and assistant ID
-const VAPI_PUBLIC_KEY = '2ae7fd34-1277-4b62-bebe-b995ec39222e';
+// Vapi assistant ID
 const VAPI_ASSISTANT_ID = '9526dfda-7749-42f3-af9c-0dfec7fdd6cd';
 
 export function useVapiAgent({
@@ -157,11 +157,11 @@ export function useVapiAgent({
   startMicAnalyzerRef.current = startMicAnalyzer;
   stopMicAnalyzerRef.current = stopMicAnalyzer;
 
-  // Initialize Vapi instance
+  // Initialize Vapi instance (uses pre-loaded singleton)
   useEffect(() => {
     if (!vapiRef.current) {
-      console.log('🎙️ Initializing Vapi SDK...');
-      vapiRef.current = new Vapi(VAPI_PUBLIC_KEY);
+      console.log('🎙️ Getting Vapi instance...');
+      vapiRef.current = getVapiInstance();
 
       const vapi = vapiRef.current;
 
@@ -250,7 +250,7 @@ export function useVapiAgent({
 
   const start = useCallback(async () => {
     if (!vapiRef.current) {
-      vapiRef.current = new Vapi(VAPI_PUBLIC_KEY);
+      vapiRef.current = getVapiInstance();
     }
 
     if (isActive) {
