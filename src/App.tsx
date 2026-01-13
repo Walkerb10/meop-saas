@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Agent from "./pages/Agent";
 import ScheduledActions from "./pages/ScheduledActions";
 import Automations from "./pages/Automations";
+import CRM from "./pages/CRM";
 import Sequences from "./pages/Sequences";
 import Settings from "./pages/Settings";
 import Executions from "./pages/Executions";
@@ -43,6 +44,7 @@ const App = () => (
           <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
           <Route path="/scheduled-actions" element={<ProtectedRoute><ScheduledActions /></ProtectedRoute>} />
           <Route path="/automations" element={<ProtectedRoute><Automations /></ProtectedRoute>} />
+          <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
           <Route path="/sequences" element={<ProtectedRoute><Sequences /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/executions" element={<ProtectedRoute><Executions /></ProtectedRoute>} />
