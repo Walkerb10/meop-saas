@@ -7,6 +7,7 @@ import { ChatPermissionsManager } from '@/components/ChatPermissionsManager';
 import { FeatureAccessManager } from '@/components/FeatureAccessManager';
 import { AdminFeedbackList } from '@/components/AdminFeedbackList';
 import { AITrainingManager } from '@/components/AITrainingManager';
+import { ContactsManager } from '@/components/ContactsManager';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,6 +39,7 @@ import {
   Loader2,
   MessageSquare,
   Brain,
+  Contact,
 } from 'lucide-react';
 
 function UserManagementTab() {
@@ -657,6 +659,10 @@ export default function AdminDashboard() {
               <Users className="w-4 h-4" />
               Users
             </TabsTrigger>
+            <TabsTrigger value="contacts" className="gap-2">
+              <Contact className="w-4 h-4" />
+              Contacts
+            </TabsTrigger>
             <TabsTrigger value="feedback" className="gap-2">
               <MessageSquare className="w-4 h-4" />
               Feedback
@@ -687,6 +693,10 @@ export default function AdminDashboard() {
 
           <TabsContent value="users">
             <UserManagementTab />
+          </TabsContent>
+
+          <TabsContent value="contacts">
+            <ContactsManager />
           </TabsContent>
 
           <TabsContent value="feedback">
