@@ -4,7 +4,7 @@ import { Send, Bot, User } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { VoiceOrb } from '@/components/VoiceOrb';
 import { useVapiAgent, AgentStatus } from '@/hooks/useVapiAgent';
 import { cn } from '@/lib/utils';
@@ -35,7 +35,8 @@ export default function AgentPage() {
   const [inputValue, setInputValue] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRoleRef = useRef<'user' | 'assistant' | null>(null);
 
@@ -77,12 +78,10 @@ export default function AgentPage() {
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    // Use requestAnimationFrame to ensure scroll happens after render
-    requestAnimationFrame(() => {
-      if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-      }
-    });
+    // Scroll the end marker into view
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
   }, [messages]);
 
   const handleToggle = () => {
@@ -174,7 +173,10 @@ export default function AgentPage() {
                 exit={{ opacity: 0, height: 0 }}
                 className="flex-1 overflow-hidden px-4 mt-4"
               >
-                <ScrollArea className="h-full" ref={scrollRef}>
+                <div 
+                  ref={scrollContainerRef}
+                  className="h-full overflow-y-auto"
+                >
                   <div className="max-w-2xl mx-auto space-y-4 py-4 pb-8">
                     {messages.length === 0 ? (
                       <motion.div 
@@ -223,8 +225,10 @@ export default function AgentPage() {
                         </motion.div>
                       ))
                     )}
+                    {/* Scroll anchor - always at bottom */}
+                    <div ref={messagesEndRef} />
                   </div>
-                </ScrollArea>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
