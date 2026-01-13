@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, MicOff, Volume2, VolumeX, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ interface VoiceInterfaceProps {
   onSendMessage?: (message: string) => Promise<string>;
   size?: 'small' | 'normal' | 'large';
   showTranscript?: boolean;
+  autoRespond?: boolean;
 }
 
 export function VoiceInterface({ 
@@ -18,19 +19,22 @@ export function VoiceInterface({
   onSendMessage,
   size = 'normal',
   showTranscript = true,
+  autoRespond = true,
 }: VoiceInterfaceProps) {
   const [processing, setProcessing] = useState(false);
   const [lastTranscript, setLastTranscript] = useState('');
+  const [lastResponse, setLastResponse] = useState('');
   const { toast } = useToast();
 
   const handleTranscript = useCallback(async (text: string) => {
     setLastTranscript(text);
     onTranscript?.(text);
 
-    if (onSendMessage && text.trim()) {
+    if (autoRespond && onSendMessage && text.trim()) {
       setProcessing(true);
       try {
         const response = await onSendMessage(text);
+        setLastResponse(response);
         speak(response);
       } catch (error) {
         toast({
@@ -42,13 +46,18 @@ export function VoiceInterface({
         setProcessing(false);
       }
     }
-  }, [onTranscript, onSendMessage, toast]);
+  }, [onTranscript, onSendMessage, autoRespond, toast]);
 
   const handleError = useCallback((error: string) => {
+    // Don't show error for common non-critical issues
+    if (error === 'no-speech' || error === 'aborted') return;
+    
     toast({
       variant: 'destructive',
       title: 'Voice Error',
-      description: error,
+      description: error === 'not-allowed' 
+        ? 'Please allow microphone access to use voice input' 
+        : error,
     });
   }, [toast]);
 
@@ -57,8 +66,6 @@ export function VoiceInterface({
     isListening,
     isSupported,
     interimTranscript,
-    startListening,
-    stopListening,
     speak,
     stopSpeaking,
     toggle,
@@ -70,15 +77,15 @@ export function VoiceInterface({
   const combinedStatus: VoiceStatus = processing ? 'processing' : status;
 
   const sizeClasses = {
-    small: 'w-12 h-12',
-    normal: 'w-20 h-20',
-    large: 'w-28 h-28',
+    small: 'w-14 h-14',
+    normal: 'w-24 h-24',
+    large: 'w-32 h-32',
   };
 
   const iconSizes = {
-    small: 'w-5 h-5',
-    normal: 'w-8 h-8',
-    large: 'w-10 h-10',
+    small: 'w-6 h-6',
+    normal: 'w-10 h-10',
+    large: 'w-12 h-12',
   };
 
   if (!isSupported) {
@@ -95,7 +102,7 @@ export function VoiceInterface({
 
   return (
     <div className="flex flex-col items-center gap-4">
-      {/* Main Voice Button */}
+      {/* Main Voice Orb */}
       <div className="relative">
         {/* Ripple effects when listening */}
         <AnimatePresence>
@@ -104,13 +111,14 @@ export function VoiceInterface({
               {[1, 2, 3].map((i) => (
                 <motion.div
                   key={i}
-                  className="absolute inset-0 rounded-full bg-primary/20"
-                  initial={{ scale: 1, opacity: 0.5 }}
-                  animate={{ scale: 1.5 + i * 0.3, opacity: 0 }}
+                  className="absolute inset-0 rounded-full bg-primary/30"
+                  initial={{ scale: 1, opacity: 0.6 }}
+                  animate={{ scale: 1.5 + i * 0.4, opacity: 0 }}
                   transition={{
-                    duration: 1.5,
+                    duration: 2,
                     repeat: Infinity,
-                    delay: i * 0.3,
+                    delay: i * 0.4,
+                    ease: 'easeOut',
                   }}
                 />
               ))}
@@ -118,92 +126,138 @@ export function VoiceInterface({
           )}
         </AnimatePresence>
 
-        {/* Speaking indicator */}
+        {/* Speaking pulse */}
         <AnimatePresence>
           {combinedStatus === 'speaking' && (
             <motion.div
               className="absolute inset-0 rounded-full"
               initial={{ opacity: 0 }}
-              animate={{ 
-                opacity: 1,
-                boxShadow: [
-                  '0 0 0 0 hsl(var(--primary) / 0.4)',
-                  '0 0 30px 10px hsl(var(--primary) / 0.2)',
-                  '0 0 0 0 hsl(var(--primary) / 0.4)',
-                ],
+              animate={{
+                opacity: [0.3, 0.6, 0.3],
+                scale: [1, 1.1, 1],
               }}
               transition={{ duration: 0.8, repeat: Infinity }}
+              style={{
+                background: 'radial-gradient(circle, hsl(var(--primary) / 0.3) 0%, transparent 70%)',
+              }}
             />
           )}
         </AnimatePresence>
 
+        {/* Main orb button */}
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: processing ? 1 : 1.05 }}
+          whileTap={{ scale: processing ? 1 : 0.95 }}
           onClick={toggle}
           disabled={processing}
-          className={`relative ${sizeClasses[size]} rounded-full flex items-center justify-center transition-all ${
-            isListening
-              ? 'bg-primary text-primary-foreground shadow-[0_0_40px_hsl(var(--primary)/0.5)]'
+          className={`relative ${sizeClasses[size]} rounded-full flex items-center justify-center transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
+          style={{
+            background: isListening 
+              ? 'linear-gradient(135deg, hsl(var(--primary)), hsl(280 70% 50%))'
               : combinedStatus === 'speaking'
-              ? 'bg-green-500 text-white'
-              : 'bg-secondary text-foreground hover:bg-primary/10'
-          }`}
+              ? 'linear-gradient(135deg, hsl(142 70% 45%), hsl(160 70% 40%))'
+              : 'linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--muted)))',
+            boxShadow: isListening 
+              ? '0 0 40px hsl(var(--primary) / 0.5), 0 10px 30px rgba(0,0,0,0.3)'
+              : combinedStatus === 'speaking'
+              ? '0 0 40px hsl(142 70% 45% / 0.5), 0 10px 30px rgba(0,0,0,0.3)'
+              : '0 10px 30px rgba(0,0,0,0.2)',
+          }}
         >
-          {processing ? (
-            <Loader2 className={`${iconSizes[size]} animate-spin`} />
-          ) : isListening ? (
-            <Mic className={iconSizes[size]} />
+          {/* Inner glow */}
+          <div 
+            className="absolute inset-2 rounded-full opacity-50"
+            style={{
+              background: 'radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4), transparent 60%)',
+            }}
+          />
+          
+          {/* Icon */}
+          {combinedStatus === 'processing' ? (
+            <Loader2 className={`${iconSizes[size]} text-white animate-spin`} />
           ) : combinedStatus === 'speaking' ? (
-            <Volume2 className={iconSizes[size]} />
+            <Volume2 className={`${iconSizes[size]} text-white`} />
+          ) : isListening ? (
+            <Mic className={`${iconSizes[size]} text-white`} />
           ) : (
-            <MicOff className={iconSizes[size]} />
+            <MicOff className={`${iconSizes[size]} text-foreground/70`} />
           )}
         </motion.button>
       </div>
 
       {/* Status Badge */}
       <Badge 
-        variant={isListening ? 'default' : 'secondary'}
-        className="capitalize"
+        variant={isListening ? 'default' : combinedStatus === 'speaking' ? 'default' : 'secondary'}
+        className={`capitalize transition-all ${
+          isListening ? 'bg-primary' : combinedStatus === 'speaking' ? 'bg-green-500' : ''
+        }`}
       >
         {combinedStatus === 'idle' && 'Tap to talk'}
-        {combinedStatus === 'listening' && 'Listening...'}
-        {combinedStatus === 'processing' && 'Thinking...'}
-        {combinedStatus === 'speaking' && 'Speaking...'}
+        {combinedStatus === 'listening' && '🎤 Listening...'}
+        {combinedStatus === 'processing' && '🤔 Thinking...'}
+        {combinedStatus === 'speaking' && '🔊 Speaking...'}
       </Badge>
 
       {/* Transcript Display */}
-      {showTranscript && (interimTranscript || lastTranscript) && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md text-center"
-        >
-          {interimTranscript && (
-            <p className="text-sm text-muted-foreground italic">
-              {interimTranscript}
-            </p>
-          )}
+      {showTranscript && (
+        <div className="max-w-md text-center space-y-2">
+          <AnimatePresence mode="wait">
+            {interimTranscript && (
+              <motion.p
+                key="interim"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -5 }}
+                className="text-sm text-muted-foreground italic"
+              >
+                {interimTranscript}
+              </motion.p>
+            )}
+          </AnimatePresence>
+          
           {lastTranscript && !interimTranscript && (
-            <p className="text-sm text-foreground">
-              "{lastTranscript}"
-            </p>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-2"
+            >
+              <p className="text-sm text-foreground bg-primary/10 rounded-lg px-3 py-2">
+                <span className="text-xs text-muted-foreground">You:</span> {lastTranscript}
+              </p>
+              {lastResponse && (
+                <p className="text-sm text-foreground bg-secondary rounded-lg px-3 py-2">
+                  <span className="text-xs text-muted-foreground">AI:</span> {lastResponse.slice(0, 150)}
+                  {lastResponse.length > 150 && '...'}
+                </p>
+              )}
+            </motion.div>
           )}
-        </motion.div>
+        </div>
       )}
 
       {/* Stop speaking button */}
       {combinedStatus === 'speaking' && (
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={stopSpeaking}
-          className="gap-2"
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
         >
-          <VolumeX className="w-4 h-4" />
-          Stop
-        </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={stopSpeaking}
+            className="gap-2"
+          >
+            <VolumeX className="w-4 h-4" />
+            Stop Speaking
+          </Button>
+        </motion.div>
+      )}
+
+      {/* Hint text */}
+      {combinedStatus === 'idle' && !lastTranscript && (
+        <p className="text-xs text-muted-foreground text-center max-w-xs">
+          Click the orb and speak. The AI will listen, process, and respond with voice.
+        </p>
       )}
     </div>
   );

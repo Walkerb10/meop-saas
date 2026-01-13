@@ -13,13 +13,22 @@ import {
   MessageSquare,
   Search,
   Mail,
-  Pencil
+  Pencil,
+  ChevronDown,
+  Filter,
+  Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { AppLayout } from '@/components/AppLayout';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { useTimezone } from '@/hooks/useTimezone';
+import { formatDistanceToNow } from 'date-fns';
 
 // Discord icon component
 function DiscordIcon({ className }: { className?: string }) {
@@ -85,14 +94,12 @@ const formatDuration = (ms: number | null): string => {
   return `${minutes}m ${seconds}s`;
 };
 
-// Check if output is from a research execution
 const isResearchOutput = (output: Json | null): output is { content: string; citations?: string[] } => {
   if (!output || typeof output !== 'object' || Array.isArray(output)) return false;
   const obj = output as Record<string, unknown>;
   return typeof obj.content === 'string';
 };
 
-// Format research content with nice styling
 const ResearchOutput = ({ data }: { data: { content: string; citations?: string[] } }) => {
   return (
     <div className="space-y-4">
@@ -122,13 +129,12 @@ const ResearchOutput = ({ data }: { data: { content: string; citations?: string[
   );
 };
 
-// Detect platform from execution data
 const detectPlatform = (execution: Execution): { name: string; icon: React.ComponentType<{ className?: string }> } => {
   const input = execution.input_data as Record<string, unknown> | null;
   const name = execution.sequence_name.toLowerCase();
   
   if (name.includes('research') || input?.action_type === 'research') {
-    return { name: 'Research (Perplexity)', icon: Search };
+    return { name: 'Research', icon: Search };
   }
   if (name.includes('email') || input?.action_type === 'send_email') {
     return { name: 'Email', icon: Mail };
@@ -139,28 +145,11 @@ const detectPlatform = (execution: Execution): { name: string; icon: React.Compo
   if (name.includes('discord') || input?.action_type === 'discord_message') {
     return { name: 'Discord', icon: DiscordIcon };
   }
-  return { name: 'Text (SMS)', icon: MessageSquare };
+  return { name: 'Text', icon: MessageSquare };
 };
 
 type ExecutionTypeFilter = 'all' | 'research' | 'email' | 'slack' | 'discord' | 'text';
 type StatusFilter = 'all' | 'completed' | 'failed' | 'running' | 'pending_review';
-
-const EXECUTION_TYPE_FILTERS = [
-  { id: 'all' as const, label: 'All Types', icon: Clock },
-  { id: 'text' as const, label: 'Text', icon: MessageSquare },
-  { id: 'research' as const, label: 'Research', icon: Search },
-  { id: 'email' as const, label: 'Email', icon: Mail },
-  { id: 'slack' as const, label: 'Slack', icon: SlackIcon },
-  { id: 'discord' as const, label: 'Discord', icon: DiscordIcon },
-];
-
-const STATUS_FILTERS = [
-  { id: 'all' as const, label: 'All Statuses' },
-  { id: 'completed' as const, label: 'Completed' },
-  { id: 'running' as const, label: 'Running' },
-  { id: 'failed' as const, label: 'Failed' },
-  { id: 'pending_review' as const, label: 'Pending Review' },
-];
 
 const Executions = () => {
   const [executions, setExecutions] = useState<Execution[]>([]);
@@ -170,10 +159,10 @@ const Executions = () => {
   const [loadingAutomation, setLoadingAutomation] = useState(false);
   const [typeFilter, setTypeFilter] = useState<ExecutionTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const { formatTime } = useTimezone();
   const navigate = useNavigate();
 
-  // Get the type of an execution
   const getExecutionType = (execution: Execution): ExecutionTypeFilter => {
     const platform = detectPlatform(execution);
     if (platform.name.includes('Research')) return 'research';
@@ -183,11 +172,12 @@ const Executions = () => {
     return 'text';
   };
 
-  // Filtered executions
   const filteredExecutions = executions.filter(execution => {
     const typeMatch = typeFilter === 'all' || getExecutionType(execution) === typeFilter;
     const statusMatch = statusFilter === 'all' || execution.status === statusFilter;
-    return typeMatch && statusMatch;
+    const searchMatch = !searchQuery || 
+      execution.sequence_name.toLowerCase().includes(searchQuery.toLowerCase());
+    return typeMatch && statusMatch && searchMatch;
   });
 
   const fetchExecutions = async () => {
@@ -195,7 +185,7 @@ const Executions = () => {
       .from('executions')
       .select('*')
       .order('started_at', { ascending: false })
-      .limit(50);
+      .limit(100);
 
     if (!error && data) {
       setExecutions(data);
@@ -203,12 +193,10 @@ const Executions = () => {
     setLoading(false);
   };
 
-  // Find linked automation by name match
   const fetchLinkedAutomation = async (sequenceName: string) => {
     setLoadingAutomation(true);
     setLinkedAutomation(null);
     
-    // Try exact match first, then partial
     const { data } = await supabase
       .from('automations')
       .select('id, name, steps')
@@ -224,8 +212,9 @@ const Executions = () => {
   useEffect(() => {
     fetchExecutions();
 
+    // Real-time subscription
     const channel = supabase
-      .channel('executions-changes')
+      .channel('executions-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'executions' },
@@ -244,27 +233,20 @@ const Executions = () => {
     }
   }, [selectedExecution]);
 
-  const handleSelectExecution = (execution: Execution) => {
-    setSelectedExecution(execution);
-  };
-
-  const handleBack = () => {
-    setSelectedExecution(null);
-    setLinkedAutomation(null);
-  };
-
-  const handleEditAutomation = () => {
-    if (linkedAutomation) {
-      navigate(`/scheduled-actions?edit=${linkedAutomation.id}`);
-    }
-  };
-
   const formatDateTime = (dateStr: string) => {
     const date = new Date(dateStr);
     return {
       date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       time: formatTime(date.toTimeString().slice(0, 5)),
     };
+  };
+
+  // Stats summary
+  const stats = {
+    total: executions.length,
+    completed: executions.filter(e => e.status === 'completed').length,
+    running: executions.filter(e => e.status === 'running').length,
+    failed: executions.filter(e => e.status === 'failed').length,
   };
 
   // Detail View
@@ -285,7 +267,7 @@ const Executions = () => {
           >
             {/* Header */}
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={handleBack}>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedExecution(null)}>
                 <ArrowLeft className="w-4 h-4" />
               </Button>
               <div className="flex-1">
@@ -305,7 +287,7 @@ const Executions = () => {
               </div>
             </div>
 
-            {/* Source Automation - Prominent placement */}
+            {/* Source Automation */}
             {(loadingAutomation || linkedAutomation) && (
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
                 {loadingAutomation ? (
@@ -324,7 +306,7 @@ const Executions = () => {
                         <p className="text-xs text-muted-foreground">Source Automation</p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleEditAutomation} className="gap-2">
+                    <Button variant="outline" size="sm" onClick={() => navigate(`/scheduled-actions?edit=${linkedAutomation.id}`)} className="gap-2">
                       <Pencil className="w-3.5 h-3.5" />
                       Edit Automation
                     </Button>
@@ -333,7 +315,7 @@ const Executions = () => {
               </div>
             )}
 
-            {/* OUTPUT FIRST - The main result */}
+            {/* Output */}
             {selectedExecution.output_data && (
               <div className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="px-6 py-4 border-b border-border bg-muted/30">
@@ -361,11 +343,10 @@ const Executions = () => {
               </div>
             )}
 
-            {/* Execution Details - Collapsible secondary info */}
+            {/* Execution Details */}
             <div className="rounded-xl border border-border bg-card p-6 space-y-6">
               <h3 className="font-medium">Execution Details</h3>
               
-              {/* Timing Section */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="rounded-lg bg-secondary/30 p-4">
                   <p className="text-xs text-muted-foreground mb-1">Started</p>
@@ -393,7 +374,6 @@ const Executions = () => {
                 </div>
               </div>
 
-              {/* Input Data */}
               {selectedExecution.input_data && (
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground mb-3">Input Data</h4>
@@ -419,153 +399,168 @@ const Executions = () => {
             <div>
               <h1 className="text-xl font-semibold">Executions</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Track automation executions and their results
+                Real-time monitoring of all automation runs
               </p>
             </div>
-            <Button variant="ghost" size="icon" onClick={fetchExecutions}>
+            <Button variant="outline" size="sm" onClick={fetchExecutions} className="gap-2">
               <RefreshCw className="w-4 h-4" />
+              Refresh
             </Button>
           </div>
-          
-          {/* Filters */}
-          <div className="flex flex-wrap gap-2">
-            {/* Type filters */}
-            <div className="flex gap-1 overflow-x-auto pb-1">
-              {EXECUTION_TYPE_FILTERS.map(filter => {
-                const Icon = filter.icon;
-                const count = filter.id === 'all' 
-                  ? executions.length 
-                  : executions.filter(e => getExecutionType(e) === filter.id).length;
-                return (
-                  <Button
-                    key={filter.id}
-                    variant={typeFilter === filter.id ? 'default' : 'outline'}
-                    size="sm"
-                    className="gap-1.5 text-xs whitespace-nowrap"
-                    onClick={() => setTypeFilter(filter.id)}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {filter.label}
-                    <span className="text-[10px] opacity-70">({count})</span>
-                  </Button>
-                );
-              })}
+
+          {/* Stats */}
+          {!loading && (
+            <div className="flex gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm">{stats.total} total</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <span className="text-sm">{stats.completed} completed</span>
+              </div>
+              {stats.running > 0 && (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                  <span className="text-sm">{stats.running} running</span>
+                </div>
+              )}
+              {stats.failed > 0 && (
+                <div className="flex items-center gap-2">
+                  <XCircle className="w-4 h-4 text-destructive" />
+                  <span className="text-sm">{stats.failed} failed</span>
+                </div>
+              )}
             </div>
-            
-            {/* Status filter dropdown */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="h-8 px-2 text-xs border border-border rounded-md bg-background"
-            >
-              {STATUS_FILTERS.map(filter => (
-                <option key={filter.id} value={filter.id}>{filter.label}</option>
-              ))}
-            </select>
+          )}
+
+          {/* Filters */}
+          <div className="flex gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search executions..."
+                className="pl-9"
+              />
+            </div>
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as ExecutionTypeFilter)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="research">Research</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="slack">Slack</SelectItem>
+                <SelectItem value="discord">Discord</SelectItem>
+                <SelectItem value="text">Text</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="running">Running</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+                <SelectItem value="pending_review">Pending Review</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
-        {/* Scrollable Content */}
+        {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
-          >
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="w-10 h-10 rounded-lg" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-48 mb-2" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                      <Skeleton className="h-6 w-20" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : filteredExecutions.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-lg">
-              <Clock className="w-8 h-8 mx-auto mb-3 opacity-50" />
-              <p>No executions found</p>
-              <p className="text-sm mt-1">
-                {executions.length > 0 ? 'Try adjusting your filters' : 'Automation runs will appear here'}
+            <div className="text-center py-12 border border-dashed border-border rounded-lg">
+              <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+              <p className="text-muted-foreground">
+                {searchQuery || typeFilter !== 'all' || statusFilter !== 'all'
+                  ? 'No matching executions'
+                  : 'No executions yet'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Run an automation or sequence to see executions here
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {filteredExecutions.map((execution, index) => {
-                const platform = detectPlatform(execution);
-                const PlatformIcon = platform.icon;
-                const isResearch = platform.name.includes('Research');
-                const hasOutput = !!execution.output_data;
-                const outputPreview = isResearchOutput(execution.output_data) 
-                  ? execution.output_data.content.slice(0, 150) + (execution.output_data.content.length > 150 ? '...' : '')
-                  : null;
-                
-                return (
-                  <motion.div
-                    key={execution.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.03 }}
-                    className="rounded-xl border border-border bg-card hover:border-primary/30 transition-all cursor-pointer overflow-hidden"
-                    onClick={() => handleSelectExecution(execution)}
-                  >
-                    {/* Card Header */}
-                    <div className="p-4 flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                        isResearch ? 'bg-blue-500/10' : 'bg-primary/10'
-                      }`}>
-                        <PlatformIcon className={`w-5 h-5 ${isResearch ? 'text-blue-500' : 'text-primary'}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <h3 className="font-medium truncate">{execution.sequence_name}</h3>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <StatusIcon status={execution.status} />
-                            <span className="text-xs capitalize text-muted-foreground">
-                              {execution.status.replace('_', ' ')}
-                            </span>
+            <AnimatePresence>
+              <div className="space-y-3">
+                {filteredExecutions.map((execution, index) => {
+                  const platform = detectPlatform(execution);
+                  const PlatformIcon = platform.icon;
+                  const started = formatDateTime(execution.started_at);
+
+                  return (
+                    <motion.div
+                      key={execution.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.02 }}
+                    >
+                      <Card 
+                        className="cursor-pointer hover:border-primary/30 transition-colors"
+                        onClick={() => setSelectedExecution(execution)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-lg bg-secondary/50 flex items-center justify-center shrink-0">
+                              <PlatformIcon className="w-5 h-5 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{execution.sequence_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(new Date(execution.started_at), { addSuffix: true })}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {execution.duration_ms && (
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDuration(execution.duration_ms)}
+                                </span>
+                              )}
+                              <Badge variant={
+                                execution.status === 'completed' ? 'default' :
+                                execution.status === 'failed' ? 'destructive' :
+                                execution.status === 'running' ? 'default' : 'secondary'
+                              } className={
+                                execution.status === 'completed' ? 'bg-green-500/20 text-green-500 border-green-500/30' :
+                                execution.status === 'running' ? 'bg-primary/20 text-primary border-primary/30' : ''
+                              }>
+                                <StatusIcon status={execution.status} />
+                                <span className="ml-1 capitalize">{execution.status.replace('_', ' ')}</span>
+                              </Badge>
+                            </div>
                           </div>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(execution.started_at).toLocaleString()} 
-                          {execution.duration_ms && ` • ${formatDuration(execution.duration_ms)}`}
-                        </p>
-                        {execution.requires_human_review && (
-                          <span className="inline-block mt-1 text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded">
-                            Needs review
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Output Preview - Show for completed executions with output */}
-                    {hasOutput && execution.status === 'completed' && (
-                      <div className="px-4 pb-4">
-                        <div className="rounded-lg bg-muted/50 p-3">
-                          {outputPreview ? (
-                            <p className="text-sm text-muted-foreground line-clamp-2">
-                              {outputPreview}
-                            </p>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">
-                              Output available - click to view
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Error Preview */}
-                    {execution.error_message && (
-                      <div className="px-4 pb-4">
-                        <div className="rounded-lg bg-destructive/10 p-3">
-                          <p className="text-sm text-destructive line-clamp-1">
-                            {execution.error_message}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </AnimatePresence>
           )}
-        </motion.div>
         </div>
       </div>
     </AppLayout>
