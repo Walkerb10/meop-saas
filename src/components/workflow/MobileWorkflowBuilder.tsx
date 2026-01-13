@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Slider } from '@/components/ui/slider';
 import {
   Select,
   SelectContent,
@@ -391,10 +392,31 @@ export function MobileWorkflowBuilder({
 
 // Step-specific configuration component
 function StepConfig({ step, onUpdate }: { step: WorkflowNode; onUpdate: (config: Record<string, unknown>) => void }) {
+  const currentTime = (step.config?.time as string) || '09:00';
+  const [hours, minutes] = currentTime.split(':').map(Number);
+
+  const handleHourChange = (value: number[]) => {
+    const newHour = value[0].toString().padStart(2, '0');
+    const currentMinutes = currentTime.split(':')[1] || '00';
+    onUpdate({ time: `${newHour}:${currentMinutes}` });
+  };
+
+  const handleMinuteChange = (value: number[]) => {
+    const currentHour = currentTime.split(':')[0] || '09';
+    const newMinutes = value[0].toString().padStart(2, '0');
+    onUpdate({ time: `${currentHour}:${newMinutes}` });
+  };
+
+  const formatHour = (h: number) => {
+    const period = h >= 12 ? 'PM' : 'AM';
+    const displayHour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${displayHour}:00 ${period}`;
+  };
+
   switch (step.type) {
     case 'trigger_schedule':
       return (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
             <Label>Frequency</Label>
             <Select value={step.config?.frequency as string || 'daily'} onValueChange={(v) => onUpdate({ frequency: v })}>
@@ -409,14 +431,35 @@ function StepConfig({ step, onUpdate }: { step: WorkflowNode; onUpdate: (config:
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label>Time</Label>
-            <Input
-              type="time"
-              value={step.config?.time as string || '09:00'}
-              onChange={(e) => onUpdate({ time: e.target.value })}
-              className="mt-1"
-            />
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Hour</Label>
+                <span className="text-sm font-medium text-primary">{formatHour(hours)}</span>
+              </div>
+              <Slider
+                value={[hours]}
+                onValueChange={handleHourChange}
+                min={0}
+                max={23}
+                step={1}
+                className="w-full"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Minutes</Label>
+                <span className="text-sm font-medium text-primary">{minutes.toString().padStart(2, '0')}</span>
+              </div>
+              <Slider
+                value={[minutes]}
+                onValueChange={handleMinuteChange}
+                min={0}
+                max={59}
+                step={5}
+                className="w-full"
+              />
+            </div>
           </div>
         </div>
       );
