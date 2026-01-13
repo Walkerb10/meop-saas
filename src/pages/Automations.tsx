@@ -1,23 +1,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Plus, Play, ChevronRight, Zap,
-  MoreHorizontal, Trash2, Power, PowerOff, Loader2
+  Plus, Zap,
+  MoreHorizontal, Trash2, Loader2
 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
 import { CreateAutomationWizard } from '@/components/CreateAutomationWizard';
-import { StepPreview, generateWorkflowSummary } from '@/components/AutomationSummary';
-import { RecentExecutions } from '@/components/RecentExecutions';
+import { StepPreview } from '@/components/AutomationSummary';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -501,117 +499,64 @@ export default function AutomationsPage() {
                 >
                   <CardContent className="p-3 md:p-4">
                     <div className="flex items-center gap-3 md:gap-4">
-                      {/* Step preview icons */}
+                      {/* Step preview icons - filter out triggers, show only action icons */}
                       <div className="shrink-0">
-                        <StepPreview nodes={workflow.nodes} maxSteps={3} />
+                        <StepPreview 
+                          nodes={workflow.nodes.filter(n => !n.type.startsWith('trigger_'))} 
+                          maxSteps={3} 
+                        />
                       </div>
 
-                      {/* Name only - simplified */}
+                      {/* Name and schedule info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-sm md:text-base text-foreground truncate">
-                            {workflow.name}
-                          </h3>
-                          <Badge variant={workflow.isActive ? 'default' : 'secondary'} className="text-[10px] md:text-xs shrink-0">
-                            {workflow.isActive ? 'Active' : 'Off'}
-                          </Badge>
-                        </div>
-                        <RecentExecutions automationId={workflow.id} maxItems={3} />
+                        <h3 className="font-semibold text-sm md:text-base text-foreground truncate">
+                          {workflow.name}
+                        </h3>
+                        {/* Show schedule info if active and scheduled */}
+                        {workflow.isActive && (() => {
+                          const triggerNode = workflow.nodes.find(n => n.type === 'trigger_schedule');
+                          if (triggerNode?.config) {
+                            const config = triggerNode.config;
+                            const freq = config.frequency as string;
+                            const time = config.time as string || '9:00 AM';
+                            let scheduleText = '';
+                            if (freq === 'daily') scheduleText = `Daily at ${time}`;
+                            else if (freq === 'weekly') scheduleText = `Weekly on ${config.dayOfWeek || 'Monday'} at ${time}`;
+                            else if (freq === 'hourly') scheduleText = 'Every hour';
+                            else if (freq === 'once') scheduleText = `Once at ${time}`;
+                            
+                            if (scheduleText) {
+                              return (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {scheduleText}
+                                </p>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
                       </div>
 
-                      {/* Actions */}
+                      {/* On/Off toggle and menu */}
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            // Execute directly without relying on state update
-                            setExecutingId(workflow.id);
-                            setCompletedNodeIds([]);
-                            
-                            const sortedNodes = [...workflow.nodes].sort((a, b) => a.position.y - b.position.y);
-                            
-                            try {
-                              const { data, error } = await supabase.functions.invoke('execute-automation', {
-                                body: { automationId: workflow.id },
-                              });
-
-                              if (error) {
-                                console.error('Execution error:', error);
-                                toast.error(`Execution failed: ${error.message}`);
-                                setExecutingId(null);
-                                return;
-                              }
-
-                              // Animate through nodes
-                              if (data?.stepResults) {
-                                for (const step of data.stepResults) {
-                                  const node = sortedNodes.find(n => n.id === step.nodeId);
-                                  if (node) {
-                                    setExecutingNodeId(node.id);
-                                    await new Promise(r => setTimeout(r, 300));
-                                    setCompletedNodeIds(prev => [...prev, node.id]);
-                                  }
-                                }
-                              } else {
-                                for (const node of sortedNodes) {
-                                  setExecutingNodeId(node.id);
-                                  await new Promise(r => setTimeout(r, 300));
-                                  setCompletedNodeIds(prev => [...prev, node.id]);
-                                }
-                              }
-
-                              setExecutingNodeId(null);
-                              setExecutingId(null);
-                              
-                              if (data?.success) {
-                                toast.success('Automation executed successfully!');
-                              } else {
-                                toast.error(data?.error || 'Execution completed with issues');
-                              }
-                              
-                              await fetchWorkflows();
-                            } catch (err) {
-                              console.error('Execution error:', err);
-                              toast.error('Failed to execute automation');
-                              setExecutingId(null);
-                              setExecutingNodeId(null);
-                            }
+                        <Switch
+                          checked={workflow.isActive}
+                          onCheckedChange={(e) => {
+                            // Don't navigate when toggling
                           }}
-                          disabled={!workflow.isActive || executingId === workflow.id}
-                        >
-                          {executingId === workflow.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Play className="w-4 h-4" />
-                          )}
-                        </Button>
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleActive(workflow.id);
+                          }}
+                        />
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon">
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
                               <MoreHorizontal className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleActive(workflow.id);
-                            }}>
-                              {workflow.isActive ? (
-                                <>
-                                  <PowerOff className="w-4 h-4 mr-2" />
-                                  Deactivate
-                                </>
-                              ) : (
-                                <>
-                                  <Power className="w-4 h-4 mr-2" />
-                                  Activate
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             <DropdownMenuItem 
                               className="text-destructive"
                               onClick={(e) => {
@@ -624,8 +569,6 @@ export default function AutomationsPage() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
                       </div>
                     </div>
                   </CardContent>

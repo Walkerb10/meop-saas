@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentVoiceButton } from '@/components/AgentVoiceButton';
 import { AppLayout } from '@/components/AppLayout';
+import { DictationButton } from '@/components/DictationButton';
 import { useVapiAgent } from '@/hooks/useVapiAgent';
 import { useRAGChat } from '@/hooks/useRAGChat';
 import { Message } from '@/types/agent';
@@ -332,6 +333,11 @@ const Index = () => {
                   : 'border-border'
               }`}
             >
+              <DictationButton
+                onTranscript={(text) => setTextInput(prev => prev ? prev + ' ' + text : text)}
+                disabled={isLoading}
+                className="shrink-0 h-8 w-8 rounded-full"
+              />
               <input
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
