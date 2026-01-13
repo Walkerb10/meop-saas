@@ -68,12 +68,12 @@ export function FeedbackDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button 
-          variant="outline" 
-          size="sm" 
-          className="gap-2 border-border"
+          variant="ghost" 
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+          title="Feedback"
         >
-          <Lightbulb className="w-4 h-4" />
-          <span>Feedback</span>
+          <Lightbulb className="w-5 h-5" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">

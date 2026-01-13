@@ -1,17 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send } from 'lucide-react';
+import { Send, Bot, User } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { VoiceOrb } from '@/components/VoiceOrb';
 import { useVapiAgent, AgentStatus } from '@/hooks/useVapiAgent';
 import { cn } from '@/lib/utils';
 import { AIState } from '@/types/agent';
 
 interface TranscriptItem {
+  id: string;
   text: string;
   role: 'user' | 'assistant';
+  timestamp: Date;
 }
 
 // Map AgentStatus to AIState for the VoiceOrb
@@ -32,11 +35,17 @@ export default function AgentPage() {
   const [inputValue, setInputValue] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { isActive, status, toggle } = useVapiAgent({
+  const { isActive, status, toggle, inputVolume, outputVolume } = useVapiAgent({
     onTranscript: (text, role) => {
-      setTranscript(prev => [...prev, { text, role }]);
+      setTranscript(prev => [...prev, { 
+        id: crypto.randomUUID(),
+        text, 
+        role,
+        timestamp: new Date()
+      }]);
     },
   });
 
@@ -44,10 +53,17 @@ export default function AgentPage() {
 
   // Track if conversation has started
   useEffect(() => {
-    if (isActive || transcript.length > 0) {
+    if (isActive) {
       setHasStarted(true);
     }
-  }, [isActive, transcript]);
+  }, [isActive]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [transcript]);
 
   const handleToggle = () => {
     toggle();
@@ -55,7 +71,10 @@ export default function AgentPage() {
 
   const handleSendText = () => {
     if (!inputValue.trim()) return;
-    // Text input - for now just clear (voice is primary)
+    // For now, start voice if not active
+    if (!isActive) {
+      toggle();
+    }
     setInputValue('');
     setHasStarted(true);
   };
@@ -67,65 +86,119 @@ export default function AgentPage() {
     }
   };
 
+  const handleNewChat = () => {
+    setHasStarted(false);
+    setTranscript([]);
+    if (isActive) {
+      toggle();
+    }
+  };
+
   return (
-    <AppLayout>
+    <AppLayout 
+      showNewChatButton={hasStarted} 
+      onNewChat={handleNewChat}
+    >
       <div className="flex flex-col h-full bg-background relative">
-        {/* Main Content - Centered */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6">
-          {/* Tagline - Only show when not started */}
-          <AnimatePresence>
-            {!hasStarted && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -40 }}
-                transition={{ duration: 0.4 }}
-                className="text-center mb-12"
-              >
-                <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
-                  Speak your problem.
-                </p>
-                <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
-                  Agents handle it.
-                </p>
-                <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
-                  Start to finish.
-                </p>
-              </motion.div>
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Voice Orb - animates to top when started */}
+          <motion.div
+            className={cn(
+              "flex flex-col items-center justify-center",
+              hasStarted ? "py-6" : "flex-1"
             )}
-          </AnimatePresence>
+            layout
+            transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+          >
+            {/* Tagline - Only show when not started */}
+            <AnimatePresence>
+              {!hasStarted && (
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -40, transition: { duration: 0.2 } }}
+                  transition={{ duration: 0.4 }}
+                  className="text-center mb-12"
+                >
+                  <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
+                    Speak your problem.
+                  </p>
+                  <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
+                    Agents handle it.
+                  </p>
+                  <p className="text-xl md:text-2xl font-medium text-foreground leading-relaxed">
+                    Start to finish.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          {/* Voice Orb */}
-          <VoiceOrb
-            state={aiState}
-            isActive={isActive}
-            onToggle={handleToggle}
-          />
+            {/* Voice Orb with volume visualization */}
+            <VoiceOrb
+              state={aiState}
+              isActive={isActive}
+              onToggle={handleToggle}
+              inputVolume={inputVolume}
+              outputVolume={outputVolume}
+            />
+          </motion.div>
 
-          {/* Transcript display when active */}
+          {/* Transcript display - takes remaining space when started */}
           <AnimatePresence>
-            {hasStarted && transcript.length > 0 && (
+            {hasStarted && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="mt-8 w-full max-w-lg space-y-3"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto', flex: 1 }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex-1 overflow-hidden px-4"
               >
-                {transcript.slice(-4).map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={cn(
-                      'rounded-2xl px-4 py-3 text-sm',
-                      item.role === 'user'
-                        ? 'bg-primary text-primary-foreground ml-8'
-                        : 'bg-muted text-foreground mr-8'
+                <ScrollArea className="h-full" ref={scrollRef}>
+                  <div className="max-w-2xl mx-auto space-y-4 py-4">
+                    {transcript.length === 0 ? (
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center text-muted-foreground text-sm py-8"
+                      >
+                        {isActive ? 'Listening...' : 'Tap the mic to start talking'}
+                      </motion.div>
+                    ) : (
+                      transcript.map((item) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={cn(
+                            'flex gap-3',
+                            item.role === 'user' ? 'justify-end' : 'justify-start'
+                          )}
+                        >
+                          {item.role === 'assistant' && (
+                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Bot className="w-4 h-4 text-primary" />
+                            </div>
+                          )}
+                          <div
+                            className={cn(
+                              'max-w-[80%] rounded-2xl px-4 py-3',
+                              item.role === 'user'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted text-foreground'
+                            )}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{item.text}</p>
+                          </div>
+                          {item.role === 'user' && (
+                            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                              <User className="w-4 h-4 text-muted-foreground" />
+                            </div>
+                          )}
+                        </motion.div>
+                      ))
                     )}
-                  >
-                    {item.text}
-                  </motion.div>
-                ))}
+                  </div>
+                </ScrollArea>
               </motion.div>
             )}
           </AnimatePresence>
