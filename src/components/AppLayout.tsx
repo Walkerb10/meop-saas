@@ -18,6 +18,7 @@ import {
   Bot,
   Calendar,
   Activity,
+  BarChart3,
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ const mainNavItems = [
   { icon: Activity, label: 'Executions', path: '/executions' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
+  { icon: BarChart3, label: 'Analytics', path: '/analytics' },
 ];
 
 const getBottomNavItems = (isAdmin: boolean) => {
