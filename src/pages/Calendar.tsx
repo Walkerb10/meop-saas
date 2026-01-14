@@ -341,47 +341,44 @@ export default function Calendar() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'calendar' | 'taskbank')} className="flex-1 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <TabsList className="w-fit">
-              <TabsTrigger value="calendar" className="gap-2">
-                <CheckSquare className="h-4 w-4" />
-                Calendar
+              <TabsTrigger value="calendar">
+                <span className="hidden sm:inline">Calendar</span>
+                <CheckSquare className="h-4 w-4 sm:hidden" />
               </TabsTrigger>
-              <TabsTrigger value="taskbank" className="gap-2">
-                <Package className="h-4 w-4" />
-                Task Bank
+              <TabsTrigger value="taskbank" className="gap-1">
+                <span className="hidden sm:inline">Task Bank</span>
+                <Package className="h-4 w-4 sm:hidden" />
                 {getTaskBank().length > 0 && (
-                  <Badge variant="secondary" className="ml-1 text-xs">{getTaskBank().length}</Badge>
+                  <Badge variant="secondary" className="text-xs">{getTaskBank().length}</Badge>
                 )}
               </TabsTrigger>
             </TabsList>
 
             {/* View Mode Dropdown - Right of tabs */}
             {activeTab === 'calendar' && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">View:</span>
-                <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-                  <SelectTrigger className="w-[140px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover">
-                    {teamMembers.map(member => {
-                      const key = member.user_id === TEAM_USERS.walker ? 'walker' : 'griffin';
-                      return (
-                        <SelectItem key={member.user_id} value={key}>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-4 w-4">
-                              <AvatarFallback className="text-[8px]">
-                                {getMemberInitials(member.display_name, member.email)}
-                              </AvatarFallback>
-                            </Avatar>
-                            {member.display_name?.split(' ')[0] || member.email}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                    <SelectItem value="all">All Team</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  {teamMembers.map(member => {
+                    const key = member.user_id === TEAM_USERS.walker ? 'walker' : 'griffin';
+                    return (
+                      <SelectItem key={member.user_id} value={key}>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-4 w-4">
+                            <AvatarFallback className="text-[8px]">
+                              {getMemberInitials(member.display_name, member.email)}
+                            </AvatarFallback>
+                          </Avatar>
+                          {member.display_name?.split(' ')[0] || member.email}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                  <SelectItem value="all">All Team</SelectItem>
+                </SelectContent>
+              </Select>
             )}
           </div>
 

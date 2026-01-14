@@ -109,6 +109,35 @@ export default function AutomationsPage() {
   }, [fetchWorkflows]);
 
   const handleSaveWorkflow = useCallback(async (workflowData: Partial<Workflow>) => {
+    // Validate required fields for action nodes
+    const nodes = workflowData.nodes || [];
+    for (const node of nodes) {
+      if (!node.type.startsWith('trigger_')) {
+        const config = node.config || {};
+        
+        if (node.type === 'action_text' && (!config.phone || !config.message)) {
+          toast.error(`"${node.label}" requires a phone number and message`);
+          return;
+        }
+        if (node.type === 'action_slack' && (!config.channel || !config.message)) {
+          toast.error(`"${node.label}" requires a channel and message`);
+          return;
+        }
+        if (node.type === 'action_discord' && (!config.channel || !config.message)) {
+          toast.error(`"${node.label}" requires a channel and message`);
+          return;
+        }
+        if (node.type === 'action_email' && (!config.to || !config.subject || !config.message)) {
+          toast.error(`"${node.label}" requires recipients, subject, and message`);
+          return;
+        }
+        if (node.type === 'action_research' && !config.query) {
+          toast.error(`"${node.label}" requires a research query`);
+          return;
+        }
+      }
+    }
+    
     try {
       const stepsJson = {
         nodes: workflowData.nodes || [],

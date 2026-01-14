@@ -381,11 +381,16 @@ const Executions = () => {
         {/* Sticky Header */}
         <div className="sticky top-0 z-10 bg-background pt-6 px-6 pb-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-xl font-semibold">Executions</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Real-time monitoring of all automation runs
-              </p>
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/automations')}>
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+              <div>
+                <h1 className="text-xl font-semibold">Executions</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Real-time monitoring of all automation runs
+                </p>
+              </div>
             </div>
             <Button variant="outline" size="sm" onClick={fetchExecutions} className="gap-2">
               <RefreshCw className="w-4 h-4" />
