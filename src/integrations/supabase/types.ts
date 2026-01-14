@@ -996,6 +996,7 @@ export type Database = {
           created_by: string
           description: string | null
           due_date: string | null
+          estimated_minutes: number | null
           id: string
           is_pinned: boolean | null
           priority: string | null
@@ -1010,6 +1011,7 @@ export type Database = {
           created_by: string
           description?: string | null
           due_date?: string | null
+          estimated_minutes?: number | null
           id?: string
           is_pinned?: boolean | null
           priority?: string | null
@@ -1024,6 +1026,7 @@ export type Database = {
           created_by?: string
           description?: string | null
           due_date?: string | null
+          estimated_minutes?: number | null
           id?: string
           is_pinned?: boolean | null
           priority?: string | null
