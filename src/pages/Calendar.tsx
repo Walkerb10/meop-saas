@@ -334,101 +334,8 @@ export default function Calendar() {
       <div className="h-full flex flex-col p-4 max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold">Calendar</h1>
-          </div>
-
-          {/* View Mode Switcher */}
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('all')}
-            >
-              All Team
-            </Button>
-            {teamMembers.map(member => {
-              const key = member.user_id === TEAM_USERS.walker ? 'walker' : 'griffin';
-              return (
-                <Button
-                  key={member.user_id}
-                  variant={viewMode === key ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode(key as ViewMode)}
-                  className="gap-2"
-                >
-                  <Avatar className="h-5 w-5">
-                    <AvatarFallback className="text-[10px]">
-                      {getMemberInitials(member.display_name, member.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  {member.display_name?.split(' ')[0] || member.email}
-                </Button>
-              );
-            })}
-          </div>
+          <h1 className="text-xl font-semibold">Calendar</h1>
         </div>
-
-        {/* Current Task Display - Above Calendar */}
-        {user && viewMode !== 'all' && currentUserActiveTask && (
-          <Card className="mb-4 border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
-            <CardContent className="py-4">
-              <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
-                <CheckSquare className="h-4 w-4" />
-                <span>Current Task</span>
-                {hasPendingTodayTask && (
-                  <Badge variant="destructive" className="ml-auto text-xs">Action Required</Badge>
-                )}
-              </div>
-              
-              <div className={cn(
-                'p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md',
-                currentUserActiveTask.status === 'completed' 
-                  ? 'bg-green-500/10 border-green-500/30' 
-                  : 'bg-orange-500/10 border-orange-500/30'
-              )}>
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={currentUserActiveTask.status === 'completed'}
-                    onCheckedChange={() => 
-                      currentUserActiveTask.status === 'completed'
-                        ? handleUncompleteTask(currentUserActiveTask) 
-                        : handleCompleteTask(currentUserActiveTask)
-                    }
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <p className={cn(
-                      'font-semibold text-lg',
-                      currentUserActiveTask.status === 'completed' && 'line-through text-muted-foreground'
-                    )}>
-                      {currentUserActiveTask.title}
-                    </p>
-                    {currentUserActiveTask.description && (
-                      <p className="text-muted-foreground mt-1">{currentUserActiveTask.description}</p>
-                    )}
-                  </div>
-                  {(currentUserActiveTask as any).is_pinned && (
-                    <Pin className="h-4 w-4 text-primary" />
-                  )}
-                </div>
-                
-                {currentUserActiveTask.status === 'completed' && completedTodayTask && (
-                  <div className="mt-4 p-3 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center">
-                    <Check className="h-5 w-5 mx-auto mb-1" />
-                    <p className="font-medium">You completed your one thing for today!</p>
-                    {nextTask && (
-                      <p className="text-sm mt-1 flex items-center justify-center gap-1">
-                        <ArrowRight className="h-3 w-3" />
-                        Next: {nextTask.title}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Tabs: Calendar / Task Bank */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'calendar' | 'taskbank')} className="flex-1 flex flex-col">
@@ -446,18 +353,109 @@ export default function Calendar() {
             </TabsTrigger>
           </TabsList>
 
+          {/* Current Task Display - Under tabs, above calendar */}
+          {user && viewMode !== 'all' && currentUserActiveTask && (
+            <Card className="mb-4 border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
+              <CardContent className="py-4">
+                <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
+                  <CheckSquare className="h-4 w-4" />
+                  <span>My One Thing</span>
+                  {hasPendingTodayTask && (
+                    <Badge variant="destructive" className="ml-auto text-xs">Action Required</Badge>
+                  )}
+                </div>
+                
+                <div className={cn(
+                  'p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md',
+                  currentUserActiveTask.status === 'completed' 
+                    ? 'bg-green-500/10 border-green-500/30' 
+                    : 'bg-orange-500/10 border-orange-500/30'
+                )}>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={currentUserActiveTask.status === 'completed'}
+                      onCheckedChange={() => 
+                        currentUserActiveTask.status === 'completed'
+                          ? handleUncompleteTask(currentUserActiveTask) 
+                          : handleCompleteTask(currentUserActiveTask)
+                      }
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <p className={cn(
+                        'font-semibold text-lg',
+                        currentUserActiveTask.status === 'completed' && 'line-through text-muted-foreground'
+                      )}>
+                        {currentUserActiveTask.title}
+                      </p>
+                      {currentUserActiveTask.description && (
+                        <p className="text-muted-foreground mt-1">{currentUserActiveTask.description}</p>
+                      )}
+                    </div>
+                    {(currentUserActiveTask as any).is_pinned && (
+                      <Pin className="h-4 w-4 text-primary" />
+                    )}
+                  </div>
+                  
+                  {currentUserActiveTask.status === 'completed' && completedTodayTask && (
+                    <div className="mt-4 p-3 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center">
+                      <Check className="h-5 w-5 mx-auto mb-1" />
+                      <p className="font-medium">You completed your one thing for today!</p>
+                      {nextTask && (
+                        <p className="text-sm mt-1 flex items-center justify-center gap-1">
+                          <ArrowRight className="h-3 w-3" />
+                          Next: {nextTask.title}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <TabsContent value="calendar" className="flex-1 flex flex-col mt-0">
-            {/* Month Navigation */}
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <h2 className="text-lg font-semibold min-w-[160px] text-center">
-                {format(currentMonth, 'MMMM yyyy')}
-              </h2>
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+            {/* View Mode Dropdown */}
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">View:</span>
+                <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamMembers.map(member => {
+                      const key = member.user_id === TEAM_USERS.walker ? 'walker' : 'griffin';
+                      return (
+                        <SelectItem key={member.user_id} value={key}>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-4 w-4">
+                              <AvatarFallback className="text-[8px]">
+                                {getMemberInitials(member.display_name, member.email)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {member.display_name?.split(' ')[0] || member.email}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                    <SelectItem value="all">All Team</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Month Navigation */}
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h2 className="text-lg font-semibold min-w-[140px] text-center">
+                  {format(currentMonth, 'MMMM yyyy')}
+                </h2>
+                <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
 
             {/* Legend - only show for individual views */}
