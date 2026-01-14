@@ -477,12 +477,14 @@ export default function Calendar() {
 
             {/* Current Task Display */}
             <div className="mb-4 p-4 rounded-xl bg-muted/30">
-              {currentUserTodayTask ? (
+              {summaryTodayTask ? (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Today's One Thing</p>
-                  <p className="font-semibold text-lg">{currentUserTodayTask.title}</p>
-                  {currentUserTodayTask.description && (
-                    <p className="text-sm text-muted-foreground mt-1">{currentUserTodayTask.description}</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    {summaryMember?.display_name?.split(' ')[0] || 'Your'}'s One Thing
+                  </p>
+                  <p className="font-semibold text-lg">{summaryTodayTask.title}</p>
+                  {summaryTodayTask.description && (
+                    <p className="text-sm text-muted-foreground mt-1">{summaryTodayTask.description}</p>
                   )}
                 </div>
               ) : (
