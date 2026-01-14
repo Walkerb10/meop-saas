@@ -275,8 +275,11 @@ export default function Calendar() {
   };
 
   // Insert a new task and push all other tasks back by one day (respecting pinned tasks)
-  const handleInsertTaskAndShift = async (date: Date, userId: string) => {
-    if (!taskForm.title) return;
+  const handleInsertTaskAndShift = async (date: Date, userId: string, title?: string, description?: string) => {
+    const taskTitle = title || taskForm.title;
+    const taskDescription = description || taskForm.description;
+    
+    if (!taskTitle) return;
     
     // Get all future non-pinned tasks for this user starting from this date
     const userTasks = getTasksForUser(userId);
@@ -301,8 +304,8 @@ export default function Calendar() {
     
     // Create the new task
     await createTask({
-      title: taskForm.title,
-      description: taskForm.description,
+      title: taskTitle,
+      description: taskDescription,
       assigned_to: userId,
       due_date: startOfDay(date).toISOString(),
       priority: taskForm.priority,
@@ -607,10 +610,6 @@ export default function Calendar() {
               onDelete={deleteTask}
               onCreateAndAssign={handleCreateAndAssignTask}
               onInsertAndShift={handleInsertTaskAndShift}
-              taskForm={taskForm}
-              setTaskForm={setTaskForm}
-              editingDayTask={editingDayTask}
-              setEditingDayTask={setEditingDayTask}
             />
           )}
         </DialogContent>
@@ -683,60 +682,125 @@ interface EmptyDayFormProps {
   userId: string;
   date: Date;
   onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title: string, description: string) => void;
+  onInsertAndShift: (date: Date, userId: string, title: string, description: string) => void;
   userTaskBank: TeamTask[];
   onAssignTask: (taskId: string, date: Date, userId?: string) => void;
+  showUserName?: boolean;
 }
 
-function EmptyDayForm({ userId, date, onCreateAndAssign, userTaskBank, onAssignTask }: EmptyDayFormProps) {
+function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userTaskBank, onAssignTask, showUserName = true }: EmptyDayFormProps) {
   const [localTitle, setLocalTitle] = useState('');
   const [localDescription, setLocalDescription] = useState('');
+  const [selectedBankTask, setSelectedBankTask] = useState<TeamTask | null>(null);
+  const [isPinned, setIsPinned] = useState(false);
 
-  const handleSubmit = () => {
-    if (!localTitle) return;
-    onCreateAndAssign(date, userId, false, localTitle, localDescription);
+  const handleSave = () => {
+    const title = selectedBankTask ? selectedBankTask.title : localTitle;
+    const description = selectedBankTask ? (selectedBankTask.description || '') : localDescription;
+    if (!title) return;
+    
+    if (selectedBankTask) {
+      // Assign existing task from bank to this date
+      onAssignTask(selectedBankTask.id, date, userId);
+    } else {
+      onCreateAndAssign(date, userId, isPinned, title, description);
+    }
   };
+
+  const handleInsertAndShift = () => {
+    const title = selectedBankTask ? selectedBankTask.title : localTitle;
+    const description = selectedBankTask ? (selectedBankTask.description || '') : localDescription;
+    if (!title) return;
+    onInsertAndShift(date, userId, title, description);
+  };
+
+  const handleSelectBankTask = (taskId: string) => {
+    const task = userTaskBank.find(t => t.id === taskId);
+    if (task) {
+      setSelectedBankTask(task);
+      setLocalTitle(task.title);
+      setLocalDescription(task.description || '');
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedBankTask(null);
+    setLocalTitle('');
+    setLocalDescription('');
+  };
+
+  const hasContent = localTitle.trim() || selectedBankTask;
 
   return (
     <div className="space-y-3">
-      <div className="space-y-3">
-        <div className="text-xs text-muted-foreground">Add a task for this day:</div>
-        <Input
-          value={localTitle}
-          onChange={(e) => setLocalTitle(e.target.value)}
-          placeholder="What needs to be done?"
-          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-        />
-        <Textarea
-          value={localDescription}
-          onChange={(e) => setLocalDescription(e.target.value)}
-          placeholder="Description (optional)"
-          rows={2}
-        />
+      {/* Task Bank dropdown in top right */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-muted-foreground">
+          {showUserName ? "Add a task for this day:" : "Set your One Thing:"}
+        </div>
+        {userTaskBank.length > 0 && (
+          <Select 
+            value={selectedBankTask?.id || ''} 
+            onValueChange={handleSelectBankTask}
+          >
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <Package className="h-3 w-3 mr-1" />
+              <SelectValue placeholder="Task Bank" />
+            </SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              {userTaskBank.map(task => (
+                <SelectItem key={task.id} value={task.id} className="text-sm">
+                  {task.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+
+      <Input
+        value={localTitle}
+        onChange={(e) => { setLocalTitle(e.target.value); setSelectedBankTask(null); }}
+        placeholder="What needs to be done?"
+      />
+      <Textarea
+        value={localDescription}
+        onChange={(e) => { setLocalDescription(e.target.value); setSelectedBankTask(null); }}
+        placeholder="Description (optional)"
+        rows={2}
+      />
+
+      {/* Action buttons */}
+      <div className="flex gap-2">
         <Button 
-          onClick={handleSubmit}
-          disabled={!localTitle}
-          className="w-full"
+          onClick={handleSave}
+          disabled={!hasContent}
+          className="flex-1"
         >
-          <Plus className="h-4 w-4 mr-1" /> Add Task
+          {selectedBankTask ? 'Assign' : 'Save'}
         </Button>
       </div>
 
-      {userTaskBank.length > 0 && (
-        <div className="space-y-1 pt-2 border-t">
-          <p className="text-xs font-medium text-muted-foreground">Or assign from bank:</p>
-          <div className="space-y-1 max-h-[100px] overflow-y-auto">
-            {userTaskBank.slice(0, 3).map(bankTask => (
-              <div
-                key={bankTask.id}
-                className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors text-sm"
-                onClick={() => onAssignTask(bankTask.id, date)}
-              >
-                <Plus className="h-3 w-3 text-primary shrink-0" />
-                <span className="truncate">{bankTask.title}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="flex gap-2 pt-2 border-t">
+        <Button 
+          variant="outline"
+          onClick={handleInsertAndShift}
+          disabled={!hasContent}
+          className="flex-1 text-xs"
+        >
+          <ArrowDown className="h-3 w-3 mr-1" /> Insert & Shift
+        </Button>
+        <Button 
+          variant={isPinned ? "default" : "outline"}
+          onClick={() => setIsPinned(!isPinned)}
+          className="text-xs"
+          size="icon"
+        >
+          <Pin className={cn("h-4 w-4", isPinned && "text-primary-foreground")} />
+        </Button>
+      </div>
+      {isPinned && (
+        <p className="text-xs text-muted-foreground">📌 Task will be pinned to this date</p>
       )}
     </div>
   );
@@ -754,11 +818,7 @@ interface DayViewProps {
   onAssignTask: (taskId: string, date: Date, userId?: string) => void;
   onDelete: (taskId: string) => void;
   onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title?: string, description?: string) => void;
-  onInsertAndShift: (date: Date, userId: string) => void;
-  taskForm: { title: string; description: string; assigned_to: string; priority: Priority; is_pinned: boolean };
-  setTaskForm: (form: { title: string; description: string; assigned_to: string; priority: Priority; is_pinned: boolean }) => void;
-  editingDayTask: boolean;
-  setEditingDayTask: (editing: boolean) => void;
+  onInsertAndShift: (date: Date, userId: string, title?: string, description?: string) => void;
 }
 
 function DayView({ 
@@ -773,24 +833,12 @@ function DayView({
   onDelete,
   onCreateAndAssign,
   onInsertAndShift,
-  taskForm,
-  setTaskForm,
-  editingDayTask,
-  setEditingDayTask,
 }: DayViewProps) {
-  const isPast = isBefore(startOfDay(date), startOfDay(new Date()));
-  const isTodayDate = isToday(date);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [insertMode, setInsertMode] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>(
-    viewMode === 'walker' ? TEAM_USERS.walker : 
-    viewMode === 'griffin' ? TEAM_USERS.griffin : 
-    TEAM_USERS.walker
-  );
-
   const visibleUserIds = viewMode === 'all' 
     ? [TEAM_USERS.walker, TEAM_USERS.griffin] 
     : [viewMode === 'walker' ? TEAM_USERS.walker : TEAM_USERS.griffin];
+
+  const showUserName = viewMode === 'all';
 
   return (
     <div className="space-y-4">
@@ -803,14 +851,16 @@ function DayView({
 
         return (
           <div key={userId} className="space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <Avatar className="h-5 w-5">
-                <AvatarFallback className="text-[10px]">
-                  {member ? getMemberInitials(member.display_name, member.email) : '?'}
-                </AvatarFallback>
-              </Avatar>
-              <span>{member?.display_name?.split(' ')[0] || member?.email}'s One Thing</span>
-            </div>
+            {showUserName && (
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback className="text-[10px]">
+                    {member ? getMemberInitials(member.display_name, member.email) : '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{member?.display_name?.split(' ')[0] || member?.email}'s One Thing</span>
+              </div>
+            )}
 
             {task ? (
               <Card className={cn(
@@ -871,89 +921,15 @@ function DayView({
                 userId={userId}
                 date={date}
                 onCreateAndAssign={onCreateAndAssign}
+                onInsertAndShift={onInsertAndShift}
                 userTaskBank={userTaskBank}
                 onAssignTask={onAssignTask}
+                showUserName={showUserName}
               />
             )}
           </div>
         );
       })}
-
-      {/* Quick Add Task */}
-      <div className="border-t pt-4">
-        {!showAddForm ? (
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => { setShowAddForm(true); setInsertMode(false); }}>
-              <Plus className="h-4 w-4 mr-1" /> Add Task
-            </Button>
-            <Button variant="outline" className="flex-1" onClick={() => { setShowAddForm(true); setInsertMode(true); }}>
-              <ArrowDown className="h-4 w-4 mr-1" /> Insert & Shift
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              {insertMode ? (
-                <>
-                  <ArrowDown className="h-4 w-4" />
-                  <span>Insert task and push others back</span>
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4" />
-                  <span>Add task to this day</span>
-                </>
-              )}
-            </div>
-            <Input
-              value={taskForm.title}
-              onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-              placeholder="Task title..."
-              autoFocus
-            />
-            <Textarea
-              value={taskForm.description}
-              onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-              placeholder="Description (optional)"
-              rows={2}
-            />
-            {viewMode === 'all' && (
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Assign to" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map(m => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      {m.display_name || m.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            <div className="flex gap-2">
-              <Button 
-                onClick={() => {
-                  const userId = viewMode === 'all' ? selectedUserId : visibleUserIds[0];
-                  if (insertMode) {
-                    onInsertAndShift(date, userId);
-                  } else {
-                    onCreateAndAssign(date, userId, taskForm.is_pinned);
-                  }
-                  setShowAddForm(false);
-                }}
-                disabled={!taskForm.title}
-                className="flex-1"
-              >
-                {insertMode ? 'Insert & Shift' : 'Add Task'}
-              </Button>
-              <Button variant="outline" onClick={() => setShowAddForm(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
