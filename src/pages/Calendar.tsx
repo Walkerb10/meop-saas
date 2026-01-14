@@ -251,8 +251,15 @@ export default function Calendar() {
     return completed;
   };
 
-  // Get current user's today task status
-  const currentUserTodayTask = user ? getTodayTask(user.id) : null;
+  // Today's summary card: in "All Team" view show your own; otherwise show the selected calendar owner's One Thing
+  const summaryUserId = viewMode === 'walker'
+    ? TEAM_USERS.walker
+    : viewMode === 'griffin'
+      ? TEAM_USERS.griffin
+      : (user?.id || TEAM_USERS.walker);
+
+  const summaryMember = teamMembers.find(m => m.user_id === summaryUserId);
+  const summaryTodayTask = summaryUserId ? getTodayTask(summaryUserId) : null;
 
   // Get all future tasks sorted by date
   const getFutureTasks = (userId: string): TeamTask[] => {
