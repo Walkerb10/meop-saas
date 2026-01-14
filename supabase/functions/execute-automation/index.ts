@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Admin phone for error notifications
+const ADMIN_PHONE = "+18434124009";
+
 // n8n webhook URLs for different platforms
 const N8N_WEBHOOKS = {
   text: "https://walkerb.app.n8n.cloud/webhook/ca69f6f3-2405-45bc-9ad0-9ce78744fbe2",
@@ -18,6 +21,26 @@ const DEFAULT_CHANNELS = {
   slack: "all_bhva",
   discord: "admin",
 };
+
+// Helper function to send error notification text to admin
+async function sendErrorTextNotification(automationName: string, errorMessage: string, executionId?: string) {
+  try {
+    const message = `🚨 Automation Error\n\nAutomation: ${automationName}\nError: ${errorMessage}${executionId ? `\nExecution ID: ${executionId}` : ''}`;
+    
+    await fetch(N8N_WEBHOOKS.text, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: ADMIN_PHONE,
+        message,
+        automation_name: "Error Alert",
+      }),
+    });
+    console.log("📱 Error notification sent to admin");
+  } catch (err) {
+    console.error("Failed to send error notification:", err);
+  }
+}
 
 interface WorkflowNode {
   id: string;
@@ -174,6 +197,9 @@ serve(async (req) => {
         stepResult.durationMs = Date.now() - startTime;
         
         console.error(`❌ Step ${i + 1} failed:`, error);
+        
+        // Send error notification text to admin
+        await sendErrorTextNotification(automation.name, stepResult.error, execution.id);
         
         // Update execution as failed
         await supabase

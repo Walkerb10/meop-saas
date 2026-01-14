@@ -1,16 +1,32 @@
-import { useState } from 'react';
-import { ListTodo, CheckCircle2, Clock, Plus, Calendar } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ListTodo, CheckCircle2, Plus, Calendar, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
 import { useAuth } from '@/hooks/useAuth';
 import { isSameDay, parseISO, isAfter, startOfDay } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+
+type Priority = 'high' | 'medium' | 'low';
+
+const PRIORITY_ORDER: Record<Priority, number> = {
+  high: 0,
+  medium: 1,
+  low: 2,
+};
+
+const PRIORITY_COLORS: Record<Priority, string> = {
+  high: 'bg-red-500/20 text-red-500 border-red-500/50',
+  medium: 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50',
+  low: 'bg-blue-500/20 text-blue-500 border-blue-500/50',
+};
 
 export function ToDoButton() {
   const [open, setOpen] = useState(false);
@@ -47,18 +63,24 @@ export function ToDoButton() {
       .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())[0] || null;
   };
 
-  // Get task bank count
-  const getTaskBankCount = (): number => {
-    if (!user) return 0;
-    return tasks.filter(t => t.assigned_to === user.id && !t.due_date && t.status !== 'completed').length;
+  // Get task bank sorted by priority
+  const getTaskBank = (): TeamTask[] => {
+    if (!user) return [];
+    return tasks
+      .filter(t => t.assigned_to === user.id && !t.due_date && t.status !== 'completed')
+      .sort((a, b) => {
+        const priorityA = PRIORITY_ORDER[(a.priority || 'medium') as Priority] ?? 1;
+        const priorityB = PRIORITY_ORDER[(b.priority || 'medium') as Priority] ?? 1;
+        return priorityA - priorityB;
+      });
   };
 
   const todayTask = getTodayTask();
   const nextTask = getNextTask();
-  const taskBankCount = getTaskBankCount();
+  const taskBank = useMemo(() => getTaskBank(), [tasks, user]);
   const hasPendingTask = todayTask && todayTask.status !== 'completed';
   const completedToday = todayTask?.status === 'completed';
-  const needsToSetNextTask = !todayTask && !nextTask && taskBankCount === 0;
+  const needsToSetNextTask = !todayTask && !nextTask && taskBank.length === 0;
 
   // Should show red badge?
   const showRedBadge = hasPendingTask || needsToSetNextTask;
@@ -102,10 +124,15 @@ export function ToDoButton() {
     navigate('/calendar');
   };
 
+  const handleAssignFromBank = async (task: TeamTask) => {
+    await updateTask(task.id, {
+      due_date: startOfDay(new Date()).toISOString(),
+    });
+    setOpen(false);
+  };
+
   const handleButtonClick = () => {
-    // Always open the dialog - show current task or add form
     setOpen(true);
-    // If no task, show add form immediately
     if (!todayTask) {
       setShowAddForm(true);
     }
@@ -114,6 +141,15 @@ export function ToDoButton() {
   const goToCalendar = () => {
     setOpen(false);
     navigate('/calendar');
+  };
+
+  const getPriorityLabel = (priority: string | null) => {
+    switch(priority) {
+      case 'high': return '🔴 High';
+      case 'medium': return '🟡 Medium';
+      case 'low': return '🔵 Low';
+      default: return '🟡 Medium';
+    }
   };
 
   return (
@@ -141,7 +177,7 @@ export function ToDoButton() {
           setTaskDescription('');
         }
       }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ListTodo className="w-5 h-5" />
@@ -149,43 +185,8 @@ export function ToDoButton() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="py-4">
-            {showAddForm ? (
-              <div className="space-y-4">
-                <div>
-                  <Label>Title</Label>
-                  <Input
-                    value={taskTitle}
-                    onChange={(e) => setTaskTitle(e.target.value)}
-                    placeholder="What's your one thing for today?"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <Label>Description (optional)</Label>
-                  <Textarea
-                    value={taskDescription}
-                    onChange={(e) => setTaskDescription(e.target.value)}
-                    placeholder="Add details..."
-                    rows={2}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAddTask} disabled={!taskTitle} className="flex-1">
-                    Set Task
-                  </Button>
-                  <Button variant="outline" onClick={() => {
-                    if (todayTask) {
-                      setShowAddForm(false);
-                    } else {
-                      goToCalendar();
-                    }
-                  }}>
-                    {todayTask ? 'Cancel' : 'View Calendar'}
-                  </Button>
-                </div>
-              </div>
-            ) : todayTask ? (
+          <div className="flex-1 overflow-y-auto py-4">
+            {todayTask ? (
               <div className="space-y-4">
                 <div className={cn(
                   'p-4 rounded-lg border transition-all',
@@ -234,31 +235,75 @@ export function ToDoButton() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div>
-                  <Label>Title</Label>
-                  <Input
-                    value={taskTitle}
-                    onChange={(e) => setTaskTitle(e.target.value)}
-                    placeholder="What's your one thing for today?"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <Label>Description (optional)</Label>
-                  <Textarea
-                    value={taskDescription}
-                    onChange={(e) => setTaskDescription(e.target.value)}
-                    placeholder="Add details..."
-                    rows={2}
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button onClick={handleAddTask} disabled={!taskTitle} className="flex-1">
-                    Set Task
-                  </Button>
-                  <Button variant="outline" onClick={goToCalendar}>
-                    View Calendar
-                  </Button>
+                {/* Task Bank Section - Shown First */}
+                {taskBank.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                      <ArrowDown className="h-4 w-4" />
+                      Pick from Task Bank
+                    </div>
+                    <ScrollArea className="max-h-[180px]">
+                      <div className="space-y-2 pr-2">
+                        {taskBank.map(task => (
+                          <div
+                            key={task.id}
+                            onClick={() => handleAssignFromBank(task)}
+                            className={cn(
+                              'p-3 rounded-lg border cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all',
+                              PRIORITY_COLORS[(task.priority || 'medium') as Priority]
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{task.title}</p>
+                                {task.description && (
+                                  <p className="text-xs text-muted-foreground mt-1 truncate">{task.description}</p>
+                                )}
+                              </div>
+                              <Badge variant="outline" className="text-[10px] shrink-0">
+                                {getPriorityLabel(task.priority).split(' ')[0]}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    <div className="text-center text-xs text-muted-foreground py-2">— or —</div>
+                  </div>
+                )}
+
+                {/* Add New Task Form */}
+                <div className="space-y-3">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    {taskBank.length > 0 ? 'Create a new task' : 'Set your one thing for today'}
+                  </div>
+                  <div>
+                    <Label className="sr-only">Title</Label>
+                    <Input
+                      value={taskTitle}
+                      onChange={(e) => setTaskTitle(e.target.value)}
+                      placeholder="What's your one thing for today?"
+                      autoFocus={taskBank.length === 0}
+                    />
+                  </div>
+                  <div>
+                    <Label className="sr-only">Description (optional)</Label>
+                    <Textarea
+                      value={taskDescription}
+                      onChange={(e) => setTaskDescription(e.target.value)}
+                      placeholder="Add details..."
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button onClick={handleAddTask} disabled={!taskTitle} className="flex-1">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Set Task
+                    </Button>
+                    <Button variant="outline" onClick={goToCalendar}>
+                      <Calendar className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
