@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   Users,
   Clock,
+  Flame,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isBefore, isToday, startOfDay, isAfter } from 'date-fns';
 import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
@@ -421,12 +422,66 @@ export default function Calendar() {
   const visibleUserIds = getVisibleUserIds();
   const showBothUsers = viewMode === 'all';
 
+  // Calculate streak for the selected user
+  const calculateStreak = (userId: string): number => {
+    const userTasks = tasks.filter(t => t.assigned_to === userId && t.status === 'completed' && t.due_date);
+    if (userTasks.length === 0) return 0;
+    
+    // Sort by due_date descending
+    const sortedTasks = userTasks.sort((a, b) => 
+      new Date(b.due_date!).getTime() - new Date(a.due_date!).getTime()
+    );
+    
+    let streak = 0;
+    const today = startOfDay(new Date());
+    let checkDate = today;
+    
+    // Check if today's task is completed, or if we should start from yesterday
+    const todayTask = sortedTasks.find(t => isSameDay(parseISO(t.due_date!), today));
+    if (!todayTask) {
+      // No completed task today, start checking from yesterday
+      checkDate = addDays(today, -1);
+    }
+    
+    // Count consecutive days with completed tasks going backwards
+    while (true) {
+      const taskForDay = sortedTasks.find(t => isSameDay(parseISO(t.due_date!), checkDate));
+      if (taskForDay) {
+        streak++;
+        checkDate = addDays(checkDate, -1);
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
+  };
+
+  const currentStreak = viewMode !== 'all' 
+    ? calculateStreak(viewMode === 'walker' ? TEAM_USERS.walker : TEAM_USERS.griffin)
+    : 0;
+
+  // Handle completing today's task
+  const handleCompleteOneThing = async () => {
+    if (!summaryTodayTask) return;
+    await updateTask(summaryTodayTask.id, { 
+      status: 'completed', 
+      completed_at: new Date().toISOString() 
+    });
+  };
+
   return (
     <AppLayout>
       <div className="min-h-full flex flex-col p-4 max-w-5xl mx-auto pb-20">
-        {/* Header */}
+        {/* Header with Streak */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold">Calendar</h1>
+          {viewMode !== 'all' && currentStreak > 0 && (
+            <div className="flex items-center gap-1.5 bg-orange-500/20 text-orange-500 px-3 py-1.5 rounded-full">
+              <Flame className="h-4 w-4" />
+              <span className="font-semibold text-sm">{currentStreak}</span>
+            </div>
+          )}
         </div>
 
         {/* Main Tabs: Calendars / Task Bank / Completed */}
@@ -478,14 +533,24 @@ export default function Calendar() {
             {/* Current Task Display */}
             <div className="mb-4 p-4 rounded-xl bg-muted/30">
               {summaryTodayTask ? (
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">
-                    {summaryMember?.display_name?.split(' ')[0] || 'Your'}'s One Thing
-                  </p>
-                  <p className="font-semibold text-lg">{summaryTodayTask.title}</p>
-                  {summaryTodayTask.description && (
-                    <p className="text-sm text-muted-foreground mt-1">{summaryTodayTask.description}</p>
-                  )}
+                <div className="flex items-start gap-3">
+                  <Checkbox 
+                    checked={summaryTodayTask.status === 'completed'}
+                    onCheckedChange={handleCompleteOneThing}
+                    className="mt-1 h-5 w-5"
+                  />
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {summaryMember?.display_name?.split(' ')[0] || 'Your'}'s One Thing
+                    </p>
+                    <p className={cn(
+                      "font-semibold text-lg",
+                      summaryTodayTask.status === 'completed' && "line-through text-muted-foreground"
+                    )}>{summaryTodayTask.title}</p>
+                    {summaryTodayTask.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{summaryTodayTask.description}</p>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-2">
@@ -558,7 +623,7 @@ export default function Calendar() {
                       key={idx}
                       onClick={() => openDayView(day)}
                       className={cn(
-                        'aspect-square flex flex-col items-center justify-center rounded-xl cursor-pointer transition-all min-h-[48px]',
+                        'aspect-square flex flex-col items-center justify-center rounded-xl cursor-pointer transition-all min-h-[48px] relative',
                         !isCurrentMonth && 'opacity-30',
                         isCurrentMonth && cellBg
                       )}
@@ -570,7 +635,11 @@ export default function Calendar() {
                       )}>
                         {format(day, 'd')}
                       </span>
-                      {estimatedTime && isCurrentMonth && (
+                      {/* Today indicator dot */}
+                      {isTodayDate && isCurrentMonth && (
+                        <div className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full bg-foreground" />
+                      )}
+                      {estimatedTime && isCurrentMonth && !isTodayDate && (
                         <span className="text-[9px] text-muted-foreground mt-0.5">{estimatedTime}</span>
                       )}
                     </div>
