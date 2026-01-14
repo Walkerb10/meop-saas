@@ -337,12 +337,11 @@ export default function Calendar() {
           <h1 className="text-xl font-semibold">Calendar</h1>
         </div>
 
-        {/* Tabs: My One Thing / Tasks / Task Bank */}
+        {/* Tabs: My One Thing / Task Bank */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'calendar' | 'taskbank')} className="flex-1 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <TabsList className="grid grid-cols-3 w-full max-w-md">
+            <TabsList className="grid grid-cols-2 w-full max-w-xs">
               <TabsTrigger value="calendar" className="text-sm">My One Thing</TabsTrigger>
-              <TabsTrigger value="tasks" className="text-sm">Tasks</TabsTrigger>
               <TabsTrigger value="taskbank" className="text-sm gap-1">
                 Task Bank
                 {getTaskBank().length > 0 && (
@@ -478,7 +477,7 @@ export default function Calendar() {
                       key={idx}
                       onClick={() => openDayView(day)}
                       className={cn(
-                        'aspect-square flex flex-col items-center justify-center rounded-xl cursor-pointer transition-all border min-h-[48px]',
+                        'aspect-square flex items-center justify-center rounded-xl cursor-pointer transition-all border min-h-[48px]',
                         !isCurrentMonth && 'opacity-30 bg-transparent border-transparent',
                         isCurrentMonth && cellBg,
                         isTodayDate && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
@@ -491,31 +490,6 @@ export default function Calendar() {
                       )}>
                         {format(day, 'd')}
                       </span>
-                      
-                      {/* Status indicator */}
-                      {isCurrentMonth && (
-                        <div className="mt-1">
-                          {showBothUsers ? (
-                            <div className="flex gap-1">
-                              {userStatuses.map(({ userId, status }) => (
-                                <span
-                                  key={userId}
-                                  className={cn(
-                                    'w-2 h-2 rounded-full',
-                                    status === 'done' && 'bg-green-500',
-                                    status === 'missed' && 'bg-red-500',
-                                    status === 'today' && 'bg-orange-500',
-                                    status === 'future' && 'bg-yellow-500',
-                                    status === 'empty' && 'bg-muted-foreground/30'
-                                  )}
-                                />
-                              ))}
-                            </div>
-                          ) : (
-                            statusIcon
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })}
@@ -544,55 +518,6 @@ export default function Calendar() {
                 </div>
               )}
             </div>
-          </TabsContent>
-
-          {/* Tasks Tab - shows scheduled tasks */}
-          <TabsContent value="tasks" className="flex-1 mt-0">
-            <Card className="h-full">
-              <CardHeader className="py-3">
-                <CardTitle className="text-base">Scheduled Tasks</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-2 pr-2">
-                    {tasks
-                      .filter(t => t.due_date && t.status !== 'completed' && (viewMode === 'all' || t.assigned_to === visibleUserIds[0]))
-                      .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
-                      .map(task => (
-                        <div
-                          key={task.id}
-                          className="p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer"
-                          onClick={() => {
-                            setSelectedDate(parseISO(task.due_date!));
-                            setShowDayDialog(true);
-                          }}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <p className="font-medium">{task.title}</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {format(parseISO(task.due_date!), 'EEE, MMM d')}
-                              </p>
-                            </div>
-                            <Badge variant="outline" className={cn(
-                              'text-xs',
-                              PRIORITY_COLORS[(task.priority || 'medium') as Priority]
-                            )}>
-                              {task.priority || 'medium'}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    {tasks.filter(t => t.due_date && t.status !== 'completed').length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No scheduled tasks</p>
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="taskbank" className="flex-1 mt-0">
