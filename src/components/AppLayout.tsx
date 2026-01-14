@@ -18,6 +18,8 @@ import {
   Calendar,
   Users,
   BarChart3,
+  Contact,
+  GitBranch,
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
@@ -34,6 +36,8 @@ const mainNavItems = [
   { icon: Bot, label: 'Agent', path: '/agent' },
   { icon: Zap, label: 'Automations', path: '/automations' },
   { icon: Users, label: 'CRM', path: '/crm' },
+  { icon: Contact, label: 'Contacts', path: '/contacts' },
+  { icon: GitBranch, label: 'Pipelines', path: '/pipelines' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
   { icon: BarChart3, label: 'Analytics', path: '/analytics' },
