@@ -9,6 +9,7 @@ export interface ExecutionItem {
   time: Date;
   type: 'recent' | 'upcoming';
   workflowId?: string;
+  output?: unknown;
 }
 
 interface AutomationRow {
@@ -29,6 +30,7 @@ interface ExecutionRow {
   started_at: string;
   completed_at: string | null;
   workflow_id: string | null;
+  output_data: unknown;
 }
 
 function getNextRunTime(automation: AutomationRow): Date | null {
@@ -79,7 +81,7 @@ export function useExecutions() {
     // Fetch 5 most recent executions (completed/failed/running)
     const { data: executions } = await supabase
       .from('executions')
-      .select('id, sequence_name, status, started_at, completed_at, workflow_id')
+      .select('id, sequence_name, status, started_at, completed_at, workflow_id, output_data')
       .order('started_at', { ascending: false })
       .limit(5);
 
@@ -101,6 +103,7 @@ export function useExecutions() {
           time: new Date(exec.started_at),
           type: 'recent',
           workflowId: exec.workflow_id || undefined,
+          output: exec.output_data,
         });
       });
     }

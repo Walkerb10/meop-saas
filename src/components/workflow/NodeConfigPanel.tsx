@@ -4,7 +4,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X, Sparkles, Clock, Search, MessageSquare, Mail, Hash, Timer, Plus } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { X, Sparkles, Clock, Search, MessageSquare, Mail, Hash, Timer, Plus, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getNodeDescription } from '@/components/AutomationSummary';
 import { cn } from '@/lib/utils';
@@ -27,11 +28,11 @@ interface NodeConfigPanelProps {
 }
 
 const OUTPUT_FORMATS = [
-  { value: 'summary', label: 'Quick Summary', desc: 'Concise overview' },
-  { value: 'detailed', label: 'Detailed Report', desc: 'In-depth analysis' },
-  { value: 'bullets', label: 'Bullet Points', desc: 'Easy to scan' },
-  { value: 'actionable', label: 'Action Steps', desc: 'What to do next' },
-  { value: 'problem', label: 'Problem Framework', desc: 'Structured approach' },
+  { value: 'summary', label: 'Summary', desc: 'Concise overview of key findings' },
+  { value: 'detailed', label: 'Detailed', desc: 'In-depth analysis with full context' },
+  { value: 'bullets', label: 'Bullets', desc: 'Easy to scan bullet points' },
+  { value: 'actionable', label: 'Actions', desc: 'What to do next with priorities' },
+  { value: 'problem', label: 'Problem', desc: 'Structured problem-solution framework' },
 ];
 
 const FREQUENCIES = [
@@ -271,52 +272,62 @@ function renderTypeConfig(
 
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Output style</Label>
-            <Select
-              value={node.config.outputFormat || 'summary'}
-              onValueChange={(v) => updateConfig('outputFormat', v)}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select style" />
-              </SelectTrigger>
-              <SelectContent>
-                {OUTPUT_FORMATS.map((f) => (
-                  <SelectItem key={f.value} value={f.value}>
-                    <span className="flex items-center gap-2">
-                      <span className="font-medium">{f.label}</span>
-                      <span className="text-muted-foreground">— {f.desc}</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap gap-1.5">
+              {OUTPUT_FORMATS.map((f) => (
+                <Tooltip key={f.value}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => updateConfig('outputFormat', f.value)}
+                      className={cn(
+                        'px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1',
+                        node.config.outputFormat === f.value
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                      )}
+                    >
+                      {f.label}
+                      <Info className="w-3 h-3 opacity-60" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <p className="text-xs">{f.desc}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Target length</Label>
-            <Select
-              value={node.config.outputLengthType || '500'}
-              onValueChange={(v) => {
-                updateConfig('outputLengthType', v);
-                if (v !== 'custom') {
-                  updateConfig('outputLength', v);
-                  updateConfig('customPages', undefined);
-                }
-              }}
-            >
-              <SelectTrigger className="h-11">
-                <SelectValue placeholder="Select length" />
-              </SelectTrigger>
-              <SelectContent>
-                {LENGTH_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    <span className="flex items-center gap-2">
-                      <span className="font-medium">{opt.label}</span>
-                      <span className="text-muted-foreground">({opt.desc})</span>
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap gap-1.5">
+              {LENGTH_OPTIONS.map((opt) => (
+                <Tooltip key={opt.value}>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => {
+                        updateConfig('outputLengthType', opt.value);
+                        if (opt.value !== 'custom') {
+                          updateConfig('outputLength', opt.value);
+                          updateConfig('customPages', undefined);
+                        }
+                      }}
+                      className={cn(
+                        'px-2.5 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1',
+                        node.config.outputLengthType === opt.value || (!node.config.outputLengthType && opt.value === '500')
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                      )}
+                    >
+                      {opt.label}
+                      <Info className="w-3 h-3 opacity-60" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p className="text-xs">{opt.desc}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
             
             {node.config.outputLengthType === 'custom' && (
               <div className="flex items-center gap-2 mt-2">

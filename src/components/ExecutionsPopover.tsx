@@ -35,6 +35,20 @@ function ExecutionCard({ execution, onClick }: { execution: ExecutionItem; onCli
     return formatDistanceToNow(execution.time, { addSuffix: true });
   };
 
+  // Get output preview for completed executions
+  const getOutputPreview = () => {
+    if (!execution.output || execution.status !== 'completed') return null;
+    
+    const output = execution.output;
+    if (typeof output === 'object' && output !== null && 'content' in output) {
+      const content = (output as { content: string }).content;
+      return content.substring(0, 80) + (content.length > 80 ? '...' : '');
+    }
+    return null;
+  };
+
+  const outputPreview = getOutputPreview();
+
   return (
     <motion.button
       initial={{ opacity: 0, y: 10 }}
@@ -59,6 +73,11 @@ function ExecutionCard({ execution, onClick }: { execution: ExecutionItem; onCli
           <span className="text-xs text-muted-foreground">
             {getTimeLabel()}
           </span>
+          {outputPreview && (
+            <p className="text-xs text-muted-foreground/80 mt-1 line-clamp-2">
+              {outputPreview}
+            </p>
+          )}
         </div>
         <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
       </div>
