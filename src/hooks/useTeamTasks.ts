@@ -13,6 +13,7 @@ export interface TeamTask {
   priority: 'low' | 'medium' | 'high' | 'urgent';
   due_date: string | null;
   completed_at: string | null;
+  estimated_minutes: number | null;
   created_at: string;
   updated_at: string;
   assignee_name?: string;
@@ -74,6 +75,7 @@ export function useTeamTasks() {
     assigned_to?: string;
     priority?: string;
     due_date?: string;
+    estimated_minutes?: number;
   }) => {
     if (!user) return;
 
@@ -87,6 +89,7 @@ export function useTeamTasks() {
           created_by: user.id,
           priority: task.priority || 'medium',
           due_date: task.due_date || null,
+          estimated_minutes: task.estimated_minutes || null,
         });
 
       if (error) throw error;

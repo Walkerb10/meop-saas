@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -26,6 +27,7 @@ import {
   Calendar as CalendarIcon,
   CheckCircle2,
   Users,
+  Clock,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isBefore, isToday, startOfDay, isAfter } from 'date-fns';
 import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
@@ -73,6 +75,105 @@ const PRIORITY_COLORS: Record<Priority, string> = {
   high: 'bg-red-500/20 text-red-500 border-red-500/50',
 };
 
+// Helper to format minutes as human-readable time
+function formatDuration(minutes: number | null): string {
+  if (!minutes) return '';
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
+
+// Task Bank Item with date picker
+interface TaskBankItemProps {
+  task: TeamTask;
+  assignedMember?: { user_id: string; display_name: string | null; email: string };
+  priority: Priority;
+  onSchedule: (date: Date) => void;
+  onDelete: () => void;
+}
+
+function TaskBankItem({ task, assignedMember, priority, onSchedule, onDelete }: TaskBankItemProps) {
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        'p-3 rounded-lg border hover:bg-muted/50 transition-colors',
+        PRIORITY_COLORS[priority]
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-medium">{task.title}</p>
+          {task.description && (
+            <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+          )}
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            {assignedMember && (
+              <>
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback className="text-[10px]">
+                    {getMemberInitials(assignedMember.display_name, assignedMember.email)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-xs text-muted-foreground">
+                  {assignedMember.display_name?.split(' ')[0] || 'Unassigned'}
+                </span>
+              </>
+            )}
+            {!assignedMember && (
+              <span className="text-xs text-muted-foreground">Unassigned</span>
+            )}
+            {task.estimated_minutes && (
+              <Badge variant="outline" className="text-[10px] gap-1">
+                <Clock className="h-3 w-3" />
+                {formatDuration(task.estimated_minutes)}
+              </Badge>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+              >
+                <CalendarIcon className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <CalendarComponent
+                mode="single"
+                selected={undefined}
+                onSelect={(date) => {
+                  if (date) {
+                    onSchedule(date);
+                    setShowDatePicker(false);
+                  }
+                }}
+                disabled={(date) => isBefore(startOfDay(date), startOfDay(new Date()))}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -95,6 +196,7 @@ export default function Calendar() {
     assigned_to: '',
     priority: 'medium' as Priority,
     is_pinned: false,
+    estimated_minutes: '' as string,
   });
 
   // Get team members for Walker and Griffin
@@ -206,9 +308,10 @@ export default function Calendar() {
       description: taskForm.description,
       assigned_to: taskForm.assigned_to || undefined,
       priority: taskForm.priority,
+      estimated_minutes: taskForm.estimated_minutes ? parseInt(taskForm.estimated_minutes) : undefined,
     });
 
-    setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false });
+    setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false, estimated_minutes: '' });
     setShowTaskBankDialog(false);
   };
 
@@ -237,7 +340,7 @@ export default function Calendar() {
       priority: taskForm.priority,
     });
 
-    setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false });
+    setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false, estimated_minutes: '' });
     setShowDayDialog(false);
   };
 
@@ -278,7 +381,7 @@ export default function Calendar() {
       priority: taskForm.priority,
     });
 
-    setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false });
+    setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false, estimated_minutes: '' });
     setShowDayDialog(false);
   };
 
@@ -496,40 +599,14 @@ export default function Calendar() {
                             {priorityTasks.map(task => {
                               const assignedMember = teamMembers.find(m => m.user_id === task.assigned_to);
                               return (
-                                <div
+                                <TaskBankItem
                                   key={task.id}
-                                  className={cn(
-                                    'p-3 rounded-lg border hover:bg-muted/50 transition-colors',
-                                    PRIORITY_COLORS[priority as Priority]
-                                  )}
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex-1 min-w-0">
-                                      <p className="font-medium">{task.title}</p>
-                                      {task.description && (
-                                        <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
-                                      )}
-                                      <div className="flex items-center gap-2 mt-2">
-                                        <Avatar className="h-5 w-5">
-                                          <AvatarFallback className="text-[10px]">
-                                            {assignedMember ? getMemberInitials(assignedMember.display_name, assignedMember.email) : '?'}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <span className="text-xs text-muted-foreground">
-                                          {assignedMember?.display_name?.split(' ')[0] || 'Unassigned'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 shrink-0"
-                                      onClick={() => deleteTask(task.id)}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                  </div>
-                                </div>
+                                  task={task}
+                                  assignedMember={assignedMember}
+                                  priority={priority as Priority}
+                                  onSchedule={(date) => handleAssignTaskToDate(task.id, date)}
+                                  onDelete={() => deleteTask(task.id)}
+                                />
                               );
                             })}
                           </div>
@@ -633,7 +710,7 @@ export default function Calendar() {
       <Dialog open={showDayDialog} onOpenChange={(open) => {
         setShowDayDialog(open);
         if (!open) {
-          setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false });
+          setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false, estimated_minutes: '' });
         }
       }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -712,6 +789,20 @@ export default function Calendar() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Estimated time (optional)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  value={taskForm.estimated_minutes}
+                  onChange={(e) => setTaskForm({ ...taskForm, estimated_minutes: e.target.value })}
+                  placeholder="30"
+                  className="w-20"
+                  min="1"
+                />
+                <span className="text-sm text-muted-foreground">minutes</span>
+              </div>
             </div>
             <Button onClick={handleCreateTaskToBank} className="w-full" disabled={!taskForm.title || !taskForm.priority}>
               Add to Bank
