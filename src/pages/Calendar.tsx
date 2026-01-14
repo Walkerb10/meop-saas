@@ -67,11 +67,12 @@ function getDayStatus(task: TeamTask | null, date: Date): DayStatus {
   return 'future';
 }
 
+// Updated status styles: future = yellow, today = orange, empty = blank
 const STATUS_STYLES: Record<DayStatus, { bg: string; text: string; border: string }> = {
   done: { bg: 'bg-green-500/20', text: 'text-green-500', border: 'border-green-500/50' },
   today: { bg: 'bg-orange-500/20', text: 'text-orange-500', border: 'border-orange-500/50' },
   missed: { bg: 'bg-red-500/20', text: 'text-red-500', border: 'border-red-500/50' },
-  future: { bg: 'bg-orange-400/20', text: 'text-orange-400', border: 'border-orange-400/50' },
+  future: { bg: 'bg-yellow-500/20', text: 'text-yellow-500', border: 'border-yellow-500/50' },
   empty: { bg: '', text: 'text-muted-foreground', border: 'border-transparent' },
 };
 
@@ -84,7 +85,6 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 export default function Calendar() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
   const [showDayDialog, setShowDayDialog] = useState(false);
   const [showTaskBankDialog, setShowTaskBankDialog] = useState(false);
   const [editingDayTask, setEditingDayTask] = useState(false);
@@ -94,8 +94,9 @@ export default function Calendar() {
   const { members } = useTeamMembers();
   const { user } = useAuth();
 
-  // Determine if current user is Walker or Griffin
+  // Determine if current user is Walker or Griffin - default to personal view
   const currentUserKey = user?.id === TEAM_USERS.walker ? 'walker' : user?.id === TEAM_USERS.griffin ? 'griffin' : null;
+  const [viewMode, setViewMode] = useState<ViewMode>(currentUserKey || 'walker');
 
   const [taskForm, setTaskForm] = useState({
     title: '',
@@ -482,7 +483,11 @@ export default function Calendar() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-orange-500" />
-                  <span>Today/Scheduled</span>
+                  <span>Today (Set)</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                  <span>Future (Set)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full bg-red-500" />
@@ -560,7 +565,8 @@ export default function Calendar() {
                                   'w-1.5 h-1.5 rounded-full',
                                   status === 'done' && 'bg-green-500',
                                   status === 'missed' && 'bg-red-500',
-                                  (status === 'today' || status === 'future') && 'bg-orange-500',
+                                  status === 'today' && 'bg-orange-500',
+                                  status === 'future' && 'bg-yellow-500',
                                   status === 'empty' && 'bg-muted-foreground/30'
                                 )}
                               />
@@ -571,7 +577,8 @@ export default function Calendar() {
                             'w-1.5 h-1.5 rounded-full mt-0.5',
                             userStatuses[0]?.status === 'done' && 'bg-green-500',
                             userStatuses[0]?.status === 'missed' && 'bg-red-500',
-                            (userStatuses[0]?.status === 'today' || userStatuses[0]?.status === 'future') && 'bg-orange-500',
+                            userStatuses[0]?.status === 'today' && 'bg-orange-500',
+                            userStatuses[0]?.status === 'future' && 'bg-yellow-500',
                             userStatuses[0]?.status === 'empty' && 'bg-transparent'
                           )} />
                         ) : null}

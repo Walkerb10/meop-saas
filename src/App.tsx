@@ -21,8 +21,6 @@ import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Newsletter from "./pages/Newsletter";
-import Contacts from "./pages/Contacts";
-import Pipelines from "./pages/Pipelines";
 
 const queryClient = new QueryClient();
 
@@ -54,8 +52,6 @@ const App = () => (
           <Route path="/conversations" element={<ProtectedRoute><Conversations /></ProtectedRoute>} />
           <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-          <Route path="/contacts" element={<ProtectedRoute><Contacts /></ProtectedRoute>} />
-          <Route path="/pipelines" element={<ProtectedRoute><Pipelines /></ProtectedRoute>} />
           <Route path="/newsletter" element={<Newsletter />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

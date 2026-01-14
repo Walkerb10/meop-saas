@@ -18,8 +18,6 @@ import {
   Calendar,
   Users,
   BarChart3,
-  Contact,
-  GitBranch,
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
@@ -31,13 +29,12 @@ import {
 import { FeedbackDialog } from '@/components/FeedbackDialog';
 import { ExecutionsPopover } from '@/components/ExecutionsPopover';
 import { useExecutions } from '@/hooks/useExecutions';
+import { ToDoButton } from '@/components/ToDoButton';
 
 const mainNavItems = [
   { icon: Bot, label: 'Agent', path: '/agent' },
   { icon: Zap, label: 'Automations', path: '/automations' },
   { icon: Users, label: 'CRM', path: '/crm' },
-  { icon: Contact, label: 'Contacts', path: '/contacts' },
-  { icon: GitBranch, label: 'Pipelines', path: '/pipelines' },
   { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
   { icon: BarChart3, label: 'Analytics', path: '/analytics' },
@@ -228,13 +225,15 @@ export function AppLayout({
         <header className="fixed top-0 right-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border"
           style={{ left: isMobile ? 0 : desktopSidebarOpen ? '200px' : '56px' }}
         >
-          {/* Left side - hamburger on mobile, New Chat */}
+          {/* Left side - hamburger on mobile, To-Do, New Chat */}
           <div className="flex items-center gap-2">
             {isMobile && (
               <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
                 <Menu className="w-6 h-6" />
               </Button>
             )}
+            
+            <ToDoButton />
             
             {showNewChatButton && onNewChat && (
               <Button 
