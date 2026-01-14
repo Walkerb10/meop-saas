@@ -340,7 +340,7 @@ export default function Calendar() {
     setShowDayDialog(false);
   };
 
-  const handleCreateAndAssignTask = async (date: Date, userId: string, isPinned: boolean = false, title?: string, description?: string) => {
+  const handleCreateAndAssignTask = async (date: Date, userId: string, isPinned: boolean = false, title?: string, description?: string, estimatedMinutes?: number) => {
     const taskTitle = title || taskForm.title;
     const taskDescription = description || taskForm.description;
     
@@ -351,7 +351,7 @@ export default function Calendar() {
       description: taskDescription,
       assigned_to: userId,
       due_date: startOfDay(date).toISOString(),
-      priority: taskForm.priority,
+      estimated_minutes: estimatedMinutes,
     });
 
     setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false, estimated_time: '', time_unit: 'minutes' });
@@ -359,7 +359,7 @@ export default function Calendar() {
   };
 
   // Insert a new task and push all other tasks back by one day (respecting pinned tasks)
-  const handleInsertTaskAndShift = async (date: Date, userId: string, title?: string, description?: string) => {
+  const handleInsertTaskAndShift = async (date: Date, userId: string, title?: string, description?: string, estimatedMinutes?: number) => {
     const taskTitle = title || taskForm.title;
     const taskDescription = description || taskForm.description;
     
@@ -392,7 +392,7 @@ export default function Calendar() {
       description: taskDescription,
       assigned_to: userId,
       due_date: startOfDay(date).toISOString(),
-      priority: taskForm.priority,
+      estimated_minutes: estimatedMinutes,
     });
 
     setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false, estimated_time: '', time_unit: 'minutes' });
@@ -845,8 +845,8 @@ export default function Calendar() {
 interface EmptyDayFormProps {
   userId: string;
   date: Date;
-  onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title: string, description: string) => void;
-  onInsertAndShift: (date: Date, userId: string, title: string, description: string) => void;
+  onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title: string, description: string, estimatedMinutes?: number) => void;
+  onInsertAndShift: (date: Date, userId: string, title: string, description: string, estimatedMinutes?: number) => void;
   userTaskBank: TeamTask[];
   onAssignTask: (taskId: string, date: Date, userId?: string) => void;
 }
@@ -857,6 +857,15 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
   const [selectedBankTask, setSelectedBankTask] = useState<TeamTask | null>(null);
   const [isPinned, setIsPinned] = useState(false);
   const [showTaskBankPopover, setShowTaskBankPopover] = useState(false);
+  const [estimatedTime, setEstimatedTime] = useState('');
+  const [timeUnit, setTimeUnit] = useState<'minutes' | 'hours'>('minutes');
+
+  const getEstimatedMinutes = (): number | undefined => {
+    if (!estimatedTime) return undefined;
+    const value = parseInt(estimatedTime);
+    if (isNaN(value)) return undefined;
+    return timeUnit === 'hours' ? value * 60 : value;
+  };
 
   const handleSave = () => {
     const title = selectedBankTask ? selectedBankTask.title : localTitle;
@@ -867,7 +876,7 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
       // Assign existing task from bank to this date
       onAssignTask(selectedBankTask.id, date, userId);
     } else {
-      onCreateAndAssign(date, userId, isPinned, title, description);
+      onCreateAndAssign(date, userId, isPinned, title, description, getEstimatedMinutes());
     }
   };
 
@@ -875,13 +884,26 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
     const title = selectedBankTask ? selectedBankTask.title : localTitle;
     const description = selectedBankTask ? (selectedBankTask.description || '') : localDescription;
     if (!title) return;
-    onInsertAndShift(date, userId, title, description);
+    onInsertAndShift(date, userId, title, description, getEstimatedMinutes());
   };
 
   const handleSelectBankTask = (task: TeamTask) => {
     setSelectedBankTask(task);
     setLocalTitle(task.title);
     setLocalDescription(task.description || '');
+    // Set estimated time from bank task if available
+    if (task.estimated_minutes) {
+      if (task.estimated_minutes >= 60 && task.estimated_minutes % 60 === 0) {
+        setEstimatedTime(String(task.estimated_minutes / 60));
+        setTimeUnit('hours');
+      } else {
+        setEstimatedTime(String(task.estimated_minutes));
+        setTimeUnit('minutes');
+      }
+    } else {
+      setEstimatedTime('');
+      setTimeUnit('minutes');
+    }
     setShowTaskBankPopover(false);
   };
 
@@ -889,6 +911,8 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
     setSelectedBankTask(null);
     setLocalTitle('');
     setLocalDescription('');
+    setEstimatedTime('');
+    setTimeUnit('minutes');
   };
 
   const hasContent = localTitle.trim() || selectedBankTask;
@@ -949,17 +973,50 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
         </div>
       )}
 
-      <Input
-        value={localTitle}
-        onChange={(e) => { setLocalTitle(e.target.value); setSelectedBankTask(null); }}
-        placeholder="What needs to be done?"
-      />
-      <Textarea
-        value={localDescription}
-        onChange={(e) => { setLocalDescription(e.target.value); setSelectedBankTask(null); }}
-        placeholder="Description (optional)"
-        rows={2}
-      />
+      <div>
+        <Label className="text-xs">Title <span className="text-destructive">*</span></Label>
+        <Input
+          value={localTitle}
+          onChange={(e) => { setLocalTitle(e.target.value); setSelectedBankTask(null); }}
+          placeholder="What needs to be done?"
+        />
+      </div>
+      <div>
+        <Label className="text-xs">Description (optional)</Label>
+        <Textarea
+          value={localDescription}
+          onChange={(e) => { setLocalDescription(e.target.value); setSelectedBankTask(null); }}
+          placeholder="Add details..."
+          rows={2}
+        />
+      </div>
+      
+      {/* Estimated Time - same as Task Bank form */}
+      <div>
+        <Label className="text-xs">Estimated time (optional)</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            value={estimatedTime}
+            onChange={(e) => setEstimatedTime(e.target.value)}
+            placeholder={timeUnit === 'hours' ? '2' : '30'}
+            className="w-20"
+            min="1"
+          />
+          <Select 
+            value={timeUnit} 
+            onValueChange={(v) => setTimeUnit(v as 'minutes' | 'hours')}
+          >
+            <SelectTrigger className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="minutes">Minutes</SelectItem>
+              <SelectItem value="hours">Hours</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {/* Action buttons */}
       <div className="flex gap-2">
@@ -1008,8 +1065,8 @@ interface DayViewProps {
   onUncomplete: (task: TeamTask) => void;
   onAssignTask: (taskId: string, date: Date, userId?: string) => void;
   onDelete: (taskId: string) => void;
-  onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title?: string, description?: string) => void;
-  onInsertAndShift: (date: Date, userId: string, title?: string, description?: string) => void;
+  onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title?: string, description?: string, estimatedMinutes?: number) => void;
+  onInsertAndShift: (date: Date, userId: string, title?: string, description?: string, estimatedMinutes?: number) => void;
 }
 
 function DayView({ 
