@@ -342,14 +342,7 @@ export default function Calendar() {
                     const key = member.user_id === TEAM_USERS.walker ? 'walker' : 'griffin';
                     return (
                       <SelectItem key={member.user_id} value={key}>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-4 w-4">
-                            <AvatarFallback className="text-[8px]">
-                              {getMemberInitials(member.display_name, member.email)}
-                            </AvatarFallback>
-                          </Avatar>
-                          {member.display_name?.split(' ')[0] || member.email}
-                        </div>
+                        {member.display_name?.split(' ')[0] || member.email}
                       </SelectItem>
                     );
                   })}
@@ -917,7 +910,7 @@ function DayView({
       {visibleUserIds.map(userId => {
         const task = getTaskForDate(date, userId);
         const member = teamMembers.find(m => m.user_id === userId);
-        const userTaskBank = getTaskBank(userId);
+        const allTaskBank = getTaskBank();
         const isCompleted = task?.status === 'completed';
         const status = getDayStatus(task, date);
 
@@ -994,7 +987,7 @@ function DayView({
                 date={date}
                 onCreateAndAssign={onCreateAndAssign}
                 onInsertAndShift={onInsertAndShift}
-                userTaskBank={userTaskBank}
+                userTaskBank={allTaskBank}
                 onAssignTask={onAssignTask}
               />
             )}
