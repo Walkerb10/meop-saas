@@ -3,16 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Zap,
-  MoreHorizontal, Trash2, Loader2
+  MoreHorizontal, Trash2, Loader2, TrendingUp
 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
 import { CreateAutomationWizard } from '@/components/CreateAutomationWizard';
 import { StepPreview } from '@/components/AutomationSummary';
+import { LinkedInResearchAutomation } from '@/components/LinkedInResearchAutomation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -449,6 +451,24 @@ export default function AutomationsPage() {
           </div>
         </div>
 
+        {/* Tabs for LinkedIn Research and Automations */}
+        <Tabs defaultValue="linkedin" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="linkedin" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              LinkedIn Research
+            </TabsTrigger>
+            <TabsTrigger value="automations" className="gap-2">
+              <Zap className="w-4 h-4" />
+              Automations
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="linkedin">
+            <LinkedInResearchAutomation />
+          </TabsContent>
+
+          <TabsContent value="automations">
         {/* Workflow list */}
         <div className="space-y-3">
           {loading ? (
@@ -604,6 +624,8 @@ export default function AutomationsPage() {
             </div>
           )}
         </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Delete confirmation */}

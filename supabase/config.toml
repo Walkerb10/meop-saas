@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.generate-embedding]
 verify_jwt = false
+
+[functions.linkedin-research]
+verify_jwt = false
