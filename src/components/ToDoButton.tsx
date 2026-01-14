@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ListTodo, CheckCircle2, Clock, Plus } from 'lucide-react';
+import { ListTodo, CheckCircle2, Clock, Plus, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -58,7 +58,7 @@ export function ToDoButton() {
   const taskBankCount = getTaskBankCount();
   const hasPendingTask = todayTask && todayTask.status !== 'completed';
   const completedToday = todayTask?.status === 'completed';
-  const needsToSetNextTask = !nextTask && taskBankCount === 0 && !hasPendingTask;
+  const needsToSetNextTask = !todayTask && !nextTask && taskBankCount === 0;
 
   // Should show red badge?
   const showRedBadge = hasPendingTask || needsToSetNextTask;
@@ -103,12 +103,12 @@ export function ToDoButton() {
   };
 
   const handleButtonClick = () => {
-    // If no task set and needs one, go directly to calendar
-    if (!todayTask && !nextTask && taskBankCount === 0) {
-      navigate('/calendar');
-      return;
-    }
+    // Always open the dialog - show current task or add form
     setOpen(true);
+    // If no task, show add form immediately
+    if (!todayTask) {
+      setShowAddForm(true);
+    }
   };
 
   const goToCalendar = () => {
@@ -133,7 +133,14 @@ export function ToDoButton() {
         )}
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+          setShowAddForm(false);
+          setTaskTitle('');
+          setTaskDescription('');
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -167,60 +174,89 @@ export function ToDoButton() {
                   <Button onClick={handleAddTask} disabled={!taskTitle} className="flex-1">
                     Set Task
                   </Button>
-                  <Button variant="outline" onClick={() => setShowAddForm(false)}>
-                    Cancel
+                  <Button variant="outline" onClick={() => {
+                    if (todayTask) {
+                      setShowAddForm(false);
+                    } else {
+                      goToCalendar();
+                    }
+                  }}>
+                    {todayTask ? 'Cancel' : 'View Calendar'}
                   </Button>
                 </div>
               </div>
             ) : todayTask ? (
-              <div className={cn(
-                'p-4 rounded-lg border transition-all',
-                todayTask.status === 'completed' 
-                  ? 'bg-green-500/10 border-green-500/30' 
-                  : 'bg-orange-500/10 border-orange-500/30'
-              )}>
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={todayTask.status === 'completed'}
-                    onCheckedChange={() => 
-                      todayTask.status === 'completed'
-                        ? handleUncompleteTask(todayTask) 
-                        : handleCompleteTask(todayTask)
-                    }
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <p className={cn(
-                      'font-semibold text-lg',
-                      todayTask.status === 'completed' && 'line-through text-muted-foreground'
-                    )}>
-                      {todayTask.title}
-                    </p>
-                    {todayTask.description && (
-                      <p className="text-muted-foreground mt-1 text-sm">{todayTask.description}</p>
-                    )}
+              <div className="space-y-4">
+                <div className={cn(
+                  'p-4 rounded-lg border transition-all',
+                  todayTask.status === 'completed' 
+                    ? 'bg-green-500/10 border-green-500/30' 
+                    : 'bg-orange-500/10 border-orange-500/30'
+                )}>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={todayTask.status === 'completed'}
+                      onCheckedChange={() => 
+                        todayTask.status === 'completed'
+                          ? handleUncompleteTask(todayTask) 
+                          : handleCompleteTask(todayTask)
+                      }
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <p className={cn(
+                        'font-semibold text-lg',
+                        todayTask.status === 'completed' && 'line-through text-muted-foreground'
+                      )}>
+                        {todayTask.title}
+                      </p>
+                      {todayTask.description && (
+                        <p className="text-muted-foreground mt-1 text-sm">{todayTask.description}</p>
+                      )}
+                    </div>
                   </div>
+                  
+                  {completedToday && (
+                    <div className="mt-4 p-3 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center">
+                      <CheckCircle2 className="h-5 w-5 mx-auto mb-1" />
+                      <p className="font-medium text-sm">You completed your one thing!</p>
+                      {nextTask && (
+                        <p className="text-xs mt-1">Next up: {nextTask.title}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 
-                {completedToday && (
-                  <div className="mt-4 p-3 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center">
-                    <CheckCircle2 className="h-5 w-5 mx-auto mb-1" />
-                    <p className="font-medium text-sm">You completed your one thing!</p>
-                    {nextTask && (
-                      <p className="text-xs mt-1">Next up: {nextTask.title}</p>
-                    )}
-                  </div>
-                )}
+                <Button variant="outline" size="sm" onClick={goToCalendar} className="w-full gap-2">
+                  <Calendar className="h-4 w-4" />
+                  View Calendar
+                </Button>
               </div>
             ) : (
-              <div className="p-4 rounded-lg bg-muted/50 text-center">
-                <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">No task set for today</p>
-                <div className="flex gap-2 mt-3 justify-center">
-                  <Button size="sm" onClick={() => setShowAddForm(true)}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Task
+              <div className="space-y-4">
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    placeholder="What's your one thing for today?"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label>Description (optional)</Label>
+                  <Textarea
+                    value={taskDescription}
+                    onChange={(e) => setTaskDescription(e.target.value)}
+                    placeholder="Add details..."
+                    rows={2}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleAddTask} disabled={!taskTitle} className="flex-1">
+                    Set Task
                   </Button>
-                  <Button size="sm" variant="outline" onClick={goToCalendar}>
+                  <Button variant="outline" onClick={goToCalendar}>
                     View Calendar
                   </Button>
                 </div>

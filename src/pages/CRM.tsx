@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Users, GitBranch, Contact, ChevronDown, Plus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, GitBranch, Contact, ChevronDown, Plus, Settings } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { CRMBoard } from '@/components/CRMBoard';
 import { ContactsManager } from '@/components/ContactsManager';
 import { PipelinesManager } from '@/components/PipelinesManager';
 import { usePipelines, Pipeline } from '@/hooks/usePipelines';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,16 +18,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 export default function CRMPage() {
-  const [activeTab, setActiveTab] = useState<'pipeline' | 'contacts'>('pipeline');
+  const [activeTab, setActiveTab] = useState<'pipelines' | 'contacts'>('pipelines');
   const [showPipelinesManager, setShowPipelinesManager] = useState(false);
-  const { pipelines, loading } = usePipelines();
+  const { pipelines, loading, createPipeline, DEFAULT_SALES_STAGES } = usePipelines();
+  const { user } = useAuth();
+  
+  const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
+
+  // Auto-create default sales pipeline if none exists
+  useEffect(() => {
+    if (!loading && pipelines.length === 0 && user) {
+      createPipeline({
+        name: 'Sales Pipeline',
+        description: 'Default sales pipeline',
+        type: 'sales',
+        stages: DEFAULT_SALES_STAGES,
+        is_default: true,
+      });
+    }
+  }, [loading, pipelines.length, user, createPipeline, DEFAULT_SALES_STAGES]);
   
   // Find the default sales pipeline or first pipeline
   const defaultPipeline = pipelines.find(p => p.type === 'sales' && p.is_default) 
     || pipelines.find(p => p.type === 'sales')
     || pipelines[0];
-  
-  const [selectedPipeline, setSelectedPipeline] = useState<Pipeline | null>(null);
   
   // Use selected or default
   const currentPipeline = selectedPipeline || defaultPipeline;
@@ -42,7 +57,7 @@ export default function CRMPage() {
               CRM
             </h1>
             
-            {activeTab === 'pipeline' && (
+            {activeTab === 'pipelines' && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2">
@@ -51,7 +66,7 @@ export default function CRMPage() {
                     <ChevronDown className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuContent align="start" className="w-56 bg-popover">
                   {pipelines.map(pipeline => (
                     <DropdownMenuItem
                       key={pipeline.id}
@@ -67,7 +82,7 @@ export default function CRMPage() {
                   ))}
                   {pipelines.length > 0 && <DropdownMenuSeparator />}
                   <DropdownMenuItem onClick={() => setShowPipelinesManager(true)} className="gap-2">
-                    <Plus className="w-4 h-4" />
+                    <Settings className="w-4 h-4" />
                     Manage Pipelines
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -77,11 +92,11 @@ export default function CRMPage() {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pipeline' | 'contacts')}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'pipelines' | 'contacts')}>
           <TabsList className="bg-secondary/50 mb-6">
-            <TabsTrigger value="pipeline" className="gap-2">
+            <TabsTrigger value="pipelines" className="gap-2">
               <GitBranch className="w-4 h-4" />
-              Pipeline
+              Pipelines
             </TabsTrigger>
             <TabsTrigger value="contacts" className="gap-2">
               <Contact className="w-4 h-4" />
@@ -89,8 +104,8 @@ export default function CRMPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pipeline" className="mt-0">
-            <CRMBoard />
+          <TabsContent value="pipelines" className="mt-0">
+            <CRMBoard pipelineId={currentPipeline?.id} />
           </TabsContent>
 
           <TabsContent value="contacts" className="mt-0">
