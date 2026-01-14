@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import { Plus, Play, Loader2 } from 'lucide-react';
 import { WorkflowNode, WorkflowConnection, WorkflowNodeType } from '@/types/workflow';
 import { WorkflowNodeComponent } from './WorkflowNode';
 import { NodePicker } from './NodePicker';
@@ -16,6 +16,9 @@ interface WorkflowCanvasProps {
   onDeleteNode: (id: string) => void;
   onConnect: (sourceId: string, targetId: string) => void;
   onAddNode: (type: WorkflowNodeType, position: { x: number; y: number }) => void;
+  onInsertNode?: (type: WorkflowNodeType, afterNodeId: string) => void;
+  onExecute?: () => Promise<void>;
+  isExecuting?: boolean;
   executingNodeId?: string | null;
   completedNodeIds?: string[];
   zoom?: number;
@@ -31,6 +34,9 @@ export function WorkflowCanvas({
   onDeleteNode,
   onConnect,
   onAddNode,
+  onInsertNode,
+  onExecute,
+  isExecuting = false,
   executingNodeId,
   completedNodeIds = [],
   zoom = 1,
@@ -51,6 +57,12 @@ export function WorkflowCanvas({
   const [nodePickerPosition, setNodePickerPosition] = useState({ x: 0, y: 0 });
   const [nodePickerCanvasPosition, setNodePickerCanvasPosition] = useState({ x: 0, y: 0 });
   const [showTriggersFirst, setShowTriggersFirst] = useState(false);
+  const [insertAfterNodeId, setInsertAfterNodeId] = useState<string | null>(null);
+
+  // Sort nodes by Y position for sequential display
+  const sortedNodes = useMemo(() => {
+    return [...nodes].sort((a, b) => a.position.y - b.position.y);
+  }, [nodes]);
 
   // Handle canvas click to deselect
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
@@ -74,6 +86,7 @@ export function WorkflowCanvas({
       y: Math.round(canvasY / 20) * 20 
     });
     setShowTriggersFirst(nodes.length === 0);
+    setInsertAfterNodeId(null);
     setShowNodePicker(true);
   }, [pan, zoom, nodes.length]);
 
@@ -92,14 +105,42 @@ export function WorkflowCanvas({
       y: Math.round(canvasY / 20) * 20 
     });
     setShowTriggersFirst(nodes.length === 0);
+    setInsertAfterNodeId(null);
     setShowNodePicker(true);
   }, [pan, zoom, nodes.length]);
 
   // Handle node selection from picker
   const handleNodePickerSelect = useCallback((type: WorkflowNodeType) => {
-    onAddNode(type, nodePickerCanvasPosition);
+    if (insertAfterNodeId && onInsertNode) {
+      onInsertNode(type, insertAfterNodeId);
+    } else {
+      onAddNode(type, nodePickerCanvasPosition);
+    }
     setShowNodePicker(false);
-  }, [onAddNode, nodePickerCanvasPosition]);
+    setInsertAfterNodeId(null);
+  }, [onAddNode, onInsertNode, nodePickerCanvasPosition, insertAfterNodeId]);
+
+  // Handle inline add button click (between nodes)
+  const handleInlineAddClick = useCallback((afterNodeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const afterNode = nodes.find(n => n.id === afterNodeId);
+    if (!afterNode || !canvasRef.current) return;
+
+    const rect = canvasRef.current.getBoundingClientRect();
+    
+    // Position picker near the inline add button
+    setNodePickerPosition({ 
+      x: rect.left + (afterNode.position.x + 130) * zoom + pan.x, 
+      y: rect.top + (afterNode.position.y + 170) * zoom + pan.y 
+    });
+    setNodePickerCanvasPosition({ 
+      x: afterNode.position.x, 
+      y: afterNode.position.y + 160 
+    });
+    setShowTriggersFirst(false);
+    setInsertAfterNodeId(afterNodeId);
+    setShowNodePicker(true);
+  }, [nodes, zoom, pan]);
 
   // Handle node drag start
   const handleNodeDragStart = useCallback((nodeId: string, e: React.MouseEvent) => {
@@ -146,7 +187,6 @@ export function WorkflowCanvas({
     let finalX = snappedX;
     
     if (draggedNode) {
-      const NODE_CENTER = 130; // Half of node width (260/2)
       const SNAP_THRESHOLD = 15;
       
       for (const node of nodes) {
@@ -328,8 +368,47 @@ export function WorkflowCanvas({
       y: Math.round(((centerY - pan.y) / zoom) / 20) * 20 
     });
     setShowTriggersFirst(nodes.length === 0);
+    setInsertAfterNodeId(null);
     setShowNodePicker(true);
   }, [pan, zoom, nodes.length]);
+
+  // Render inline add buttons between nodes
+  const renderInlineAddButtons = useCallback(() => {
+    if (sortedNodes.length === 0) return null;
+
+    return sortedNodes.map((node, index) => {
+      // Don't show add button after the last node (that's handled by the bottom Run Sequence area)
+      if (index === sortedNodes.length - 1) return null;
+
+      const nextNode = sortedNodes[index + 1];
+      if (!nextNode) return null;
+
+      // Calculate position between current and next node
+      const midY = (node.position.y + NODE_HEIGHT + nextNode.position.y) / 2;
+      const centerX = node.position.x + NODE_WIDTH / 2;
+
+      return (
+        <motion.div
+          key={`add-${node.id}`}
+          className="absolute"
+          style={{
+            left: centerX - 14,
+            top: midY - 14,
+          }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ scale: 1.1 }}
+        >
+          <button
+            onClick={(e) => handleInlineAddClick(node.id, e)}
+            className="w-7 h-7 rounded-full bg-secondary hover:bg-primary hover:text-primary-foreground border border-border hover:border-primary flex items-center justify-center transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+        </motion.div>
+      );
+    });
+  }, [sortedNodes, handleInlineAddClick, NODE_WIDTH, NODE_HEIGHT]);
 
   return (
     <div
@@ -391,23 +470,42 @@ export function WorkflowCanvas({
             />
           ))}
         </AnimatePresence>
+
+        {/* Inline add buttons between nodes */}
+        {renderInlineAddButtons()}
       </div>
 
-      {/* Add button - floating */}
+      {/* Run Sequence button - bottom center */}
       <motion.div
         className="absolute bottom-6 left-1/2 -translate-x-1/2"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <Button
-          size="lg"
-          onClick={handleAddButtonClick}
-          className="gap-2 rounded-full px-6 shadow-lg"
-        >
-          <Plus className="w-5 h-5" />
-          Add Node
-        </Button>
+        {onExecute ? (
+          <Button
+            size="lg"
+            onClick={onExecute}
+            disabled={isExecuting || nodes.length === 0}
+            className="gap-2 rounded-full px-6 shadow-lg"
+          >
+            {isExecuting ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Play className="w-5 h-5" />
+            )}
+            {isExecuting ? 'Running...' : 'Run Sequence'}
+          </Button>
+        ) : (
+          <Button
+            size="lg"
+            onClick={handleAddButtonClick}
+            className="gap-2 rounded-full px-6 shadow-lg"
+          >
+            <Plus className="w-5 h-5" />
+            Add Node
+          </Button>
+        )}
       </motion.div>
 
       {/* Zoom controls */}
@@ -451,7 +549,7 @@ export function WorkflowCanvas({
             </div>
             <p className="text-lg font-medium text-foreground mb-2">Start Building</p>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Click the <strong>Add Node</strong> button below, or double-click anywhere on the canvas
+              Click the <strong>Run Sequence</strong> button below, or double-click anywhere on the canvas
             </p>
           </motion.div>
         </div>
@@ -463,7 +561,10 @@ export function WorkflowCanvas({
           <NodePicker
             position={nodePickerPosition}
             onSelect={handleNodePickerSelect}
-            onClose={() => setShowNodePicker(false)}
+            onClose={() => {
+              setShowNodePicker(false);
+              setInsertAfterNodeId(null);
+            }}
             showTriggersFirst={showTriggersFirst}
           />
         )}

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Play, Save, Loader2, ArrowLeft, MoreHorizontal, 
+  Plus, Save, Loader2, ArrowLeft, MoreHorizontal, 
   Trash2, Copy, X, Settings
 } from 'lucide-react';
 import { WorkflowCanvas } from './WorkflowCanvas';
@@ -63,6 +63,63 @@ export function WorkflowBuilder({
     setSelectedNodeId(newNode.id);
     setShowConfigPanel(true);
   }, []);
+
+  // Insert a new node after a specific node
+  const handleInsertNode = useCallback((type: WorkflowNodeType, afterNodeId: string) => {
+    const afterNode = nodes.find(n => n.id === afterNodeId);
+    if (!afterNode) return;
+
+    // Find the node currently connected to afterNode
+    const existingConnection = connections.find(c => c.sourceId === afterNodeId);
+    const nextNodeId = existingConnection?.targetId;
+
+    // Create new node positioned between afterNode and the next node
+    const sortedNodes = [...nodes].sort((a, b) => a.position.y - b.position.y);
+    const afterIndex = sortedNodes.findIndex(n => n.id === afterNodeId);
+    
+    // Shift all nodes below the insertion point down
+    const updatedNodes = nodes.map(n => {
+      if (n.position.y > afterNode.position.y) {
+        return { ...n, position: { ...n.position, y: n.position.y + 160 } };
+      }
+      return n;
+    });
+
+    const newNode: WorkflowNode = {
+      id: crypto.randomUUID(),
+      type,
+      label: getDefaultLabel(type),
+      position: { 
+        x: afterNode.position.x, 
+        y: afterNode.position.y + 160 
+      },
+      config: getDefaultConfig(type),
+    };
+
+    // Update connections
+    let updatedConnections = connections.filter(c => c.id !== existingConnection?.id);
+    
+    // Connect afterNode to new node
+    updatedConnections.push({
+      id: crypto.randomUUID(),
+      sourceId: afterNodeId,
+      targetId: newNode.id,
+    });
+
+    // Connect new node to the next node (if there was one)
+    if (nextNodeId) {
+      updatedConnections.push({
+        id: crypto.randomUUID(),
+        sourceId: newNode.id,
+        targetId: nextNodeId,
+      });
+    }
+
+    setNodes([...updatedNodes, newNode]);
+    setConnections(updatedConnections);
+    setSelectedNodeId(newNode.id);
+    setShowConfigPanel(true);
+  }, [nodes, connections]);
 
   // Update a node
   const handleUpdateNode = useCallback((id: string, updates: Partial<WorkflowNode>) => {
@@ -154,23 +211,20 @@ export function WorkflowBuilder({
             </span>
           </div>
 
-          {/* Run button */}
-          {onExecute && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onExecute}
-              disabled={isExecuting || nodes.length === 0}
-              className="gap-2"
-            >
-              {isExecuting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-              {isExecuting ? 'Running...' : 'Run'}
-            </Button>
-          )}
+          {/* Add Node button (moved from bottom) */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              // Trigger add node at center of canvas
+              const centerY = nodes.length > 0 
+                ? Math.max(...nodes.map(n => n.position.y)) + 160 
+                : 100;
+              handleAddNode('action_research', { x: 150, y: centerY });
+            }}
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
 
           {/* Save button */}
           <Button
@@ -220,6 +274,9 @@ export function WorkflowBuilder({
           onDeleteNode={handleDeleteNode}
           onConnect={handleConnect}
           onAddNode={handleAddNode}
+          onInsertNode={handleInsertNode}
+          onExecute={onExecute}
+          isExecuting={isExecuting}
           executingNodeId={executingNodeId}
           completedNodeIds={completedNodeIds}
           zoom={zoom}
