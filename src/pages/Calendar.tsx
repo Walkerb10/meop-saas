@@ -540,24 +540,30 @@ export default function Calendar() {
                     }
                   }
 
+                  // Get estimated time for the day (single user view only)
+                  const dayTask = !showBothUsers ? userStatuses[0]?.task : null;
+                  const estimatedTime = dayTask?.estimated_minutes ? formatDuration(dayTask.estimated_minutes) : null;
+
                   return (
                     <div
                       key={idx}
                       onClick={() => openDayView(day)}
                       className={cn(
-                        'aspect-square flex items-center justify-center rounded-xl cursor-pointer transition-all min-h-[48px]',
+                        'aspect-square flex flex-col items-center justify-center rounded-xl cursor-pointer transition-all min-h-[48px]',
                         !isCurrentMonth && 'opacity-30',
-                        isCurrentMonth && cellBg,
-                        isTodayDate && 'ring-2 ring-primary'
+                        isCurrentMonth && cellBg
                       )}
                     >
                       <span className={cn(
                         'text-base font-semibold',
                         !isCurrentMonth && 'text-muted-foreground',
-                        isTodayDate && 'text-primary'
+                        isTodayDate && 'text-primary font-bold'
                       )}>
                         {format(day, 'd')}
                       </span>
+                      {estimatedTime && isCurrentMonth && (
+                        <span className="text-[9px] text-muted-foreground mt-0.5">{estimatedTime}</span>
+                      )}
                     </div>
                   );
                 })}
@@ -968,9 +974,16 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
                       className="w-full text-left p-2 rounded-md hover:bg-muted transition-colors"
                     >
                       <p className="font-medium text-sm">{task.title}</p>
-                      {task.description && (
-                        <p className="text-xs text-muted-foreground truncate">{task.description}</p>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {task.description && (
+                          <p className="text-xs text-muted-foreground truncate flex-1">{task.description}</p>
+                        )}
+                        {task.estimated_minutes && (
+                          <Badge variant="outline" className="text-[9px] shrink-0">
+                            {formatDuration(task.estimated_minutes)}
+                          </Badge>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -1154,6 +1167,12 @@ function DayView({
                       </p>
                       {(task as any).is_pinned && (
                         <Pin className="h-3 w-3 text-primary" />
+                      )}
+                      {task.estimated_minutes && (
+                        <Badge variant="outline" className="text-[10px] gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatDuration(task.estimated_minutes)}
+                        </Badge>
                       )}
                     </div>
                     {task.description && (
