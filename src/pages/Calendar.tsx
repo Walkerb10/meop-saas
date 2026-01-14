@@ -341,7 +341,7 @@ export default function Calendar() {
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'calendar' | 'taskbank')} className="flex-1 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <TabsList className="grid grid-cols-2 w-full max-w-xs">
-              <TabsTrigger value="calendar" className="text-sm">My One Thing</TabsTrigger>
+              <TabsTrigger value="calendar" className="text-sm">One Thing</TabsTrigger>
               <TabsTrigger value="taskbank" className="text-sm gap-1">
                 Task Bank
                 {getTaskBank().length > 0 && (
@@ -380,6 +380,23 @@ export default function Calendar() {
 
 
           <TabsContent value="calendar" className="flex-1 flex flex-col mt-0">
+            {/* Current Task Display */}
+            <div className="mb-4 p-4 rounded-xl bg-muted/30">
+              {currentUserTodayTask ? (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Today's One Thing</p>
+                  <p className="font-semibold text-lg">{currentUserTodayTask.title}</p>
+                  {currentUserTodayTask.description && (
+                    <p className="text-sm text-muted-foreground mt-1">{currentUserTodayTask.description}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-2">
+                  <p className="text-muted-foreground">No task set for today</p>
+                </div>
+              )}
+            </div>
+
             {/* Month Navigation - centered */}
             <div className="flex items-center justify-center gap-2 mb-4">
               <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
@@ -392,36 +409,6 @@ export default function Calendar() {
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-
-            {/* Legend */}
-            {viewMode !== 'all' && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                  <span className="text-muted-foreground">Done</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-                  <span className="text-muted-foreground">Today (Set)</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                  <span className="text-muted-foreground">Missed</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
-                  <span className="text-muted-foreground">Future (Set)</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Pin className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Pinned</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground/50">○</span>
-                  <span className="text-muted-foreground">Empty</span>
-                </div>
-              </div>
-            )}
 
             {/* Calendar Grid */}
             <div className="flex-1">
@@ -439,6 +426,7 @@ export default function Calendar() {
                 {calendarDays.map((day, idx) => {
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isTodayDate = isToday(day);
+                  const isPastDay = isBefore(startOfDay(day), startOfDay(new Date()));
 
                   // Get statuses for visible users
                   const userStatuses = visibleUserIds.map(userId => {
@@ -446,29 +434,21 @@ export default function Calendar() {
                     return { userId, status: getDayStatus(task, day), task };
                   });
 
-                  // Determine overall day appearance
-                  const hasAnyTask = userStatuses.some(u => u.status !== 'empty');
-                  const allDone = userStatuses.every(u => u.status === 'done' || u.status === 'empty');
-                  const anyMissed = userStatuses.some(u => u.status === 'missed');
                   const primaryStatus = userStatuses[0]?.status || 'empty';
                   
-                  // Color based on status
-                  let cellBg = 'bg-muted/30 hover:bg-muted/50';
-                  let statusIcon: React.ReactNode = <span className="text-muted-foreground/40">—</span>;
+                  // Color based on status - simplified: past = red, done = green, today = orange, future = yellow
+                  let cellBg = 'hover:bg-muted/30';
                   
                   if (!showBothUsers && isCurrentMonth) {
                     if (primaryStatus === 'done') {
-                      cellBg = 'bg-green-500/20 hover:bg-green-500/30 border-green-500/40';
-                      statusIcon = <Check className="h-4 w-4 text-green-500" />;
-                    } else if (primaryStatus === 'missed') {
-                      cellBg = 'bg-red-500/20 hover:bg-red-500/30 border-red-500/40';
-                      statusIcon = <span className="text-red-500">—</span>;
+                      cellBg = 'bg-green-500/20 hover:bg-green-500/30';
+                    } else if (isPastDay) {
+                      // All past days are red (missed or no task)
+                      cellBg = 'bg-red-500/20 hover:bg-red-500/30';
                     } else if (primaryStatus === 'today') {
-                      cellBg = 'bg-orange-500/20 hover:bg-orange-500/30 border-orange-500/40';
-                      statusIcon = <div className="w-2 h-2 rounded-full bg-orange-500" />;
+                      cellBg = 'bg-orange-500/20 hover:bg-orange-500/30';
                     } else if (primaryStatus === 'future') {
-                      cellBg = 'bg-yellow-500/20 hover:bg-yellow-500/30 border-yellow-500/40';
-                      statusIcon = <div className="w-2 h-2 rounded-full bg-yellow-500" />;
+                      cellBg = 'bg-yellow-500/20 hover:bg-yellow-500/30';
                     }
                   }
 
@@ -477,10 +457,10 @@ export default function Calendar() {
                       key={idx}
                       onClick={() => openDayView(day)}
                       className={cn(
-                        'aspect-square flex items-center justify-center rounded-xl cursor-pointer transition-all border min-h-[48px]',
-                        !isCurrentMonth && 'opacity-30 bg-transparent border-transparent',
+                        'aspect-square flex items-center justify-center rounded-xl cursor-pointer transition-all min-h-[48px]',
+                        !isCurrentMonth && 'opacity-30',
                         isCurrentMonth && cellBg,
-                        isTodayDate && 'ring-2 ring-primary ring-offset-2 ring-offset-background'
+                        isTodayDate && 'ring-2 ring-primary'
                       )}
                     >
                       <span className={cn(
