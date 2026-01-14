@@ -249,11 +249,6 @@ const Index = () => {
                   : 'border-border'
               }`}
             >
-              <DictationButton
-                onTranscript={(text) => setTextInput(prev => prev ? prev + ' ' + text : text)}
-                disabled={isLoading}
-                className="shrink-0 h-8 w-8 rounded-full"
-              />
               <input
                 value={textInput}
                 onChange={(e) => setTextInput(e.target.value)}
@@ -263,6 +258,11 @@ const Index = () => {
                 placeholder="Enter message..."
                 disabled={isLoading}
                 className="flex-1 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:opacity-50"
+              />
+              <DictationButton
+                onTranscript={(text) => setTextInput(prev => prev ? prev + ' ' + text : text)}
+                disabled={isLoading}
+                className="shrink-0 h-8 w-8 rounded-full"
               />
               <Button 
                 size="icon" 
