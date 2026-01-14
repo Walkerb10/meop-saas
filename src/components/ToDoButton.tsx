@@ -1,7 +1,17 @@
 import { useState, useMemo } from 'react';
-import { CheckCircle2, Plus, Calendar, ArrowDown } from 'lucide-react';
+import { CheckCircle2, Plus, Calendar, ArrowDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -11,7 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
 import { useAuth } from '@/hooks/useAuth';
-import { isSameDay, parseISO, isAfter, startOfDay } from 'date-fns';
+import { isSameDay, parseISO, isAfter, startOfDay, addDays, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
 type Priority = 'high' | 'medium' | 'low';
@@ -33,6 +43,8 @@ export function ToDoButton() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<'complete' | 'uncomplete' | null>(null);
+  const [pullForwardDialog, setPullForwardDialog] = useState<TeamTask | null>(null);
   const { tasks, updateTask, createTask } = useTeamTasks();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -85,8 +97,10 @@ export function ToDoButton() {
   // Should show red badge? Show if no task set for today (needs to add one)
   const showRedBadge = !todayTask;
 
-  const handleCompleteTask = async (task: TeamTask) => {
-    await updateTask(task.id, { 
+  const handleConfirmComplete = async () => {
+    if (!todayTask) return;
+    
+    await updateTask(todayTask.id, { 
       status: 'completed',
       completed_at: new Date().toISOString(),
     });
@@ -97,13 +111,44 @@ export function ToDoButton() {
         due_date: startOfDay(new Date()).toISOString(),
       });
     }
+    
+    setConfirmDialog(null);
   };
 
-  const handleUncompleteTask = async (task: TeamTask) => {
-    await updateTask(task.id, { 
+  const handleConfirmUncomplete = async () => {
+    if (!todayTask) return;
+    
+    // Move any bonus tasks back to tomorrow
+    const today = startOfDay(new Date());
+    const bonusTasks = tasks.filter(t => 
+      t.assigned_to === user?.id && 
+      t.due_date && 
+      isSameDay(parseISO(t.due_date), today) &&
+      t.id !== todayTask.id &&
+      t.status !== 'completed'
+    );
+    
+    for (const bonusTask of bonusTasks) {
+      await updateTask(bonusTask.id, {
+        due_date: addDays(today, 1).toISOString(),
+      });
+    }
+    
+    await updateTask(todayTask.id, { 
       status: 'pending',
       completed_at: null,
     });
+    
+    setConfirmDialog(null);
+  };
+
+  const handlePullForward = async () => {
+    if (pullForwardDialog) {
+      await updateTask(pullForwardDialog.id, {
+        due_date: startOfDay(new Date()).toISOString(),
+      });
+      setPullForwardDialog(null);
+    }
   };
 
   const handleAddTask = async () => {
@@ -195,8 +240,8 @@ export function ToDoButton() {
                       checked={todayTask.status === 'completed'}
                       onCheckedChange={() => 
                         todayTask.status === 'completed'
-                          ? handleUncompleteTask(todayTask) 
-                          : handleCompleteTask(todayTask)
+                          ? setConfirmDialog('uncomplete')
+                          : setConfirmDialog('complete')
                       }
                       className="mt-1"
                     />
@@ -217,10 +262,27 @@ export function ToDoButton() {
                     <div className="mt-4 p-3 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center">
                       <CheckCircle2 className="h-5 w-5 mx-auto mb-1" />
                       <p className="font-medium text-sm">You completed your one thing!</p>
-                      {nextTask && (
-                        <p className="text-xs mt-1">Next up: {nextTask.title}</p>
-                      )}
                     </div>
+                  )}
+                  
+                  {/* Next task preview when completed */}
+                  {completedToday && nextTask && (
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between text-left h-auto py-2 mt-2"
+                      onClick={() => setPullForwardDialog(nextTask)}
+                    >
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-0.5">Next up:</p>
+                        <p className="font-medium text-sm">{nextTask.title}</p>
+                        {nextTask.due_date && (
+                          <p className="text-xs text-muted-foreground">
+                            {format(parseISO(nextTask.due_date), 'EEEE, MMM d')}
+                          </p>
+                        )}
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    </Button>
                   )}
                 </div>
                 
@@ -306,6 +368,60 @@ export function ToDoButton() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog for Complete */}
+      <AlertDialog open={confirmDialog === 'complete'} onOpenChange={() => setConfirmDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete this task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mark "{todayTask?.title}" as your completed One Thing for today?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmComplete}>
+              Complete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for Uncomplete */}
+      <AlertDialog open={confirmDialog === 'uncomplete'} onOpenChange={() => setConfirmDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Undo completion?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mark "{todayTask?.title}" as incomplete? This will affect your streak.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmUncomplete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Undo Completion
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Pull Forward Confirmation Dialog */}
+      <AlertDialog open={!!pullForwardDialog} onOpenChange={() => setPullForwardDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pull this task forward?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Move "{pullForwardDialog?.title}" to today? If you don't complete it, it will move back to tomorrow.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePullForward}>
+              Pull Forward
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
