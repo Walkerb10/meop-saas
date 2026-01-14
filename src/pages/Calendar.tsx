@@ -849,9 +849,11 @@ interface EmptyDayFormProps {
   onInsertAndShift: (date: Date, userId: string, title: string, description: string, estimatedMinutes?: number) => void;
   userTaskBank: TeamTask[];
   onAssignTask: (taskId: string, date: Date, userId?: string) => void;
+  teamMembers: { user_id: string; display_name: string | null; email: string }[];
+  showCalendarSelector?: boolean;
 }
 
-function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userTaskBank, onAssignTask }: EmptyDayFormProps) {
+function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userTaskBank, onAssignTask, teamMembers, showCalendarSelector = false }: EmptyDayFormProps) {
   const [localTitle, setLocalTitle] = useState('');
   const [localDescription, setLocalDescription] = useState('');
   const [selectedBankTask, setSelectedBankTask] = useState<TeamTask | null>(null);
@@ -859,6 +861,7 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
   const [showTaskBankPopover, setShowTaskBankPopover] = useState(false);
   const [estimatedTime, setEstimatedTime] = useState('');
   const [timeUnit, setTimeUnit] = useState<'minutes' | 'hours'>('minutes');
+  const [selectedUserId, setSelectedUserId] = useState(userId);
 
   const getEstimatedMinutes = (): number | undefined => {
     if (!estimatedTime) return undefined;
@@ -874,9 +877,9 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
     
     if (selectedBankTask) {
       // Assign existing task from bank to this date
-      onAssignTask(selectedBankTask.id, date, userId);
+      onAssignTask(selectedBankTask.id, date, selectedUserId);
     } else {
-      onCreateAndAssign(date, userId, isPinned, title, description, getEstimatedMinutes());
+      onCreateAndAssign(date, selectedUserId, isPinned, title, description, getEstimatedMinutes());
     }
   };
 
@@ -884,7 +887,7 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
     const title = selectedBankTask ? selectedBankTask.title : localTitle;
     const description = selectedBankTask ? (selectedBankTask.description || '') : localDescription;
     if (!title) return;
-    onInsertAndShift(date, userId, title, description, getEstimatedMinutes());
+    onInsertAndShift(date, selectedUserId, title, description, getEstimatedMinutes());
   };
 
   const handleSelectBankTask = (task: TeamTask) => {
@@ -919,6 +922,25 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
 
   return (
     <div className="space-y-3">
+      {/* Calendar selector - only show if enabled and multiple members available */}
+      {showCalendarSelector && teamMembers.length > 1 && (
+        <div>
+          <Label className="text-xs">Add to calendar</Label>
+          <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {teamMembers.map(m => (
+                <SelectItem key={m.user_id} value={m.user_id}>
+                  {m.display_name || m.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      
       {/* Task Bank Button in top right */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-muted-foreground">
@@ -1172,6 +1194,8 @@ function DayView({
                 onInsertAndShift={onInsertAndShift}
                 userTaskBank={allTaskBank}
                 onAssignTask={onAssignTask}
+                teamMembers={teamMembers}
+                showCalendarSelector={!showUserName}
               />
             )}
           </div>

@@ -73,7 +73,13 @@ export function AppLayout({
   const { isAdmin } = useUserRole();
 
   const bottomNavItems = getBottomNavItems(isAdmin);
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    // Handle Agent route - both / and /agent should match
+    if (path === '/agent') {
+      return location.pathname === '/agent' || location.pathname === '/';
+    }
+    return location.pathname === path;
+  };
 
   return (
     <div className="min-h-screen flex w-full">
