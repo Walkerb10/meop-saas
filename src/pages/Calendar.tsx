@@ -340,14 +340,10 @@ export default function Calendar() {
         {/* Tabs: Calendar / Task Bank with View selector on the right */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'calendar' | 'taskbank')} className="flex-1 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <TabsList className="w-fit">
-              <TabsTrigger value="calendar">
-                <span className="hidden sm:inline">Calendar</span>
-                <CheckSquare className="h-4 w-4 sm:hidden" />
-              </TabsTrigger>
+          <TabsList className="w-fit">
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
               <TabsTrigger value="taskbank" className="gap-1">
-                <span className="hidden sm:inline">Task Bank</span>
-                <Package className="h-4 w-4 sm:hidden" />
+                Task Bank
                 {getTaskBank().length > 0 && (
                   <Badge variant="secondary" className="text-xs">{getTaskBank().length}</Badge>
                 )}
@@ -382,83 +378,6 @@ export default function Calendar() {
             )}
           </div>
 
-          {/* Current Task Display - Under tabs, above calendar */}
-          {user && viewMode !== 'all' && (
-            <Card className="mb-4 border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
-              <CardContent className="py-4">
-                <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
-                  <CheckSquare className="h-4 w-4" />
-                  <span>My One Thing</span>
-                  {hasPendingTodayTask && (
-                    <Badge variant="destructive" className="ml-auto text-xs">Action Required</Badge>
-                  )}
-                </div>
-                
-                {currentUserActiveTask ? (
-                  <div className={cn(
-                    'p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md',
-                    currentUserActiveTask.status === 'completed' 
-                      ? 'bg-green-500/10 border-green-500/30' 
-                      : 'bg-orange-500/10 border-orange-500/30'
-                  )}>
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        checked={currentUserActiveTask.status === 'completed'}
-                        onCheckedChange={() => 
-                          currentUserActiveTask.status === 'completed'
-                            ? handleUncompleteTask(currentUserActiveTask) 
-                            : handleCompleteTask(currentUserActiveTask)
-                        }
-                        className="mt-1"
-                      />
-                      <div className="flex-1">
-                        <p className={cn(
-                          'font-semibold text-lg',
-                          currentUserActiveTask.status === 'completed' && 'line-through text-muted-foreground'
-                        )}>
-                          {currentUserActiveTask.title}
-                        </p>
-                        {currentUserActiveTask.description && (
-                          <p className="text-muted-foreground mt-1">{currentUserActiveTask.description}</p>
-                        )}
-                      </div>
-                      {(currentUserActiveTask as any).is_pinned && (
-                        <Pin className="h-4 w-4 text-primary" />
-                      )}
-                    </div>
-                    
-                    {currentUserActiveTask.status === 'completed' && completedTodayTask && (
-                      <div className="mt-4 p-3 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center">
-                        <Check className="h-5 w-5 mx-auto mb-1" />
-                        <p className="font-medium">You completed your one thing for today!</p>
-                        {nextTask && (
-                          <p className="text-sm mt-1 flex items-center justify-center gap-1">
-                            <ArrowRight className="h-3 w-3" />
-                            Next: {nextTask.title}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 text-center">
-                    <Clock className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-muted-foreground text-sm">No task set for today</p>
-                    <Button 
-                      size="sm" 
-                      className="mt-2"
-                      onClick={() => {
-                        setSelectedDate(new Date());
-                        setShowDayDialog(true);
-                      }}
-                    >
-                      <Plus className="h-4 w-4 mr-1" /> Add Task
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
 
           <TabsContent value="calendar" className="flex-1 flex flex-col mt-0">
             {/* Month Navigation - centered */}

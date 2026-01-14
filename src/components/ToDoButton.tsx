@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ListTodo, CheckCircle2, Plus, Calendar, ArrowDown } from 'lucide-react';
+import { CheckCircle2, Plus, Calendar, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -82,8 +82,8 @@ export function ToDoButton() {
   const completedToday = todayTask?.status === 'completed';
   const needsToSetNextTask = !todayTask && !nextTask && taskBank.length === 0;
 
-  // Should show red badge?
-  const showRedBadge = hasPendingTask || needsToSetNextTask;
+  // Should show red badge? Show if no task set for today (needs to add one)
+  const showRedBadge = !todayTask;
 
   const handleCompleteTask = async (task: TeamTask) => {
     await updateTask(task.id, { 
@@ -158,10 +158,9 @@ export function ToDoButton() {
         variant="ghost"
         size="sm"
         onClick={handleButtonClick}
-        className="gap-2 relative"
+        className="relative"
       >
-        <ListTodo className="w-4 h-4" />
-        <span className="hidden sm:inline">To-Do</span>
+        To-Do
         {showRedBadge && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold min-w-[16px] h-[16px] flex items-center justify-center rounded-full">
             1
@@ -179,10 +178,7 @@ export function ToDoButton() {
       }}>
         <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ListTodo className="w-5 h-5" />
-              Your One Thing
-            </DialogTitle>
+            <DialogTitle>Your One Thing</DialogTitle>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto py-4">
