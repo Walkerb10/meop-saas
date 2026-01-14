@@ -211,21 +211,6 @@ export function WorkflowBuilder({
             </span>
           </div>
 
-          {/* Add Node button (moved from bottom) */}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => {
-              // Trigger add node at center of canvas
-              const centerY = nodes.length > 0 
-                ? Math.max(...nodes.map(n => n.position.y)) + 160 
-                : 100;
-              handleAddNode('action_research', { x: 150, y: centerY });
-            }}
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-
           {/* Save button */}
           <Button
             size="sm"
