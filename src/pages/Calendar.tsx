@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { OneThingDisplay } from '@/components/OneThingDisplay';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -309,9 +310,33 @@ export default function Calendar() {
   };
 
   const handleUncompleteTask = async (task: TeamTask) => {
+    // When uncompleting, if there's a bonus task on today, move it to tomorrow
+    const today = startOfDay(new Date());
+    const todaysTasks = tasks.filter(t => 
+      t.assigned_to === task.assigned_to && 
+      t.due_date && 
+      isSameDay(parseISO(t.due_date), today) &&
+      t.id !== task.id &&
+      t.status !== 'completed'
+    );
+    
+    // Move any bonus tasks back to tomorrow
+    for (const bonusTask of todaysTasks) {
+      await updateTask(bonusTask.id, {
+        due_date: addDays(today, 1).toISOString(),
+      });
+    }
+    
     await updateTask(task.id, { 
       status: 'pending',
       completed_at: null,
+    });
+  };
+
+  // Handle pulling a future task to today (as bonus task)
+  const handlePullForward = async (task: TeamTask) => {
+    await updateTask(task.id, {
+      due_date: startOfDay(new Date()).toISOString(),
     });
   };
 
@@ -461,14 +486,8 @@ export default function Calendar() {
     ? calculateStreak(viewMode === 'walker' ? TEAM_USERS.walker : TEAM_USERS.griffin)
     : 0;
 
-  // Handle completing today's task
-  const handleCompleteOneThing = async () => {
-    if (!summaryTodayTask) return;
-    await updateTask(summaryTodayTask.id, { 
-      status: 'completed', 
-      completed_at: new Date().toISOString() 
-    });
-  };
+  // Check if the current user is viewing their own calendar
+  const isViewingOwnCalendar = summaryUserId === user?.id;
 
   return (
     <AppLayout>
@@ -530,34 +549,16 @@ export default function Calendar() {
               </Select>
             </div>
 
-            {/* Current Task Display */}
-            <div className="mb-4 p-4 rounded-xl bg-muted/30">
-              {summaryTodayTask ? (
-                <div className="flex items-start gap-3">
-                  <Checkbox 
-                    checked={summaryTodayTask.status === 'completed'}
-                    onCheckedChange={handleCompleteOneThing}
-                    className="mt-1 h-5 w-5"
-                  />
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      {summaryMember?.display_name?.split(' ')[0] || 'Your'}'s One Thing
-                    </p>
-                    <p className={cn(
-                      "font-semibold text-lg",
-                      summaryTodayTask.status === 'completed' && "line-through text-muted-foreground"
-                    )}>{summaryTodayTask.title}</p>
-                    {summaryTodayTask.description && (
-                      <p className="text-sm text-muted-foreground mt-1">{summaryTodayTask.description}</p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-2">
-                  <p className="text-muted-foreground">No task set for today</p>
-                </div>
-              )}
-            </div>
+            {/* Current Task Display - using OneThingDisplay component */}
+            <OneThingDisplay
+              displayName={summaryMember?.display_name?.split(' ')[0] || 'Your'}
+              todayTask={summaryTodayTask}
+              allUserTasks={getTasksForUser(summaryUserId)}
+              onCompleteTask={handleCompleteTask}
+              onUncompleteTask={handleUncompleteTask}
+              onPullForward={handlePullForward}
+              isCurrentUser={isViewingOwnCalendar}
+            />
 
             {/* Month Navigation - centered */}
             <div className="flex items-center justify-center gap-2 mb-4">
