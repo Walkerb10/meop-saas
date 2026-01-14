@@ -13,7 +13,11 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useCRM, CRM_STAGES, CRMLead } from '@/hooks/useCRM';
 import { cn } from '@/lib/utils';
 
-export function CRMBoard() {
+interface CRMBoardProps {
+  pipelineId?: string;
+}
+
+export function CRMBoard({ pipelineId }: CRMBoardProps) {
   const { leads, loading, createLead, updateLead, moveLead, deleteLead, getLeadsByStage } = useCRM();
   const [showCreate, setShowCreate] = useState(false);
   const [editingLead, setEditingLead] = useState<CRMLead | null>(null);
