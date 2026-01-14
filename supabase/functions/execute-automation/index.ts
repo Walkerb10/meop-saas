@@ -294,7 +294,8 @@ async function executeNode(
       const phone = (config.phone as string) || '';
 
       if (!phone) {
-        throw new Error('Phone number is required for text step');
+        console.log(`⚠️ Text step skipped: No phone number configured`);
+        return 'Text step skipped: No phone number configured';
       }
 
       // Format phone number to E.164
