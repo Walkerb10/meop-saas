@@ -29,6 +29,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Json } from '@/integrations/supabase/types';
 import { useTimezone } from '@/hooks/useTimezone';
 import { formatDistanceToNow } from 'date-fns';
+import { ResearchOutputDisplay } from '@/components/ResearchOutputDisplay';
 
 // Discord icon component
 function DiscordIcon({ className }: { className?: string }) {
@@ -100,32 +101,13 @@ const isResearchOutput = (output: Json | null): output is { content: string; cit
   return typeof obj.content === 'string';
 };
 
-const ResearchOutput = ({ data }: { data: { content: string; citations?: string[] } }) => {
+// Legacy ResearchOutput component - kept for backward compatibility
+const ResearchOutput = ({ data, rawData }: { data: { content: string; citations?: string[] }; rawData?: Json }) => {
   return (
-    <div className="space-y-4">
-      <div className="whitespace-pre-wrap text-sm leading-relaxed">
-        {data.content}
-      </div>
-      {data.citations && data.citations.length > 0 && (
-        <div className="pt-4 border-t border-border">
-          <h4 className="text-xs font-medium text-muted-foreground mb-2">Sources ({data.citations.length})</h4>
-          <div className="space-y-1">
-            {data.citations.map((citation, idx) => (
-              <a
-                key={idx}
-                href={citation}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-xs text-primary hover:underline"
-              >
-                <ExternalLink className="w-3 h-3 shrink-0" />
-                <span className="truncate">{citation}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+    <ResearchOutputDisplay 
+      data={data} 
+      rawData={rawData as Record<string, unknown>} 
+    />
   );
 };
 
@@ -325,7 +307,10 @@ const Executions = () => {
                 </div>
                 <div className="p-6">
                   {isResearchOutput(selectedExecution.output_data) ? (
-                    <ResearchOutput data={selectedExecution.output_data} />
+                    <ResearchOutput 
+                      data={selectedExecution.output_data} 
+                      rawData={selectedExecution.output_data}
+                    />
                   ) : (
                     <pre className="text-sm overflow-auto max-h-96 whitespace-pre-wrap">
                       {JSON.stringify(selectedExecution.output_data, null, 2)}
