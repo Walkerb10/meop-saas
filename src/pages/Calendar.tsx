@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,21 +12,20 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
   ChevronLeft, 
   ChevronRight, 
   Plus, 
   Check,
   X,
-  Clock,
   Trash2,
-  CheckSquare,
-  ArrowRight,
-  AlertCircle,
   Pin,
-  Edit,
   ArrowDown,
   Package,
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  Users,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isBefore, isToday, startOfDay, isAfter } from 'date-fns';
 import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
@@ -42,6 +41,7 @@ const TEAM_USERS = {
 
 type ViewMode = 'all' | 'walker' | 'griffin';
 type Priority = 'low' | 'medium' | 'high';
+type CompletedFilter = 'all' | 'walker' | 'griffin';
 
 function getMemberInitials(name: string | null, email: string) {
   if (name) {
@@ -67,15 +67,6 @@ function getDayStatus(task: TeamTask | null, date: Date): DayStatus {
   return 'future';
 }
 
-// Updated status styles: future = yellow, today = orange, empty = blank
-const STATUS_STYLES: Record<DayStatus, { bg: string; text: string; border: string }> = {
-  done: { bg: 'bg-green-500/20', text: 'text-green-500', border: 'border-green-500/50' },
-  today: { bg: 'bg-orange-500/20', text: 'text-orange-500', border: 'border-orange-500/50' },
-  missed: { bg: 'bg-red-500/20', text: 'text-red-500', border: 'border-red-500/50' },
-  future: { bg: 'bg-yellow-500/20', text: 'text-yellow-500', border: 'border-yellow-500/50' },
-  empty: { bg: '', text: 'text-muted-foreground', border: 'border-transparent' },
-};
-
 const PRIORITY_COLORS: Record<Priority, string> = {
   low: 'bg-blue-500/20 text-blue-500 border-blue-500/50',
   medium: 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50',
@@ -87,10 +78,10 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [showDayDialog, setShowDayDialog] = useState(false);
   const [showTaskBankDialog, setShowTaskBankDialog] = useState(false);
-  const [editingDayTask, setEditingDayTask] = useState(false);
-  const [activeTab, setActiveTab] = useState<'calendar' | 'taskbank'>('calendar');
+  const [activeTab, setActiveTab] = useState<'calendars' | 'taskbank' | 'completed'>('calendars');
+  const [completedFilter, setCompletedFilter] = useState<CompletedFilter>('all');
 
-  const { tasks, loading, createTask, updateTask, deleteTask, fetchTasks } = useTeamTasks();
+  const { tasks, loading, createTask, updateTask, deleteTask } = useTeamTasks();
   const { members } = useTeamMembers();
   const { user } = useAuth();
 
@@ -116,26 +107,13 @@ export default function Calendar() {
     return tasks.filter(t => t.assigned_to === userId);
   };
 
-  // Get today's task for a specific user - also considers completed tasks that might have pulled forward
+  // Get today's task for a specific user
   const getTodayTask = (userId: string): TeamTask | null => {
     const userTasks = getTasksForUser(userId);
     return userTasks.find(task => {
       if (!task.due_date) return false;
       return isSameDay(parseISO(task.due_date), new Date());
     }) || null;
-  };
-
-  // Get the current active task (what should be worked on now)
-  const getCurrentTask = (userId: string): TeamTask | null => {
-    const todayTask = getTodayTask(userId);
-    if (todayTask && todayTask.status !== 'completed') return todayTask;
-    
-    // If today's task is done, show the next task as current
-    if (todayTask?.status === 'completed') {
-      return getNextTask(userId);
-    }
-    
-    return null;
   };
 
   // Get the one task for a specific date and user
@@ -156,21 +134,16 @@ export default function Calendar() {
       (t.assigned_to === TEAM_USERS.walker || t.assigned_to === TEAM_USERS.griffin));
   };
 
+  // Get completed tasks
+  const getCompletedTasks = (filter: CompletedFilter) => {
+    const completed = tasks.filter(t => t.status === 'completed');
+    if (filter === 'walker') return completed.filter(t => t.assigned_to === TEAM_USERS.walker);
+    if (filter === 'griffin') return completed.filter(t => t.assigned_to === TEAM_USERS.griffin);
+    return completed;
+  };
+
   // Get current user's today task status
   const currentUserTodayTask = user ? getTodayTask(user.id) : null;
-  const currentUserActiveTask = user ? getCurrentTask(user.id) : null;
-  const hasPendingTodayTask = currentUserTodayTask && currentUserTodayTask.status !== 'completed';
-  const completedTodayTask = currentUserTodayTask?.status === 'completed';
-
-  // Get next scheduled task for current user (after completing today's)
-  const getNextTask = (userId: string): TeamTask | null => {
-    const userTasks = getTasksForUser(userId);
-    const today = startOfDay(new Date());
-    
-    return userTasks
-      .filter(t => t.due_date && isAfter(parseISO(t.due_date), today) && t.status !== 'completed')
-      .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())[0] || null;
-  };
 
   // Get all future tasks sorted by date
   const getFutureTasks = (userId: string): TeamTask[] => {
@@ -181,11 +154,6 @@ export default function Calendar() {
       .filter(t => t.due_date && !isBefore(parseISO(t.due_date), today) && t.status !== 'completed')
       .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime());
   };
-
-  // Check if user needs to set next task
-  const taskBank = user ? getTaskBank(user.id) : [];
-  const nextTask = user ? getNextTask(user.id) : null;
-  const needsToSetNextTask = user && !nextTask && taskBank.length === 0 && !hasPendingTodayTask;
 
   // Calendar grid generation
   const calendarDays = useMemo(() => {
@@ -271,7 +239,6 @@ export default function Calendar() {
 
     setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false });
     setShowDayDialog(false);
-    setEditingDayTask(false);
   };
 
   // Insert a new task and push all other tasks back by one day (respecting pinned tasks)
@@ -313,12 +280,10 @@ export default function Calendar() {
 
     setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false });
     setShowDayDialog(false);
-    setEditingDayTask(false);
   };
 
   const openDayView = (date: Date) => {
     setSelectedDate(date);
-    setEditingDayTask(false);
     setShowDayDialog(true);
   };
 
@@ -340,23 +305,36 @@ export default function Calendar() {
           <h1 className="text-xl font-semibold">Calendar</h1>
         </div>
 
-        {/* Tabs: My One Thing / Task Bank */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'calendar' | 'taskbank')} className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <TabsList className="grid grid-cols-2 w-full max-w-xs">
-              <TabsTrigger value="calendar" className="text-sm">One Thing</TabsTrigger>
-              <TabsTrigger value="taskbank" className="text-sm gap-1">
-                Task Bank
-                {getTaskBank().length > 0 && (
-                  <Badge variant="secondary" className="text-xs ml-1">{getTaskBank().length}</Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
+        {/* Main Tabs: Calendars / Task Bank / Completed */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'calendars' | 'taskbank' | 'completed')} className="flex-1 flex flex-col">
+          <TabsList className="grid grid-cols-3 w-full max-w-md mb-4">
+            <TabsTrigger value="calendars" className="text-sm gap-1">
+              <CalendarIcon className="h-4 w-4" />
+              Calendars
+            </TabsTrigger>
+            <TabsTrigger value="taskbank" className="text-sm gap-1">
+              <Package className="h-4 w-4" />
+              Task Bank
+              {getTaskBank().length > 0 && (
+                <Badge variant="secondary" className="text-xs ml-1">{getTaskBank().length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="text-sm gap-1">
+              <CheckCircle2 className="h-4 w-4" />
+              Completed
+            </TabsTrigger>
+          </TabsList>
 
-            {/* View Mode Dropdown - Right of tabs */}
-            {activeTab === 'calendar' && (
+          {/* CALENDARS TAB */}
+          <TabsContent value="calendars" className="flex-1 flex flex-col mt-0">
+            {/* View Mode Dropdown */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Calendar:</span>
+                <Badge variant="outline" className="font-semibold">One Thing</Badge>
+              </div>
               <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-                <SelectTrigger className="w-[120px] ml-4">
+                <SelectTrigger className="w-[130px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-50">
@@ -378,11 +356,8 @@ export default function Calendar() {
                   <SelectItem value="all">All Team</SelectItem>
                 </SelectContent>
               </Select>
-            )}
-          </div>
+            </div>
 
-
-          <TabsContent value="calendar" className="flex-1 flex flex-col mt-0">
             {/* Current Task Display */}
             <div className="mb-4 p-4 rounded-xl bg-muted/30">
               {currentUserTodayTask ? (
@@ -503,6 +478,7 @@ export default function Calendar() {
             </div>
           </TabsContent>
 
+          {/* TASK BANK TAB */}
           <TabsContent value="taskbank" className="flex-1 mt-0">
             <Card className="h-full">
               <CardHeader className="py-3 flex-row items-center justify-between">
@@ -574,6 +550,83 @@ export default function Calendar() {
                         <p>No tasks in bank</p>
                         <p className="text-sm mt-1">Add tasks here to schedule them later</p>
                       </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* COMPLETED TAB */}
+          <TabsContent value="completed" className="flex-1 mt-0">
+            <Card className="h-full">
+              <CardHeader className="py-3 flex-row items-center justify-between">
+                <CardTitle className="text-base">Completed Tasks</CardTitle>
+                <Select value={completedFilter} onValueChange={(v) => setCompletedFilter(v as CompletedFilter)}>
+                  <SelectTrigger className="w-[130px]">
+                    <Users className="h-4 w-4 mr-2" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    <SelectItem value="all">All Team</SelectItem>
+                    {teamMembers.map(member => {
+                      const key = member.user_id === TEAM_USERS.walker ? 'walker' : 'griffin';
+                      return (
+                        <SelectItem key={member.user_id} value={key}>
+                          {member.display_name?.split(' ')[0] || member.email}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[500px]">
+                  <div className="space-y-2 pr-2">
+                    {getCompletedTasks(completedFilter).length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground">
+                        <CheckCircle2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                        <p>No completed tasks yet</p>
+                      </div>
+                    ) : (
+                      getCompletedTasks(completedFilter)
+                        .sort((a, b) => new Date(b.completed_at || b.updated_at).getTime() - new Date(a.completed_at || a.updated_at).getTime())
+                        .map(task => {
+                          const assignedMember = teamMembers.find(m => m.user_id === task.assigned_to);
+                          return (
+                            <div
+                              key={task.id}
+                              className="p-3 rounded-lg border bg-green-500/10 border-green-500/30"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <Check className="h-4 w-4 text-green-500" />
+                                    <p className="font-medium line-through text-muted-foreground">{task.title}</p>
+                                  </div>
+                                  {task.description && (
+                                    <p className="text-sm text-muted-foreground mt-1 ml-6">{task.description}</p>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-2 ml-6">
+                                    <Avatar className="h-5 w-5">
+                                      <AvatarFallback className="text-[10px]">
+                                        {assignedMember ? getMemberInitials(assignedMember.display_name, assignedMember.email) : '?'}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs text-muted-foreground">
+                                      {assignedMember?.display_name?.split(' ')[0] || 'Unknown'}
+                                    </span>
+                                    {task.completed_at && (
+                                      <span className="text-xs text-muted-foreground">
+                                        • {format(parseISO(task.completed_at), 'MMM d, yyyy')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
                     )}
                   </div>
                 </ScrollArea>
@@ -685,14 +738,14 @@ interface EmptyDayFormProps {
   onInsertAndShift: (date: Date, userId: string, title: string, description: string) => void;
   userTaskBank: TeamTask[];
   onAssignTask: (taskId: string, date: Date, userId?: string) => void;
-  showUserName?: boolean;
 }
 
-function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userTaskBank, onAssignTask, showUserName = true }: EmptyDayFormProps) {
+function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userTaskBank, onAssignTask }: EmptyDayFormProps) {
   const [localTitle, setLocalTitle] = useState('');
   const [localDescription, setLocalDescription] = useState('');
   const [selectedBankTask, setSelectedBankTask] = useState<TeamTask | null>(null);
   const [isPinned, setIsPinned] = useState(false);
+  const [showTaskBankPopover, setShowTaskBankPopover] = useState(false);
 
   const handleSave = () => {
     const title = selectedBankTask ? selectedBankTask.title : localTitle;
@@ -714,13 +767,11 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
     onInsertAndShift(date, userId, title, description);
   };
 
-  const handleSelectBankTask = (taskId: string) => {
-    const task = userTaskBank.find(t => t.id === taskId);
-    if (task) {
-      setSelectedBankTask(task);
-      setLocalTitle(task.title);
-      setLocalDescription(task.description || '');
-    }
+  const handleSelectBankTask = (task: TeamTask) => {
+    setSelectedBankTask(task);
+    setLocalTitle(task.title);
+    setLocalDescription(task.description || '');
+    setShowTaskBankPopover(false);
   };
 
   const clearSelection = () => {
@@ -733,30 +784,51 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
 
   return (
     <div className="space-y-3">
-      {/* Task Bank dropdown in top right */}
+      {/* Task Bank Button in top right */}
       <div className="flex items-center justify-between">
         <div className="text-xs text-muted-foreground">
-          {showUserName ? "Add a task for this day:" : "Set your One Thing:"}
+          Set your One Thing:
         </div>
         {userTaskBank.length > 0 && (
-          <Select 
-            value={selectedBankTask?.id || ''} 
-            onValueChange={handleSelectBankTask}
-          >
-            <SelectTrigger className="w-[140px] h-8 text-xs">
-              <Package className="h-3 w-3 mr-1" />
-              <SelectValue placeholder="Task Bank" />
-            </SelectTrigger>
-            <SelectContent className="bg-popover z-50">
-              {userTaskBank.map(task => (
-                <SelectItem key={task.id} value={task.id} className="text-sm">
-                  {task.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={showTaskBankPopover} onOpenChange={setShowTaskBankPopover}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
+                <Package className="h-3 w-3" />
+                Task Bank
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-2" align="end">
+              <p className="text-xs font-medium text-muted-foreground mb-2 px-2">Select from Task Bank</p>
+              <ScrollArea className="max-h-[200px]">
+                <div className="space-y-1">
+                  {userTaskBank.map(task => (
+                    <button
+                      key={task.id}
+                      onClick={() => handleSelectBankTask(task)}
+                      className="w-full text-left p-2 rounded-md hover:bg-muted transition-colors"
+                    >
+                      <p className="font-medium text-sm">{task.title}</p>
+                      {task.description && (
+                        <p className="text-xs text-muted-foreground truncate">{task.description}</p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
         )}
       </div>
+
+      {selectedBankTask && (
+        <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/30">
+          <Package className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium flex-1">From Task Bank</span>
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={clearSelection}>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
 
       <Input
         value={localTitle}
@@ -924,7 +996,6 @@ function DayView({
                 onInsertAndShift={onInsertAndShift}
                 userTaskBank={userTaskBank}
                 onAssignTask={onAssignTask}
-                showUserName={showUserName}
               />
             )}
           </div>
