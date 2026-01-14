@@ -430,24 +430,23 @@ export default function AutomationsPage() {
       <div className="p-4 md:p-6 max-w-6xl mx-auto min-h-full pb-32">
         {/* Header */}
         <div className="flex items-center justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
-              <Zap className="w-5 h-5 md:w-6 md:h-6" />
-              Automations
-            </h1>
+          <h1 className="text-xl md:text-2xl font-semibold flex items-center gap-2">
+            <Zap className="w-5 h-5 md:w-6 md:h-6" />
+            Automations
+          </h1>
+          
+          <div className="flex items-center gap-2">
             <Button 
-              variant="ghost" 
+              variant="outline" 
               size="sm"
-              onClick={() => navigate('/executions')} 
-              className="text-muted-foreground hover:text-foreground"
+              onClick={() => navigate('/executions')}
             >
               Executions
             </Button>
+            <Button onClick={() => setIsCreatingWizard(true)} size="icon">
+              <Plus className="w-4 h-4" />
+            </Button>
           </div>
-          
-          <Button onClick={() => setIsCreatingWizard(true)} size="icon">
-            <Plus className="w-4 h-4" />
-          </Button>
         </div>
 
         {/* Workflow list */}
