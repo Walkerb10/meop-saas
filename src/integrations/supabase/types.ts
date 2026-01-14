@@ -301,6 +301,9 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          pipeline_id: string | null
+          pipeline_position: number | null
+          pipeline_stage: string | null
           updated_at: string
         }
         Insert: {
@@ -311,6 +314,9 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          pipeline_id?: string | null
+          pipeline_position?: number | null
+          pipeline_stage?: string | null
           updated_at?: string
         }
         Update: {
@@ -321,9 +327,20 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          pipeline_id?: string | null
+          pipeline_position?: number | null
+          pipeline_stage?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "contacts_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       conversation_transcripts: {
         Row: {
@@ -369,6 +386,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
+          pipeline_id: string | null
           position: number
           source: string | null
           stage: string
@@ -385,6 +403,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
+          pipeline_id?: string | null
           position?: number
           source?: string | null
           stage?: string
@@ -401,13 +420,22 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
+          pipeline_id?: string | null
           position?: number
           source?: string | null
           stage?: string
           updated_at?: string
           value?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "crm_leads_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       executions: {
         Row: {
@@ -697,6 +725,42 @@ export type Database = {
         }
         Relationships: []
       }
+      pipelines: {
+        Row: {
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          stages: Json
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          stages?: Json
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          stages?: Json
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       prompt_analytics: {
         Row: {
           analysis_period_end: string
@@ -933,6 +997,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          is_pinned: boolean | null
           priority: string | null
           status: string
           title: string
@@ -946,6 +1011,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_pinned?: boolean | null
           priority?: string | null
           status?: string
           title: string
@@ -959,6 +1025,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          is_pinned?: boolean | null
           priority?: string | null
           status?: string
           title?: string
