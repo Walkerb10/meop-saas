@@ -372,40 +372,61 @@ export function WorkflowCanvas({
     setShowNodePicker(true);
   }, [pan, zoom, nodes.length]);
 
-  // Render inline add buttons between nodes
+  // Render inline add buttons between nodes with visual connection elements
   const renderInlineAddButtons = useCallback(() => {
     if (sortedNodes.length === 0) return null;
 
     return sortedNodes.map((node, index) => {
-      // Don't show add button after the last node (that's handled by the bottom Run Sequence area)
+      // Don't show add button after the last node
       if (index === sortedNodes.length - 1) return null;
 
       const nextNode = sortedNodes[index + 1];
       if (!nextNode) return null;
 
       // Calculate position between current and next node
-      const midY = (node.position.y + NODE_HEIGHT + nextNode.position.y) / 2;
+      const nodeBottomY = node.position.y + NODE_HEIGHT;
+      const nextNodeTopY = nextNode.position.y;
+      const midY = (nodeBottomY + nextNodeTopY) / 2;
       const centerX = node.position.x + NODE_WIDTH / 2;
+      const gapHeight = nextNodeTopY - nodeBottomY;
 
       return (
-        <motion.div
-          key={`add-${node.id}`}
-          className="absolute"
-          style={{
-            left: centerX - 14,
-            top: midY - 14,
-          }}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-        >
-          <button
-            onClick={(e) => handleInlineAddClick(node.id, e)}
-            className="w-7 h-7 rounded-full bg-secondary hover:bg-primary hover:text-primary-foreground border border-border hover:border-primary flex items-center justify-center transition-all shadow-sm"
+        <div key={`add-${node.id}`} className="absolute" style={{ left: centerX, top: nodeBottomY }}>
+          {/* Top connection line segment */}
+          <div 
+            className="absolute w-0.5 bg-border left-0 -translate-x-1/2"
+            style={{ 
+              height: gapHeight / 2 - 20,
+              top: 0,
+            }}
+          />
+          
+          {/* Add Step button */}
+          <motion.div
+            className="absolute -translate-x-1/2"
+            style={{ top: gapHeight / 2 - 16 }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.05 }}
           >
-            <Plus className="w-4 h-4" />
-          </button>
-        </motion.div>
+            <button
+              onClick={(e) => handleInlineAddClick(node.id, e)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary hover:bg-primary hover:text-primary-foreground border border-border hover:border-primary transition-all shadow-sm text-xs font-medium whitespace-nowrap"
+            >
+              <Plus className="w-3 h-3" />
+              Add Step
+            </button>
+          </motion.div>
+
+          {/* Bottom connection line segment */}
+          <div 
+            className="absolute w-0.5 bg-border left-0 -translate-x-1/2"
+            style={{ 
+              height: gapHeight / 2 - 20,
+              top: gapHeight / 2 + 16,
+            }}
+          />
+        </div>
       );
     });
   }, [sortedNodes, handleInlineAddClick, NODE_WIDTH, NODE_HEIGHT]);
@@ -475,6 +496,23 @@ export function WorkflowCanvas({
         {renderInlineAddButtons()}
       </div>
 
+      {/* Add Step button - top right */}
+      <motion.div
+        className="absolute top-4 right-4"
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+      >
+        <Button
+          variant="default"
+          onClick={handleAddButtonClick}
+          className="gap-2 shadow-lg"
+        >
+          <Plus className="w-4 h-4" />
+          Add Step
+        </Button>
+      </motion.div>
+
       {/* Run Sequence button - bottom center */}
       <motion.div
         className="absolute bottom-6 left-1/2 -translate-x-1/2"
@@ -482,7 +520,7 @@ export function WorkflowCanvas({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
       >
-        {onExecute ? (
+        {onExecute && (
           <Button
             size="lg"
             onClick={onExecute}
@@ -495,15 +533,6 @@ export function WorkflowCanvas({
               <Play className="w-5 h-5" />
             )}
             {isExecuting ? 'Running...' : 'Run Sequence'}
-          </Button>
-        ) : (
-          <Button
-            size="lg"
-            onClick={handleAddButtonClick}
-            className="gap-2 rounded-full px-6 shadow-lg"
-          >
-            <Plus className="w-5 h-5" />
-            Add Node
           </Button>
         )}
       </motion.div>
@@ -549,7 +578,7 @@ export function WorkflowCanvas({
             </div>
             <p className="text-lg font-medium text-foreground mb-2">Start Building</p>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Click the <strong>Run Sequence</strong> button below, or double-click anywhere on the canvas
+              Click the <strong>Add Step</strong> button above, or double-click anywhere on the canvas
             </p>
           </motion.div>
         </div>
