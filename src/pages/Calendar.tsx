@@ -557,7 +557,7 @@ export default function Calendar() {
                       <span className={cn(
                         'text-base font-semibold',
                         !isCurrentMonth && 'text-muted-foreground',
-                        isTodayDate && 'text-primary font-bold'
+                        isTodayDate && 'font-bold'
                       )}>
                         {format(day, 'd')}
                       </span>

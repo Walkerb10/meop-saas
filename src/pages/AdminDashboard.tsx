@@ -24,6 +24,8 @@ import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useUserRole, AppRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths } from 'date-fns';
 import { 
   Users, 
@@ -167,6 +169,130 @@ function UserManagementTab() {
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Team Contacts Tab - Manage team member contact info (phone numbers for reminders)
+function TeamContactsTab() {
+  const { members, loading, fetchMembers } = useTeamMembers();
+  const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const { toast } = useToast();
+
+  const activeMembers = members.filter(m => m.is_active);
+
+  const handleSavePhone = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('team_members')
+        .update({ slack_user_id: phoneNumber }) // Using slack_user_id field for now, or we could add a phone column
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Saved',
+        description: 'Team member contact info updated.',
+      });
+      
+      setEditingMember(null);
+      setPhoneNumber('');
+      fetchMembers();
+    } catch (err) {
+      console.error('Failed to save phone:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to save contact info',
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card className="bg-card/50 border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5" />
+            Team Contact Info
+          </CardTitle>
+          <CardDescription>
+            Manage phone numbers for text reminders and notifications
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-3">
+              {activeMembers.map((member) => (
+                <div 
+                  key={member.id} 
+                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                      <span className="text-sm font-medium text-primary">
+                        {member.display_name?.[0] || member.email[0].toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {member.display_name || member.email}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{member.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {editingMember === member.user_id ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          placeholder="+1 (555) 123-4567"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                          className="w-40"
+                        />
+                        <Button size="sm" onClick={() => handleSavePhone(member.user_id)}>
+                          Save
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          setEditingMember(null);
+                          setPhoneNumber('');
+                        }}>
+                          Cancel
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-sm text-muted-foreground">
+                          {member.slack_user_id || 'No phone'}
+                        </span>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            setEditingMember(member.user_id);
+                            setPhoneNumber(member.slack_user_id || '');
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -660,53 +786,73 @@ export default function AdminDashboard() {
           </div>
 
           <Tabs defaultValue="users" className="space-y-6">
-            <TabsList className="bg-secondary/50 flex-wrap">
-              <TabsTrigger value="users" className="gap-2">
-                <Users className="w-4 h-4" />
-                Users
+            <TabsList className="bg-secondary/50 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:flex lg:flex-wrap h-auto gap-1 p-1">
+              <TabsTrigger value="users" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Users</span>
+                <span className="sm:hidden">Users</span>
               </TabsTrigger>
-              <TabsTrigger value="contacts" className="gap-2">
-                <Contact className="w-4 h-4" />
-                Contacts
+              <TabsTrigger value="team-contacts" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Team</span>
+                <span className="sm:hidden">Team</span>
               </TabsTrigger>
-              <TabsTrigger value="feedback" className="gap-2">
-                <MessageSquare className="w-4 h-4" />
-                Feedback
+              <TabsTrigger value="contacts" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Contact className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Contacts</span>
+                <span className="sm:hidden">Contacts</span>
               </TabsTrigger>
-              <TabsTrigger value="tasks" className="gap-2">
-                <ListTodo className="w-4 h-4" />
-                Tasks
+              <TabsTrigger value="feedback" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Feedback</span>
+                <span className="sm:hidden">Feedback</span>
               </TabsTrigger>
-              <TabsTrigger value="calendar" className="gap-2">
-                <Calendar className="w-4 h-4" />
-                Calendar
+              <TabsTrigger value="tasks" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Tasks</span>
+                <span className="sm:hidden">Tasks</span>
               </TabsTrigger>
-              <TabsTrigger value="webhooks" className="gap-2">
-                <Webhook className="w-4 h-4" />
-                Webhooks
+              <TabsTrigger value="calendar" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Calendar</span>
+                <span className="sm:hidden">Cal</span>
               </TabsTrigger>
-              <TabsTrigger value="knowledge" className="gap-2">
-                Knowledge
+              <TabsTrigger value="webhooks" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Webhook className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Webhooks</span>
+                <span className="sm:hidden">Hooks</span>
               </TabsTrigger>
-              <TabsTrigger value="training" className="gap-2">
-                <Brain className="w-4 h-4" />
-                AI Training
+              <TabsTrigger value="knowledge" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <span className="hidden sm:inline">Knowledge</span>
+                <span className="sm:hidden">KB</span>
               </TabsTrigger>
-              <TabsTrigger value="chat-permissions" className="gap-2">
-                Chat Data
+              <TabsTrigger value="training" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">AI Training</span>
+                <span className="sm:hidden">AI</span>
               </TabsTrigger>
-              <TabsTrigger value="feature-access" className="gap-2">
-                <Shield className="w-4 h-4" />
-                Features
+              <TabsTrigger value="chat-permissions" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <span className="hidden sm:inline">Chat Data</span>
+                <span className="sm:hidden">Chat</span>
               </TabsTrigger>
-              <TabsTrigger value="marketing" className="gap-2">
-                <Mail className="w-4 h-4" />
-                Marketing
+              <TabsTrigger value="feature-access" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Features</span>
+                <span className="sm:hidden">Access</span>
+              </TabsTrigger>
+              <TabsTrigger value="marketing" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Marketing</span>
+                <span className="sm:hidden">Email</span>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="users">
               <UserManagementTab />
+            </TabsContent>
+
+            <TabsContent value="team-contacts">
+              <TeamContactsTab />
             </TabsContent>
 
             <TabsContent value="contacts">
