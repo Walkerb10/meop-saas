@@ -255,12 +255,15 @@ export default function Calendar() {
     setShowDayDialog(false);
   };
 
-  const handleCreateAndAssignTask = async (date: Date, userId: string, isPinned: boolean = false) => {
-    if (!taskForm.title) return;
+  const handleCreateAndAssignTask = async (date: Date, userId: string, isPinned: boolean = false, title?: string, description?: string) => {
+    const taskTitle = title || taskForm.title;
+    const taskDescription = description || taskForm.description;
+    
+    if (!taskTitle) return;
     
     await createTask({
-      title: taskForm.title,
-      description: taskForm.description,
+      title: taskTitle,
+      description: taskDescription,
       assigned_to: userId,
       due_date: startOfDay(date).toISOString(),
       priority: taskForm.priority,
@@ -654,8 +657,13 @@ export default function Calendar() {
       </div>
 
       {/* Day View Dialog */}
-      <Dialog open={showDayDialog} onOpenChange={setShowDayDialog}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={showDayDialog} onOpenChange={(open) => {
+        setShowDayDialog(open);
+        if (!open) {
+          setTaskForm({ title: '', description: '', assigned_to: '', priority: 'medium', is_pinned: false });
+        }
+      }}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {selectedDate && format(selectedDate, 'EEEE, MMMM d')}
@@ -746,6 +754,70 @@ export default function Calendar() {
   );
 }
 
+// Empty Day Form - separate component to manage its own state
+interface EmptyDayFormProps {
+  userId: string;
+  date: Date;
+  onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title: string, description: string) => void;
+  userTaskBank: TeamTask[];
+  onAssignTask: (taskId: string, date: Date, userId?: string) => void;
+}
+
+function EmptyDayForm({ userId, date, onCreateAndAssign, userTaskBank, onAssignTask }: EmptyDayFormProps) {
+  const [localTitle, setLocalTitle] = useState('');
+  const [localDescription, setLocalDescription] = useState('');
+
+  const handleSubmit = () => {
+    if (!localTitle) return;
+    onCreateAndAssign(date, userId, false, localTitle, localDescription);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-3">
+        <div className="text-xs text-muted-foreground">Add a task for this day:</div>
+        <Input
+          value={localTitle}
+          onChange={(e) => setLocalTitle(e.target.value)}
+          placeholder="What needs to be done?"
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+        />
+        <Textarea
+          value={localDescription}
+          onChange={(e) => setLocalDescription(e.target.value)}
+          placeholder="Description (optional)"
+          rows={2}
+        />
+        <Button 
+          onClick={handleSubmit}
+          disabled={!localTitle}
+          className="w-full"
+        >
+          <Plus className="h-4 w-4 mr-1" /> Add Task
+        </Button>
+      </div>
+
+      {userTaskBank.length > 0 && (
+        <div className="space-y-1 pt-2 border-t">
+          <p className="text-xs font-medium text-muted-foreground">Or assign from bank:</p>
+          <div className="space-y-1 max-h-[100px] overflow-y-auto">
+            {userTaskBank.slice(0, 3).map(bankTask => (
+              <div
+                key={bankTask.id}
+                className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors text-sm"
+                onClick={() => onAssignTask(bankTask.id, date)}
+              >
+                <Plus className="h-3 w-3 text-primary shrink-0" />
+                <span className="truncate">{bankTask.title}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Day View Component
 interface DayViewProps {
   date: Date;
@@ -757,7 +829,7 @@ interface DayViewProps {
   onUncomplete: (task: TeamTask) => void;
   onAssignTask: (taskId: string, date: Date, userId?: string) => void;
   onDelete: (taskId: string) => void;
-  onCreateAndAssign: (date: Date, userId: string, isPinned?: boolean) => void;
+  onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title?: string, description?: string) => void;
   onInsertAndShift: (date: Date, userId: string) => void;
   taskForm: { title: string; description: string; assigned_to: string; priority: Priority; is_pinned: boolean };
   setTaskForm: (form: { title: string; description: string; assigned_to: string; priority: Priority; is_pinned: boolean }) => void;
@@ -871,49 +943,13 @@ function DayView({
                 )}
               </Card>
             ) : (
-              <div className="space-y-3">
-                {/* Default to manual entry form when no task */}
-                <div className="space-y-3">
-                  <div className="text-xs text-muted-foreground">Add a task for this day:</div>
-                  <Input
-                    value={taskForm.title}
-                    onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                    placeholder="What needs to be done?"
-                    autoFocus
-                  />
-                  <Textarea
-                    value={taskForm.description}
-                    onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                    placeholder="Description (optional)"
-                    rows={2}
-                  />
-                  <Button 
-                    onClick={() => onCreateAndAssign(date, userId, false)}
-                    disabled={!taskForm.title}
-                    className="w-full"
-                  >
-                    <Plus className="h-4 w-4 mr-1" /> Add Task
-                  </Button>
-                </div>
-
-                {userTaskBank.length > 0 && (
-                  <div className="space-y-1 pt-2 border-t">
-                    <p className="text-xs font-medium text-muted-foreground">Or assign from bank:</p>
-                    <div className="space-y-1 max-h-[100px] overflow-y-auto">
-                      {userTaskBank.slice(0, 3).map(bankTask => (
-                        <div
-                          key={bankTask.id}
-                          className="flex items-center gap-2 p-2 rounded-lg border hover:bg-muted/50 cursor-pointer transition-colors text-sm"
-                          onClick={() => onAssignTask(bankTask.id, date)}
-                        >
-                          <Plus className="h-3 w-3 text-primary shrink-0" />
-                          <span className="truncate">{bankTask.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <EmptyDayForm 
+                userId={userId}
+                date={date}
+                onCreateAndAssign={onCreateAndAssign}
+                userTaskBank={userTaskBank}
+                onAssignTask={onAssignTask}
+              />
             )}
           </div>
         );
