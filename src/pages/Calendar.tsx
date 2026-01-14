@@ -199,12 +199,12 @@ export default function Calendar() {
   };
 
   const handleCreateTaskToBank = async () => {
-    if (!taskForm.title || !taskForm.assigned_to) return;
+    if (!taskForm.title || !taskForm.priority) return;
     
     await createTask({
       title: taskForm.title,
       description: taskForm.description,
-      assigned_to: taskForm.assigned_to,
+      assigned_to: taskForm.assigned_to || undefined,
       priority: taskForm.priority,
     });
 
@@ -299,7 +299,7 @@ export default function Calendar() {
 
   return (
     <AppLayout>
-      <div className="h-full flex flex-col p-4 max-w-5xl mx-auto">
+      <div className="min-h-full flex flex-col p-4 max-w-5xl mx-auto pb-20">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold">Calendar</h1>
@@ -686,22 +686,7 @@ export default function Calendar() {
               />
             </div>
             <div>
-              <Label>Assign to</Label>
-              <Select value={taskForm.assigned_to} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: v })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select person" />
-                </SelectTrigger>
-                <SelectContent>
-                  {teamMembers.map(m => (
-                    <SelectItem key={m.user_id} value={m.user_id}>
-                      {m.display_name || m.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Priority</Label>
+              <Label>Priority <span className="text-destructive">*</span></Label>
               <Select value={taskForm.priority} onValueChange={(v) => setTaskForm({ ...taskForm, priority: v as Priority })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -713,7 +698,22 @@ export default function Calendar() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleCreateTaskToBank} className="w-full" disabled={!taskForm.title || !taskForm.assigned_to}>
+            <div>
+              <Label>Assign to (optional)</Label>
+              <Select value={taskForm.assigned_to} onValueChange={(v) => setTaskForm({ ...taskForm, assigned_to: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map(m => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      {m.display_name || m.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleCreateTaskToBank} className="w-full" disabled={!taskForm.title || !taskForm.priority}>
               Add to Bank
             </Button>
           </div>
@@ -782,16 +782,19 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
         <div className="text-xs text-muted-foreground">
           Set your One Thing:
         </div>
-        {userTaskBank.length > 0 && (
-          <Popover open={showTaskBankPopover} onOpenChange={setShowTaskBankPopover}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
-                <Package className="h-3 w-3" />
-                Task Bank
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-2" align="end">
-              <p className="text-xs font-medium text-muted-foreground mb-2 px-2">Select from Task Bank</p>
+        <Popover open={showTaskBankPopover} onOpenChange={setShowTaskBankPopover}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8 text-xs gap-1">
+              <Package className="h-3 w-3" />
+              Task Bank
+              {userTaskBank.length > 0 && (
+                <Badge variant="secondary" className="ml-1 text-[10px] h-4 px-1">{userTaskBank.length}</Badge>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-2" align="end">
+            <p className="text-xs font-medium text-muted-foreground mb-2 px-2">Select from Task Bank</p>
+            {userTaskBank.length > 0 ? (
               <ScrollArea className="max-h-[200px]">
                 <div className="space-y-1">
                   {userTaskBank.map(task => (
@@ -808,9 +811,14 @@ function EmptyDayForm({ userId, date, onCreateAndAssign, onInsertAndShift, userT
                   ))}
                 </div>
               </ScrollArea>
-            </PopoverContent>
-          </Popover>
-        )}
+            ) : (
+              <div className="text-center py-4 text-muted-foreground text-xs">
+                <Package className="h-6 w-6 mx-auto mb-2 opacity-30" />
+                <p>No tasks in bank</p>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {selectedBankTask && (

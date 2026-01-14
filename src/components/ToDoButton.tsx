@@ -155,10 +155,10 @@ export function ToDoButton() {
   return (
     <>
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         onClick={handleButtonClick}
-        className="relative"
+        className="relative border-primary/50"
       >
         To-Do
         {showRedBadge && (
