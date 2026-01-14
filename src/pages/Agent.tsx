@@ -100,20 +100,32 @@ export default function AgentPage() {
     toggle();
   };
 
+  // Track pending message to send once call is active
+  const pendingMessageRef = useRef<string | null>(null);
+
+  // Send pending message once call becomes active
+  useEffect(() => {
+    if (isActive && pendingMessageRef.current) {
+      const message = pendingMessageRef.current;
+      pendingMessageRef.current = null;
+      // Small delay to ensure Vapi is fully ready
+      setTimeout(() => {
+        sendMessage(message);
+      }, 500);
+    }
+  }, [isActive, sendMessage]);
+
   const handleSendText = () => {
     if (!inputValue.trim()) return;
     
     if (isActive) {
-      // Send to live Vapi session
+      // Send to live Vapi session immediately
       sendMessage(inputValue);
     } else {
-      // Start voice and queue message
+      // Queue the message and start the call
+      pendingMessageRef.current = inputValue;
       setHasStarted(true);
       toggle();
-      // After short delay, send the message
-      setTimeout(() => {
-        sendMessage(inputValue);
-      }, 1500);
     }
     setInputValue('');
   };
