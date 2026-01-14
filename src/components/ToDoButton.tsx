@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
-import { ListTodo, CheckCircle2, AlertCircle, ArrowRight, Clock, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { ListTodo, CheckCircle2, Clock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,7 +14,10 @@ import { useNavigate } from 'react-router-dom';
 
 export function ToDoButton() {
   const [open, setOpen] = useState(false);
-  const { tasks, updateTask } = useTeamTasks();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const { tasks, updateTask, createTask } = useTeamTasks();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -79,6 +84,33 @@ export function ToDoButton() {
     });
   };
 
+  const handleAddTask = async () => {
+    if (!taskTitle || !user) return;
+    
+    await createTask({
+      title: taskTitle,
+      description: taskDescription,
+      assigned_to: user.id,
+      due_date: startOfDay(new Date()).toISOString(),
+      priority: 'medium',
+    });
+
+    setTaskTitle('');
+    setTaskDescription('');
+    setShowAddForm(false);
+    setOpen(false);
+    navigate('/calendar');
+  };
+
+  const handleButtonClick = () => {
+    // If no task set and needs one, go directly to calendar
+    if (!todayTask && !nextTask && taskBankCount === 0) {
+      navigate('/calendar');
+      return;
+    }
+    setOpen(true);
+  };
+
   const goToCalendar = () => {
     setOpen(false);
     navigate('/calendar');
@@ -89,7 +121,7 @@ export function ToDoButton() {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => setOpen(true)}
+        onClick={handleButtonClick}
         className="gap-2 relative"
       >
         <ListTodo className="w-4 h-4" />
@@ -111,7 +143,36 @@ export function ToDoButton() {
           </DialogHeader>
           
           <div className="py-4">
-            {todayTask ? (
+            {showAddForm ? (
+              <div className="space-y-4">
+                <div>
+                  <Label>Title</Label>
+                  <Input
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    placeholder="What's your one thing for today?"
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <Label>Description (optional)</Label>
+                  <Textarea
+                    value={taskDescription}
+                    onChange={(e) => setTaskDescription(e.target.value)}
+                    placeholder="Add details..."
+                    rows={2}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleAddTask} disabled={!taskTitle} className="flex-1">
+                    Set Task
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowAddForm(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : todayTask ? (
               <div className={cn(
                 'p-4 rounded-lg border transition-all',
                 todayTask.status === 'completed' 
@@ -146,35 +207,23 @@ export function ToDoButton() {
                     <CheckCircle2 className="h-5 w-5 mx-auto mb-1" />
                     <p className="font-medium text-sm">You completed your one thing!</p>
                     {nextTask && (
-                      <p className="text-xs mt-1 flex items-center justify-center gap-1">
-                        <ArrowRight className="h-3 w-3" />
-                        Next: {nextTask.title}
-                      </p>
+                      <p className="text-xs mt-1">Next up: {nextTask.title}</p>
                     )}
                   </div>
                 )}
-              </div>
-            ) : needsToSetNextTask ? (
-              <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-center">
-                <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-                <p className="font-medium text-red-500">Set your next task!</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Add tasks to your Task Bank to schedule them.
-                </p>
-                <Button size="sm" className="mt-3" onClick={goToCalendar}>
-                  <Plus className="h-4 w-4 mr-1" /> Go to Calendar
-                </Button>
               </div>
             ) : (
               <div className="p-4 rounded-lg bg-muted/50 text-center">
                 <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                 <p className="text-muted-foreground">No task set for today</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {nextTask ? `Next: ${nextTask.title}` : 'Click below to add one.'}
-                </p>
-                <Button size="sm" variant="outline" className="mt-3" onClick={goToCalendar}>
-                  Go to Calendar
-                </Button>
+                <div className="flex gap-2 mt-3 justify-center">
+                  <Button size="sm" onClick={() => setShowAddForm(true)}>
+                    <Plus className="h-4 w-4 mr-1" /> Add Task
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={goToCalendar}>
+                    View Calendar
+                  </Button>
+                </div>
               </div>
             )}
           </div>

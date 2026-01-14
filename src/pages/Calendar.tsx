@@ -367,79 +367,62 @@ export default function Calendar() {
         </div>
 
         {/* Current Task Display - Above Calendar */}
-        {user && viewMode !== 'all' && (
+        {user && viewMode !== 'all' && currentUserActiveTask && (
           <Card className="mb-4 border-primary/30 bg-gradient-to-r from-primary/5 to-transparent">
             <CardContent className="py-4">
               <div className="flex items-center gap-2 mb-2 text-sm text-muted-foreground">
                 <CheckSquare className="h-4 w-4" />
                 <span>Current Task</span>
-                {(hasPendingTodayTask || needsToSetNextTask) && (
+                {hasPendingTodayTask && (
                   <Badge variant="destructive" className="ml-auto text-xs">Action Required</Badge>
                 )}
               </div>
               
-              {currentUserActiveTask ? (
-                <div className={cn(
-                  'p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md',
-                  currentUserActiveTask.status === 'completed' 
-                    ? 'bg-green-500/10 border-green-500/30' 
-                    : 'bg-orange-500/10 border-orange-500/30'
-                )}>
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      checked={currentUserActiveTask.status === 'completed'}
-                      onCheckedChange={() => 
-                        currentUserActiveTask.status === 'completed'
-                          ? handleUncompleteTask(currentUserActiveTask) 
-                          : handleCompleteTask(currentUserActiveTask)
-                      }
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <p className={cn(
-                        'font-semibold text-lg',
-                        currentUserActiveTask.status === 'completed' && 'line-through text-muted-foreground'
-                      )}>
-                        {currentUserActiveTask.title}
-                      </p>
-                      {currentUserActiveTask.description && (
-                        <p className="text-muted-foreground mt-1">{currentUserActiveTask.description}</p>
-                      )}
-                    </div>
-                    {(currentUserActiveTask as any).is_pinned && (
-                      <Pin className="h-4 w-4 text-primary" />
+              <div className={cn(
+                'p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md',
+                currentUserActiveTask.status === 'completed' 
+                  ? 'bg-green-500/10 border-green-500/30' 
+                  : 'bg-orange-500/10 border-orange-500/30'
+              )}>
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    checked={currentUserActiveTask.status === 'completed'}
+                    onCheckedChange={() => 
+                      currentUserActiveTask.status === 'completed'
+                        ? handleUncompleteTask(currentUserActiveTask) 
+                        : handleCompleteTask(currentUserActiveTask)
+                    }
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <p className={cn(
+                      'font-semibold text-lg',
+                      currentUserActiveTask.status === 'completed' && 'line-through text-muted-foreground'
+                    )}>
+                      {currentUserActiveTask.title}
+                    </p>
+                    {currentUserActiveTask.description && (
+                      <p className="text-muted-foreground mt-1">{currentUserActiveTask.description}</p>
                     )}
                   </div>
-                  
-                  {currentUserActiveTask.status === 'completed' && completedTodayTask && (
-                    <div className="mt-4 p-3 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center">
-                      <Check className="h-5 w-5 mx-auto mb-1" />
-                      <p className="font-medium">You completed your one thing for today!</p>
-                      {nextTask && (
-                        <p className="text-sm mt-1 flex items-center justify-center gap-1">
-                          <ArrowRight className="h-3 w-3" />
-                          Next: {nextTask.title}
-                        </p>
-                      )}
-                    </div>
+                  {(currentUserActiveTask as any).is_pinned && (
+                    <Pin className="h-4 w-4 text-primary" />
                   )}
                 </div>
-              ) : needsToSetNextTask ? (
-                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-center">
-                  <AlertCircle className="h-6 w-6 text-red-500 mx-auto mb-2" />
-                  <p className="font-medium text-red-500">Set your next task!</p>
-                  <p className="text-sm text-muted-foreground mt-1">Add tasks to your Task Bank to schedule them.</p>
-                  <Button size="sm" className="mt-3" onClick={() => setActiveTab('taskbank')}>
-                    <Plus className="h-4 w-4 mr-1" /> Add Task
-                  </Button>
-                </div>
-              ) : (
-                <div className="p-4 rounded-lg bg-muted/50 text-center">
-                  <Clock className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">No task set for today</p>
-                  <p className="text-sm text-muted-foreground mt-1">Click on today in the calendar to assign one.</p>
-                </div>
-              )}
+                
+                {currentUserActiveTask.status === 'completed' && completedTodayTask && (
+                  <div className="mt-4 p-3 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center">
+                    <Check className="h-5 w-5 mx-auto mb-1" />
+                    <p className="font-medium">You completed your one thing for today!</p>
+                    {nextTask && (
+                      <p className="text-sm mt-1 flex items-center justify-center gap-1">
+                        <ArrowRight className="h-3 w-3" />
+                        Next: {nextTask.title}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -888,16 +871,35 @@ function DayView({
                 )}
               </Card>
             ) : (
-              <div className="space-y-2">
-                <div className="text-center py-4 text-muted-foreground border rounded-lg border-dashed">
-                  <Clock className="h-6 w-6 mx-auto mb-1 opacity-50" />
-                  <p className="text-sm">No task set</p>
+              <div className="space-y-3">
+                {/* Default to manual entry form when no task */}
+                <div className="space-y-3">
+                  <div className="text-xs text-muted-foreground">Add a task for this day:</div>
+                  <Input
+                    value={taskForm.title}
+                    onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                    placeholder="What needs to be done?"
+                    autoFocus
+                  />
+                  <Textarea
+                    value={taskForm.description}
+                    onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+                    placeholder="Description (optional)"
+                    rows={2}
+                  />
+                  <Button 
+                    onClick={() => onCreateAndAssign(date, userId, false)}
+                    disabled={!taskForm.title}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-1" /> Add Task
+                  </Button>
                 </div>
 
                 {userTaskBank.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground">Assign from bank:</p>
-                    <div className="space-y-1 max-h-[120px] overflow-y-auto">
+                  <div className="space-y-1 pt-2 border-t">
+                    <p className="text-xs font-medium text-muted-foreground">Or assign from bank:</p>
+                    <div className="space-y-1 max-h-[100px] overflow-y-auto">
                       {userTaskBank.slice(0, 3).map(bankTask => (
                         <div
                           key={bankTask.id}

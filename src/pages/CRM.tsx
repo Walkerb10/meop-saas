@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { Users, GitBranch, Contact } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
-import { CRMBoard } from '@/components/CRMBoard';
 import { ContactsManager } from '@/components/ContactsManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PipelinesManager } from '@/components/PipelinesManager';
 
 export default function CRMPage() {
-  const [activeTab, setActiveTab] = useState('sales');
+  const [activeTab, setActiveTab] = useState('pipelines');
 
   return (
     <AppLayout>
@@ -23,30 +22,22 @@ export default function CRMPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-secondary/50 mb-6">
-            <TabsTrigger value="sales" className="gap-2">
-              <Users className="w-4 h-4" />
-              Sales Pipeline
+            <TabsTrigger value="pipelines" className="gap-2">
+              <GitBranch className="w-4 h-4" />
+              Pipelines
             </TabsTrigger>
             <TabsTrigger value="contacts" className="gap-2">
               <Contact className="w-4 h-4" />
               Contacts
             </TabsTrigger>
-            <TabsTrigger value="pipelines" className="gap-2">
-              <GitBranch className="w-4 h-4" />
-              Pipelines
-            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="sales" className="mt-0">
-            <CRMBoard />
+          <TabsContent value="pipelines" className="mt-0">
+            <PipelinesManager />
           </TabsContent>
 
           <TabsContent value="contacts" className="mt-0">
             <ContactsManager />
-          </TabsContent>
-
-          <TabsContent value="pipelines" className="mt-0">
-            <PipelinesManager />
           </TabsContent>
         </Tabs>
       </div>
