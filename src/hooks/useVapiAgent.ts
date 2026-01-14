@@ -298,14 +298,20 @@ export function useVapiAgent({
     };
   }, [saveTranscript, updateActivity]);
 
-  // Send text message to Vapi
+  // Send text message to Vapi - injects into live conversation and triggers response
   const sendMessage = useCallback((text: string) => {
     if (!vapiRef.current || !text.trim()) return false;
+    
+    // Must have an active call to send messages
+    if (!isActive) {
+      console.warn('Cannot send message: no active Vapi call');
+      return false;
+    }
     
     updateActivity();
     
     try {
-      // Send the message to the active Vapi session
+      // Use 'add-message' to inject the user message into the conversation
       vapiRef.current.send({
         type: 'add-message',
         message: {
@@ -314,7 +320,7 @@ export function useVapiAgent({
         },
       });
       
-      // Also save and show in transcript
+      // Immediately show in transcript (Vapi won't echo back typed messages)
       onTranscriptRef.current?.(text.trim(), 'user');
       saveTranscript(text.trim(), 'user');
       
@@ -324,7 +330,7 @@ export function useVapiAgent({
       console.error('Failed to send message to Vapi:', error);
       return false;
     }
-  }, [saveTranscript, updateActivity]);
+  }, [isActive, saveTranscript, updateActivity]);
 
   const start = useCallback(async () => {
     if (!vapiRef.current) {
