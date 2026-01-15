@@ -25,63 +25,27 @@ export function VoiceOrb({ state, isActive, isConnecting = false, onToggle, inpu
     return baseHeight + (volume * maxExtraHeight * positionFactor);
   });
 
-  // Show connecting state from prop (immediate on click) or from state
-
   // Determine which icon to show based on state
   const getIcon = () => {
-    // Connecting should show immediately on click
+    // Connecting - show spinner
     if (isConnecting) {
       return <Loader2 className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground animate-spin" />;
     }
 
-    // Not active - show mic (ready to start)
+    // Not active - show mic
     if (!isActive) {
       return <Mic className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />;
     }
 
-    // Active call - show stop icon
+    // Active call with no volume - show stop icon
     return <Square className="w-8 h-8 md:w-10 md:h-10 text-primary-foreground fill-primary-foreground rounded-sm" />;
   };
 
-  // Only show waves when there's volume
-  const showWaves = isActive && volume > 0.05;
+  // Only show waves when there's volume and not connecting
+  const showWaves = isActive && !isConnecting && volume > 0.05;
 
   return (
     <div className="relative flex flex-col items-center justify-center">
-      {/* Ripple effects when active - volume reactive */}
-      <AnimatePresence>
-        {isActive && (
-          <>
-            {[1, 2, 3].map((i) => (
-              <motion.div
-                key={i}
-                className="absolute w-28 h-28 md:w-32 md:h-32 rounded-full border-2 border-primary/40"
-                initial={{ scale: 1, opacity: 0.5 }}
-                animate={{ 
-                  scale: [1, 1.8 + (volume * 0.5), 2.2 + (volume * 0.5)], 
-                  opacity: [0.5, 0.2, 0] 
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  delay: i * 0.3,
-                  ease: 'easeOut',
-                }}
-              />
-            ))}
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* Glow background - intensity based on volume */}
-      <motion.div 
-        className="absolute w-40 h-40 md:w-48 md:h-48 rounded-full blur-3xl bg-primary/30"
-        animate={{
-          opacity: isActive ? 0.3 + (volume * 0.4) : 0,
-          scale: isActive ? volumeScale : 0.8,
-        }}
-        transition={{ duration: 0.15 }}
-      />
 
       {/* Main orb button */}
       <motion.button
