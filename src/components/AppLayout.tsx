@@ -21,14 +21,7 @@ import {
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { FeedbackDialog } from '@/components/FeedbackDialog';
-import { ExecutionsPopover } from '@/components/ExecutionsPopover';
-import { useExecutions } from '@/hooks/useExecutions';
 import { ToDoButton } from '@/components/ToDoButton';
 
 // Base nav items - shown to everyone
@@ -76,7 +69,6 @@ export function AppLayout({
   onNewChat,
   showNewChatButton = false,
 }: AppLayoutProps) {
-  const { runningCount } = useExecutions();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { desktopSidebarOpen, setDesktopSidebarOpen } = useSidebarState();
   const isMobile = useIsMobile();
@@ -244,7 +236,7 @@ export function AppLayout({
         <header className="fixed top-0 right-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border"
           style={{ left: isMobile ? 0 : desktopSidebarOpen ? '200px' : '56px' }}
         >
-          {/* Left side - hamburger on mobile, To-Do, New Chat */}
+          {/* Left side - hamburger on mobile, New Chat button, To-Do */}
           <div className="flex items-center gap-2">
             {isMobile && (
               <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
@@ -252,45 +244,25 @@ export function AppLayout({
               </Button>
             )}
             
-            <ToDoButton />
-            
+            {/* New Chat - on mobile shows next to hamburger */}
             {showNewChatButton && onNewChat && (
               <Button 
                 variant="ghost" 
-                size="sm" 
+                size="icon" 
                 onClick={onNewChat}
-                className="gap-2 text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground"
               >
-                <SquarePen className="w-4 h-4" />
-                <span>New Chat</span>
+                <SquarePen className="w-5 h-5" />
               </Button>
             )}
           </div>
 
-          {/* Right side - Feedback and Executions */}
+          {/* Right side - To-Do and Feedback */}
           <div className="flex items-center gap-2">
+            <ToDoButton />
+            
             {/* Feedback dialog */}
             <FeedbackDialog />
-            
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="border-border text-foreground hover:bg-secondary relative"
-                >
-                  Runs
-                  {runningCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-medium min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
-                      {runningCount}
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 md:w-96">
-                <ExecutionsPopover />
-              </PopoverContent>
-            </Popover>
           </div>
         </header>
 
