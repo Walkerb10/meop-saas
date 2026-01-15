@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Loader2, Square } from 'lucide-react';
 import { AIState } from '@/types/agent';
+import { cn } from '@/lib/utils';
 
 interface VoiceOrbProps {
   state: AIState;
