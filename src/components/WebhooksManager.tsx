@@ -354,25 +354,23 @@ export function WebhooksManager() {
                   Add n8n Tool
                 </Button>
               ) : (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="p-4 rounded-lg border border-dashed border-border bg-muted/30 space-y-3"
-                >
+                <div className="p-4 rounded-lg border border-dashed border-border bg-muted/30 space-y-3">
                   <Input
                     placeholder="Tool title (e.g., Research Agent)"
                     value={newTool.title}
-                    onChange={(e) => setNewTool({ ...newTool, title: e.target.value })}
+                    onChange={(e) => setNewTool(prev => ({ ...prev, title: e.target.value }))}
+                    autoComplete="off"
                   />
                   <Input
                     placeholder="n8n Webhook URL"
                     value={newTool.webhookUrl}
-                    onChange={(e) => setNewTool({ ...newTool, webhookUrl: e.target.value })}
+                    onChange={(e) => setNewTool(prev => ({ ...prev, webhookUrl: e.target.value }))}
+                    autoComplete="off"
                   />
                   <Textarea
                     placeholder="Description (optional) - What does this tool do?"
                     value={newTool.description}
-                    onChange={(e) => setNewTool({ ...newTool, description: e.target.value })}
+                    onChange={(e) => setNewTool(prev => ({ ...prev, description: e.target.value }))}
                     rows={2}
                   />
                   <div className="flex gap-2">
@@ -394,7 +392,7 @@ export function WebhooksManager() {
                       Cancel
                     </Button>
                   </div>
-                </motion.div>
+                </div>
               )}
             </div>
           </motion.div>
