@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.linkedin-research]
 verify_jwt = false
+
+[functions.vapi-chat]
+verify_jwt = false
