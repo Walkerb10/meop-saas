@@ -131,13 +131,8 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
         </AnimatePresence>
       </motion.button>
 
-      {/* State label - single unified label with proper spacing */}
-      <motion.div
-        className="absolute -bottom-12 left-1/2 -translate-x-1/2 text-center whitespace-nowrap"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2 }}
-      >
+      {/* State label - centered below the orb */}
+      <div className="absolute -bottom-14 w-full flex justify-center">
         <AnimatePresence mode="wait">
           <motion.span
             key={!isActive ? 'tap' : state}
@@ -156,7 +151,7 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
                   : 'Listening'}
           </motion.span>
         </AnimatePresence>
-      </motion.div>
+      </div>
     </div>
   );
 }
