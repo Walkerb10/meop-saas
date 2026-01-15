@@ -31,7 +31,7 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
   const [status, setStatus] = useState<ConversationStatus>('idle');
-  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  // Voice mode is simply whether the call is active - no separate toggle needed
   const [isVoiceCallActive, setIsVoiceCallActive] = useState(false);
   const [inputVolume, setInputVolume] = useState(0);
   const [outputVolume, setOutputVolume] = useState(0);
@@ -128,7 +128,6 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
     setMessages([]);
     setStatus('idle');
     setIsVoiceCallActive(false);
-    setVoiceModeEnabled(false);
     previousChatIdRef.current = null;
     
     // Create new session
@@ -280,7 +279,6 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
     
     try {
       await vapiRef.current.start(VAPI_ASSISTANT_ID);
-      setVoiceModeEnabled(true);
     } catch (error) {
       console.error('Failed to start voice call:', error);
       setStatus('idle');
@@ -288,12 +286,11 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
     }
   }, [isVoiceCallActive, updateActivity]);
 
-  // Stop voice call (but keep session)
+  // Stop voice call (but keep session for text-only continuation)
   const stopVoiceCall = useCallback(() => {
     if (vapiRef.current) {
       vapiRef.current.stop();
     }
-    setVoiceModeEnabled(false);
     setStatus('idle');
     setIsVoiceCallActive(false);
     setInputVolume(0);
@@ -332,15 +329,7 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
       }
     }
     
-    // If voice mode is enabled but call isn't active yet, queue the message and start call
-    if (voiceModeEnabled && !isVoiceCallActive) {
-      pendingTextRef.current = trimmedText;
-      addMessage(trimmedText, 'user', 'text');
-      await startVoiceCall();
-      return;
-    }
-    
-    // Text-only mode: use Vapi Chat API
+    // Text-only mode (no active voice call): use Vapi Chat API
     addMessage(trimmedText, 'user', 'text');
     setIsTextLoading(true);
     setStatus('thinking');
@@ -384,14 +373,13 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
       setIsTextLoading(false);
       setStatus('idle');
     }
-  }, [isVoiceCallActive, voiceModeEnabled, sessionId, startVoiceCall, addMessage, updateActivity]);
+  }, [isVoiceCallActive, sessionId, addMessage, updateActivity]);
 
   return {
     // State
     sessionId,
     messages,
     status,
-    voiceModeEnabled,
     isVoiceCallActive,
     inputVolume,
     outputVolume,
@@ -403,6 +391,5 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
     startVoiceCall,
     stopVoiceCall,
     startNewConversation,
-    setVoiceModeEnabled,
   };
 }
