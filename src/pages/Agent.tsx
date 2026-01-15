@@ -172,6 +172,7 @@ export default function AgentPage() {
               paddingTop: hasStarted ? 24 : 0,
               paddingBottom: hasStarted ? 32 : 0,
               flex: hasStarted ? 'none' : 1,
+              marginTop: hasStarted ? 0 : -60,
             }}
             transition={{ 
               type: 'spring', 
@@ -188,7 +189,7 @@ export default function AgentPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -40, transition: { duration: 0.2 } }}
                   transition={{ duration: 0.4 }}
-                  className="text-center mb-16 space-y-3 mt-8"
+                  className="text-center mb-12 space-y-3"
                 >
                   <p className="text-xl md:text-3xl font-light text-foreground tracking-wide">
                     Speak your problem.
