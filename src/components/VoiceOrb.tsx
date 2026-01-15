@@ -132,26 +132,32 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
       </motion.button>
 
       {/* State label - centered below the orb */}
-      <div className="absolute -bottom-14 w-full flex justify-center">
-        <AnimatePresence mode="wait">
-          <motion.span
-            key={!isActive ? 'tap' : state}
-            className={`text-sm font-medium ${isActive && state !== 'thinking' ? 'text-primary' : 'text-muted-foreground'}`}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.15 }}
-          >
+      <AnimatePresence mode="wait">
+        <motion.div 
+          key={isActive ? 'active-label' : 'tap-label'}
+          className="absolute -bottom-16 w-full flex justify-center"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+        >
+          <span className={`text-sm font-medium tracking-wide ${
+            isActive 
+              ? state === 'thinking' 
+                ? 'text-muted-foreground' 
+                : 'text-primary'
+              : 'text-muted-foreground'
+          }`}>
             {!isActive 
               ? 'Tap to talk' 
               : state === 'thinking' 
                 ? 'Connecting...' 
                 : state === 'speaking' 
-                  ? 'Agent speaking' 
+                  ? 'Speaking' 
                   : 'Listening'}
-          </motion.span>
-        </AnimatePresence>
-      </div>
+          </span>
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

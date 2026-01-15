@@ -204,7 +204,7 @@ export default function AgentPage() {
               )}
             </AnimatePresence>
 
-            {/* Voice Orb with volume visualization */}
+          {/* Voice Orb with volume visualization */}
             <VoiceOrb
               state={aiState}
               isActive={isActive}
@@ -214,15 +214,15 @@ export default function AgentPage() {
             />
           </motion.div>
 
-          {/* Transcript display - clearly separated below the orb */}
+          {/* Transcript display */}
           <AnimatePresence>
             {hasStarted && (
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ delay: 0.2, duration: 0.3 }}
-                className="flex-1 overflow-hidden px-4 border-t border-border/50"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 20 }}
+                transition={{ duration: 0.4, ease: 'easeOut' }}
+                className="flex-1 overflow-hidden px-4"
               >
                 <div 
                   ref={scrollContainerRef}
