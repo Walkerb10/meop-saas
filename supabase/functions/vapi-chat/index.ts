@@ -45,8 +45,6 @@ serve(async (req) => {
         assistantId: VAPI_ASSISTANT_ID,
         input: message,
         ...(previousChatId && { previousChatId }),
-        // Use sessionId for context grouping if provided
-        ...(sessionId && { metadata: { sessionId } }),
       }),
     });
 
