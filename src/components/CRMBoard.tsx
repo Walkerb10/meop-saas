@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, GripVertical, Trash2, Edit2, User, Mail, Phone, Building2, DollarSign, Loader2 } from 'lucide-react';
+import { Plus, GripVertical, Trash2, Edit2, User, Mail, Phone, Building2, DollarSign, Loader2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -10,8 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCRM, CRM_STAGES, CRMLead } from '@/hooks/useCRM';
 import { PipelineStage } from '@/hooks/usePipelines';
+import { useContacts, Contact } from '@/hooks/useContacts';
 import { cn } from '@/lib/utils';
 
 interface CRMBoardProps {
@@ -36,10 +38,13 @@ function getStageColorClass(color: string) {
 
 export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
   const { leads, loading, createLead, updateLead, moveLead, deleteLead, getLeadsByStage } = useCRM();
+  const { contacts, loading: contactsLoading } = useContacts();
   const [showCreate, setShowCreate] = useState(false);
   const [editingLead, setEditingLead] = useState<CRMLead | null>(null);
   const [draggedLead, setDraggedLead] = useState<CRMLead | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const [createMode, setCreateMode] = useState<'manual' | 'contact'>('manual');
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
   
   // Use pipeline stages if provided, otherwise fall back to CRM_STAGES
   const stages = useMemo(() => {
@@ -65,18 +70,36 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
   });
 
   const handleCreate = async () => {
-    if (!newLead.name.trim()) return;
-    await createLead({
-      name: newLead.name,
-      email: newLead.email || null,
-      phone: newLead.phone || null,
-      company: newLead.company || null,
-      stage: newLead.stage,
-      value: newLead.value ? parseFloat(newLead.value) : null,
-      notes: newLead.notes || null,
-      source: newLead.source || null,
-    });
-    setNewLead({ name: '', email: '', phone: '', company: '', stage: 'new', value: '', notes: '', source: '' });
+    if (createMode === 'contact' && selectedContactId) {
+      const contact = contacts.find(c => c.id === selectedContactId);
+      if (contact) {
+        await createLead({
+          name: contact.name,
+          email: contact.email || null,
+          phone: contact.phone || null,
+          company: contact.company || null,
+          stage: newLead.stage,
+          value: newLead.value ? parseFloat(newLead.value) : null,
+          notes: contact.notes || null,
+          source: 'Contact Import',
+        });
+      }
+    } else {
+      if (!newLead.name.trim()) return;
+      await createLead({
+        name: newLead.name,
+        email: newLead.email || null,
+        phone: newLead.phone || null,
+        company: newLead.company || null,
+        stage: newLead.stage,
+        value: newLead.value ? parseFloat(newLead.value) : null,
+        notes: newLead.notes || null,
+        source: newLead.source || null,
+      });
+    }
+    setNewLead({ name: '', email: '', phone: '', company: '', stage: stages[0]?.id || 'new', value: '', notes: '', source: '' });
+    setSelectedContactId('');
+    setCreateMode('manual');
     setShowCreate(false);
   };
 
@@ -145,90 +168,164 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
               Add Lead
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>Add New Lead</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4">
+            <Tabs value={createMode} onValueChange={(v) => setCreateMode(v as 'manual' | 'contact')} className="mt-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="manual" className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Manual Entry
+                </TabsTrigger>
+                <TabsTrigger value="contact" className="gap-2">
+                  <Users className="w-4 h-4" />
+                  From Contacts
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="contact" className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label>Name *</Label>
-                  <Input
-                    value={newLead.name}
-                    onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
-                    placeholder="Contact name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Company</Label>
-                  <Input
-                    value={newLead.company}
-                    onChange={(e) => setNewLead({ ...newLead, company: e.target.value })}
-                    placeholder="Company name"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={newLead.email}
-                    onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                    placeholder="email@example.com"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input
-                    value={newLead.phone}
-                    onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
-                    placeholder="+1 234 567 8900"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Stage</Label>
-                  <Select value={newLead.stage} onValueChange={(v) => setNewLead({ ...newLead, stage: v })}>
+                  <Label>Select Contact</Label>
+                  <Select value={selectedContactId} onValueChange={setSelectedContactId}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Choose a contact..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {stages.map(s => (
-                        <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                      {contacts.map(contact => (
+                        <SelectItem key={contact.id} value={contact.id}>
+                          <div className="flex items-center gap-2">
+                            <span>{contact.name}</span>
+                            {contact.company && (
+                              <span className="text-muted-foreground text-xs">({contact.company})</span>
+                            )}
+                          </div>
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
+                {selectedContactId && (() => {
+                  const contact = contacts.find(c => c.id === selectedContactId);
+                  return contact ? (
+                    <div className="p-3 rounded-lg border bg-muted/30 space-y-1">
+                      <p className="font-medium">{contact.name}</p>
+                      {contact.email && <p className="text-sm text-muted-foreground">{contact.email}</p>}
+                      {contact.phone && <p className="text-sm text-muted-foreground">{contact.phone}</p>}
+                      {contact.company && <p className="text-sm text-muted-foreground">{contact.company}</p>}
+                    </div>
+                  ) : null;
+                })()}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Stage</Label>
+                    <Select value={newLead.stage} onValueChange={(v) => setNewLead({ ...newLead, stage: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stages.map(s => (
+                          <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Deal Value</Label>
+                    <Input
+                      type="number"
+                      value={newLead.value}
+                      onChange={(e) => setNewLead({ ...newLead, value: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                <Button onClick={handleCreate} className="w-full" disabled={!selectedContactId}>
+                  Create Lead from Contact
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="manual" className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Name *</Label>
+                    <Input
+                      value={newLead.name}
+                      onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
+                      placeholder="Contact name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Company</Label>
+                    <Input
+                      value={newLead.company}
+                      onChange={(e) => setNewLead({ ...newLead, company: e.target.value })}
+                      placeholder="Company name"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={newLead.email}
+                      onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
+                      placeholder="email@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input
+                      value={newLead.phone}
+                      onChange={(e) => setNewLead({ ...newLead, phone: e.target.value })}
+                      placeholder="+1 234 567 8900"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Stage</Label>
+                    <Select value={newLead.stage} onValueChange={(v) => setNewLead({ ...newLead, stage: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stages.map(s => (
+                          <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Deal Value</Label>
+                    <Input
+                      type="number"
+                      value={newLead.value}
+                      onChange={(e) => setNewLead({ ...newLead, value: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label>Deal Value</Label>
+                  <Label>Source</Label>
                   <Input
-                    type="number"
-                    value={newLead.value}
-                    onChange={(e) => setNewLead({ ...newLead, value: e.target.value })}
-                    placeholder="0"
+                    value={newLead.source}
+                    onChange={(e) => setNewLead({ ...newLead, source: e.target.value })}
+                    placeholder="e.g., Website, Referral, LinkedIn"
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Source</Label>
-                <Input
-                  value={newLead.source}
-                  onChange={(e) => setNewLead({ ...newLead, source: e.target.value })}
-                  placeholder="e.g., Website, Referral, LinkedIn"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea
-                  value={newLead.notes}
-                  onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}
-                  placeholder="Additional notes..."
-                />
-              </div>
-              <Button onClick={handleCreate} className="w-full">Create Lead</Button>
-            </div>
+                <div className="space-y-2">
+                  <Label>Notes</Label>
+                  <Textarea
+                    value={newLead.notes}
+                    onChange={(e) => setNewLead({ ...newLead, notes: e.target.value })}
+                    placeholder="Additional notes..."
+                  />
+                </div>
+                <Button onClick={handleCreate} className="w-full">Create Lead</Button>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
