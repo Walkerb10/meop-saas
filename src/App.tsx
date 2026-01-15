@@ -21,6 +21,8 @@ import Analytics from "./pages/Analytics";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Newsletter from "./pages/Newsletter";
+import Landing from "./pages/Landing";
+import Contact from "./pages/Contact";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +40,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          <Route path="/landing" element={<Landing />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           <Route path="/agent" element={<ProtectedRoute><Agent /></ProtectedRoute>} />
