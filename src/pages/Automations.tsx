@@ -10,6 +10,7 @@ import { WorkflowBuilder } from '@/components/workflow/WorkflowBuilder';
 import { MobileWorkflowBuilder } from '@/components/workflow/MobileWorkflowBuilder';
 import { CreateAutomationWizard } from '@/components/CreateAutomationWizard';
 import { StepPreview } from '@/components/AutomationSummary';
+import { CreatorBadge } from '@/components/CreatorBadge';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,6 +32,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/hooks/useAuth';
 import { Workflow, WorkflowNode, WorkflowConnection } from '@/types/workflow';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -52,6 +55,8 @@ export default function AutomationsPage() {
   const [completedNodeIds, setCompletedNodeIds] = useState<string[]>([]);
   
   const isMobile = useIsMobile();
+  const { isTester, isOwner } = useUserRole();
+  const { user } = useAuth();
 
   // Fetch workflows from database
   const fetchWorkflows = useCallback(async () => {
@@ -78,6 +83,7 @@ export default function AutomationsPage() {
           createdAt: row.created_at,
           updatedAt: row.updated_at,
           lastRunAt: row.last_run_at || undefined,
+          createdBy: row.created_by || undefined,
           nodes,
           connections,
         };
@@ -91,6 +97,18 @@ export default function AutomationsPage() {
       setLoading(false);
     }
   }, []);
+
+  // Filter workflows for testers - they only see their own
+  const filteredWorkflows = isTester 
+    ? workflows.filter(w => w.createdBy === user?.id)
+    : workflows;
+
+  // Check if user can delete a workflow
+  const canDeleteWorkflow = useCallback((workflow: Workflow) => {
+    if (isOwner) return true; // Owner can delete any
+    if (isTester) return workflow.createdBy === user?.id; // Testers only their own
+    return true; // Other roles can delete all
+  }, [isOwner, isTester, user?.id]);
 
   // Load on mount and subscribe to changes
   useEffect(() => {
@@ -495,7 +513,7 @@ export default function AutomationsPage() {
             </div>
           ) : (
           <AnimatePresence>
-            {workflows.map((workflow, index) => (
+            {filteredWorkflows.map((workflow, index) => (
               <motion.div
                 key={workflow.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -520,11 +538,16 @@ export default function AutomationsPage() {
                         />
                       </div>
 
-                      {/* Name and schedule info */}
+                      {/* Name, creator badge, and schedule info */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm md:text-base text-foreground truncate">
-                          {workflow.name}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-sm md:text-base text-foreground truncate">
+                            {workflow.name}
+                          </h3>
+                          {workflow.createdBy && (
+                            <CreatorBadge userId={workflow.createdBy} size="sm" />
+                          )}
+                        </div>
                         {/* Show schedule info if active and scheduled */}
                         {workflow.isActive && (() => {
                           const triggerNode = workflow.nodes.find(n => n.type === 'trigger_schedule');
@@ -577,25 +600,27 @@ export default function AutomationsPage() {
                           );
                         })()}
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
-                              className="text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeleteWorkflowId(workflow.id);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {canDeleteWorkflow(workflow) && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-popover">
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeleteWorkflowId(workflow.id);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -624,7 +649,7 @@ export default function AutomationsPage() {
           </AnimatePresence>
           )}
 
-          {!loading && workflows.length === 0 && (
+          {!loading && filteredWorkflows.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
                 <Zap className="w-8 h-8 text-muted-foreground" />
