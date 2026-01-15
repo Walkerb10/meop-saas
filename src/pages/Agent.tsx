@@ -218,7 +218,7 @@ export default function AgentPage() {
               'flex flex-col items-center shrink-0',
               !hasStarted
                 ? 'flex-1 justify-center -mt-10'
-                : 'justify-start pt-6 pb-4'
+                : 'justify-start pt-6 pb-6'
             )}
             transition={{
               layout: {
@@ -263,9 +263,6 @@ export default function AgentPage() {
             />
           </motion.div>
 
-          {/* Spacer for status text */}
-          {hasStarted && <div className="h-6 shrink-0" />}
-
           {/* Transcript display */}
           <AnimatePresence>
             {hasStarted && (
@@ -281,53 +278,43 @@ export default function AgentPage() {
                   className="h-full overflow-y-auto"
                 >
                   <div className="max-w-2xl mx-auto space-y-4 py-4 pb-8">
-                    {messages.length === 0 ? (
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="text-center text-muted-foreground text-sm py-8"
+                    {messages.map((message) => (
+                      <motion.div
+                        key={message.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={cn(
+                          'flex gap-3',
+                          message.role === 'user' ? 'justify-end' : 'justify-start'
+                        )}
                       >
-                        {isActive ? 'Listening...' : 'Tap the mic to start talking'}
-                      </motion.div>
-                    ) : (
-                      messages.map((message) => (
-                        <motion.div
-                          key={message.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
+                        {message.role === 'assistant' && (
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <Bot className="w-4 h-4 text-primary" />
+                          </div>
+                        )}
+                        <div
                           className={cn(
-                            'flex gap-3',
-                            message.role === 'user' ? 'justify-end' : 'justify-start'
+                            'max-w-[80%] rounded-2xl px-4 py-3',
+                            message.role === 'user'
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-foreground'
                           )}
                         >
-                          {message.role === 'assistant' && (
-                            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <Bot className="w-4 h-4 text-primary" />
-                            </div>
-                          )}
-                          <div
-                            className={cn(
-                              'max-w-[80%] rounded-2xl px-4 py-3',
-                              message.role === 'user'
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted text-foreground'
-                            )}
-                          >
-                            {/* Render each line, with line breaks between them */}
-                            <div className="text-sm space-y-1">
-                              {message.lines.map((line, idx) => (
-                                <p key={idx} className="whitespace-pre-wrap">{line}</p>
-                              ))}
-                            </div>
+                          {/* Render each line, with line breaks between them */}
+                          <div className="text-sm space-y-1">
+                            {message.lines.map((line, idx) => (
+                              <p key={idx} className="whitespace-pre-wrap">{line}</p>
+                            ))}
                           </div>
-                          {message.role === 'user' && (
-                            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                              <User className="w-4 h-4 text-muted-foreground" />
-                            </div>
-                          )}
-                        </motion.div>
-                      ))
-                    )}
+                        </div>
+                        {message.role === 'user' && (
+                          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
                     {/* Scroll anchor - always at bottom */}
                     <div ref={messagesEndRef} />
                   </div>
