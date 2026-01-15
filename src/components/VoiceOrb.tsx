@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Loader2, Square } from 'lucide-react';
 import { AIState } from '@/types/agent';
-import { cn } from '@/lib/utils';
 
 interface VoiceOrbProps {
   state: AIState;
@@ -48,7 +47,7 @@ export function VoiceOrb({ state, isActive, isConnecting = false, onToggle, inpu
   const showWaves = isActive && volume > 0.05;
 
   return (
-    <div className="relative flex items-center justify-center">
+    <div className="relative flex flex-col items-center justify-center">
       {/* Ripple effects when active - volume reactive */}
       <AnimatePresence>
         {isActive && (
@@ -137,30 +136,20 @@ export function VoiceOrb({ state, isActive, isConnecting = false, onToggle, inpu
         </AnimatePresence>
       </motion.button>
 
-      {/* State label - positioned below orb with proper spacing */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={isConnecting ? 'connecting' : isActive ? state : 'tap'}
-          className="absolute -bottom-8 w-full flex justify-center"
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -5 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-        >
-          <span
-            className={cn(
-              'text-xs font-medium tracking-wide',
-              isConnecting ? 'text-muted-foreground' : isActive ? 'text-primary' : 'text-muted-foreground'
-            )}
-          >
-            {isConnecting
-              ? 'Connecting…'
-              : isActive
-                ? (state === 'speaking' ? 'Speaking' : 'Listening')
-                : 'Tap to talk'}
-          </span>
-        </motion.div>
-      </AnimatePresence>
+      {/* State label - single line, never overlaps transcript */}
+      <motion.div
+        className="mt-3 flex h-5 w-full items-center justify-center"
+        initial={false}
+        animate={{ opacity: 1 }}
+      >
+        <span className="text-xs font-medium tracking-wide text-primary-foreground">
+          {isConnecting
+            ? 'Connecting…'
+            : isActive
+              ? (state === 'speaking' ? 'Speaking' : 'Listening')
+              : 'Tap to talk'}
+        </span>
+      </motion.div>
     </div>
   );
 }
