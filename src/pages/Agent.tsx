@@ -76,6 +76,7 @@ export default function AgentPage() {
   });
 
   const aiState = mapStatusToState(status);
+  const orbDocked = status === 'connecting' || isActive;
 
   // Track if conversation has started
   useEffect(() => {
