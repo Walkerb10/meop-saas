@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Webhook, Copy, Check, Plus, Trash2, FileText, RefreshCw, 
-  ChevronDown, ChevronRight 
+  ChevronDown, ChevronRight, Eye, Code2 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 
 const VAPI_WEBHOOKS = [
   {
@@ -54,10 +60,115 @@ export function WebhooksManager() {
   // n8n Tools form state
   const [newTool, setNewTool] = useState({ title: '', webhookUrl: '', description: '' });
   const [showAddN8nForm, setShowAddN8nForm] = useState(false);
+  
+  // Tool execution data state - for showing webhook body schema
+  const [expandedToolIds, setExpandedToolIds] = useState<Set<string>>(new Set());
+  const [toolExecutions, setToolExecutions] = useState<Record<string, { input: Json; output: Json; timestamp: string } | null>>({});
+  const [loadingToolId, setLoadingToolId] = useState<string | null>(null);
 
   const supabaseUrl = useMemo(() => {
     return import.meta.env.VITE_SUPABASE_URL || '';
   }, []);
+
+  // Fetch last execution for a tool by matching webhook URL
+  const fetchToolExecution = async (toolId: string, webhookUrl: string) => {
+    setLoadingToolId(toolId);
+    try {
+      // Search executions where the output_data or input_data contains the webhook URL
+      const { data, error } = await supabase
+        .from('executions')
+        .select('input_data, output_data, created_at')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (!error && data) {
+        // Find an execution that used this webhook URL
+        for (const exec of data) {
+          const outputData = exec.output_data as Record<string, unknown> | null;
+          const inputData = exec.input_data as Record<string, unknown> | null;
+          
+          // Check if webhook URL is mentioned in the execution
+          const outputStr = JSON.stringify(outputData || {});
+          const inputStr = JSON.stringify(inputData || {});
+          
+          if (outputStr.includes(webhookUrl) || inputStr.includes(webhookUrl)) {
+            setToolExecutions(prev => ({
+              ...prev,
+              [toolId]: {
+                input: inputData as Json,
+                output: outputData as Json,
+                timestamp: exec.created_at
+              }
+            }));
+            setLoadingToolId(null);
+            return;
+          }
+        }
+        
+        // If no match found, just show the most recent execution as example
+        if (data.length > 0) {
+          setToolExecutions(prev => ({
+            ...prev,
+            [toolId]: {
+              input: data[0].input_data as Json,
+              output: data[0].output_data as Json,
+              timestamp: data[0].created_at
+            }
+          }));
+        } else {
+          setToolExecutions(prev => ({ ...prev, [toolId]: null }));
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching tool execution:', err);
+    }
+    setLoadingToolId(null);
+  };
+
+  const toggleToolExpanded = (toolId: string, webhookUrl: string) => {
+    setExpandedToolIds(prev => {
+      const next = new Set(prev);
+      if (next.has(toolId)) {
+        next.delete(toolId);
+      } else {
+        next.add(toolId);
+        // Fetch execution data when expanding
+        if (!toolExecutions[toolId]) {
+          fetchToolExecution(toolId, webhookUrl);
+        }
+      }
+      return next;
+    });
+  };
+
+  // Extract schema/keys from JSON payload
+  const extractPayloadSchema = (payload: Json): { key: string; type: string; sample: string }[] => {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
+    const result: { key: string; type: string; sample: string }[] = [];
+    
+    for (const [key, value] of Object.entries(payload as Record<string, unknown>)) {
+      let type: string = typeof value;
+      let sample = '';
+      
+      if (value === null) {
+        type = 'null';
+        sample = 'null';
+      } else if (Array.isArray(value)) {
+        type = 'array';
+        sample = `[${value.length} items]`;
+      } else if (type === 'object') {
+        sample = `{${Object.keys(value as object).length} keys}`;
+      } else if (type === 'string') {
+        sample = String(value).length > 50 ? String(value).slice(0, 50) + '...' : String(value);
+      } else {
+        sample = String(value);
+      }
+      
+      result.push({ key, type, sample });
+    }
+    
+    return result;
+  };
 
   // Extract tool name from raw payload
   const getToolName = (payload: Json): string | null => {
@@ -317,30 +428,166 @@ export function WebhooksManager() {
 
               {n8nTools.length > 0 && (
                 <div className="grid gap-3">
-                  {n8nTools.map((tool) => (
-                    <div
-                      key={tool.id}
-                      className="flex items-start justify-between p-4 rounded-lg border border-border bg-card"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-sm">{tool.title}</h3>
-                        {tool.description && (
-                          <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
-                        )}
-                        <code className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground break-all mt-2 inline-block">
-                          {tool.webhookUrl}
-                        </code>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="ml-3 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteN8nTool(tool.id)}
+                  {n8nTools.map((tool) => {
+                    const isExpanded = expandedToolIds.has(tool.id);
+                    const execData = toolExecutions[tool.id];
+                    const isLoading = loadingToolId === tool.id;
+                    
+                    return (
+                      <Collapsible
+                        key={tool.id}
+                        open={isExpanded}
+                        onOpenChange={() => toggleToolExpanded(tool.id, tool.webhookUrl)}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))}
+                        <div className="rounded-lg border border-border bg-card overflow-hidden">
+                          <div className="flex items-start justify-between p-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-sm">{tool.title}</h3>
+                              {tool.description && (
+                                <p className="text-xs text-muted-foreground mt-1">{tool.description}</p>
+                              )}
+                              <code className="text-xs bg-muted px-2 py-1 rounded text-muted-foreground break-all mt-2 inline-block">
+                                {tool.webhookUrl}
+                              </code>
+                            </div>
+                            <div className="flex items-center gap-1 ml-3 shrink-0">
+                              <CollapsibleTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  title="View webhook body schema"
+                                >
+                                  {isLoading ? (
+                                    <RefreshCw className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Eye className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </CollapsibleTrigger>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteN8nTool(tool.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <CollapsibleContent>
+                            <div className="border-t border-border bg-muted/30 p-4 space-y-4">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Code2 className="w-4 h-4" />
+                                <span className="font-medium">Webhook Body Schema</span>
+                                {execData?.timestamp && (
+                                  <Badge variant="outline" className="text-[10px]">
+                                    Last: {formatDateTime(execData.timestamp)}
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              {isLoading && (
+                                <div className="text-center py-4 text-muted-foreground text-sm">
+                                  Loading execution data...
+                                </div>
+                              )}
+                              
+                              {!isLoading && !execData && (
+                                <div className="text-center py-4 text-muted-foreground text-sm border border-dashed border-border rounded-lg">
+                                  <p>No execution data found yet.</p>
+                                  <p className="text-xs mt-1">Run your webhook to see the body schema.</p>
+                                </div>
+                              )}
+                              
+                              {!isLoading && execData && (
+                                <div className="space-y-3">
+                                  {/* Input Data Schema */}
+                                  {execData.input && (
+                                    <div>
+                                      <p className="text-xs font-medium text-muted-foreground mb-2">Input Data:</p>
+                                      <div className="bg-background rounded border border-border overflow-hidden">
+                                        <table className="w-full text-xs">
+                                          <thead className="bg-muted">
+                                            <tr>
+                                              <th className="text-left px-3 py-1.5 font-medium">Key</th>
+                                              <th className="text-left px-3 py-1.5 font-medium">Type</th>
+                                              <th className="text-left px-3 py-1.5 font-medium">Sample</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {extractPayloadSchema(execData.input).map((field, idx) => (
+                                              <tr key={idx} className="border-t border-border">
+                                                <td className="px-3 py-1.5 font-mono text-primary">{field.key}</td>
+                                                <td className="px-3 py-1.5">
+                                                  <Badge variant="secondary" className="text-[10px]">{field.type}</Badge>
+                                                </td>
+                                                <td className="px-3 py-1.5 text-muted-foreground truncate max-w-[200px]">{field.sample}</td>
+                                              </tr>
+                                            ))}
+                                            {extractPayloadSchema(execData.input).length === 0 && (
+                                              <tr>
+                                                <td colSpan={3} className="px-3 py-2 text-center text-muted-foreground">No input fields</td>
+                                              </tr>
+                                            )}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Output Data Schema */}
+                                  {execData.output && (
+                                    <div>
+                                      <p className="text-xs font-medium text-muted-foreground mb-2">Output Data:</p>
+                                      <div className="bg-background rounded border border-border overflow-hidden">
+                                        <table className="w-full text-xs">
+                                          <thead className="bg-muted">
+                                            <tr>
+                                              <th className="text-left px-3 py-1.5 font-medium">Key</th>
+                                              <th className="text-left px-3 py-1.5 font-medium">Type</th>
+                                              <th className="text-left px-3 py-1.5 font-medium">Sample</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody>
+                                            {extractPayloadSchema(execData.output).map((field, idx) => (
+                                              <tr key={idx} className="border-t border-border">
+                                                <td className="px-3 py-1.5 font-mono text-primary">{field.key}</td>
+                                                <td className="px-3 py-1.5">
+                                                  <Badge variant="secondary" className="text-[10px]">{field.type}</Badge>
+                                                </td>
+                                                <td className="px-3 py-1.5 text-muted-foreground truncate max-w-[200px]">{field.sample}</td>
+                                              </tr>
+                                            ))}
+                                            {extractPayloadSchema(execData.output).length === 0 && (
+                                              <tr>
+                                                <td colSpan={3} className="px-3 py-2 text-center text-muted-foreground">No output fields</td>
+                                              </tr>
+                                            )}
+                                          </tbody>
+                                        </table>
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Raw JSON View */}
+                                  <details className="text-xs">
+                                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                                      View Raw JSON
+                                    </summary>
+                                    <pre className="mt-2 p-3 bg-background border border-border rounded overflow-x-auto text-[10px] max-h-48">
+                                      {JSON.stringify({ input: execData.input, output: execData.output }, null, 2)}
+                                    </pre>
+                                  </details>
+                                </div>
+                              )}
+                            </div>
+                          </CollapsibleContent>
+                        </div>
+                      </Collapsible>
+                    );
+                  })}
                 </div>
               )}
 
