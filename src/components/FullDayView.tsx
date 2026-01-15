@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { format, parseISO } from 'date-fns';
-import { Plus, Clock, Trash2, X } from 'lucide-react';
+import { Plus, Clock, Trash2, X, Edit2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,8 @@ interface FullDayViewProps {
   task: TeamTask | null;
   onClose: () => void;
   onCompleteTask?: (task: TeamTask) => void;
+  onEditTask?: (task: TeamTask) => void;
+  onDeleteTask?: (task: TeamTask) => void;
 }
 
 // Time slots from 9am to 5pm
@@ -42,17 +44,19 @@ const TIME_SLOTS = [
   { time: '17:00', label: '5:00 PM' },
 ];
 
-export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayViewProps) {
+export function FullDayView({ date, task, onClose, onCompleteTask, onEditTask, onDeleteTask }: FullDayViewProps) {
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarTimeBlock | null>(null);
   const [newEvent, setNewEvent] = useState({
     title: '',
     description: '',
     start_time: '',
     end_time: '',
+    estimated_minutes: '',
   });
 
-  const { timeBlocks, createTimeBlock, deleteTimeBlock, fetchTimeBlocks, getTimeBlocksForDate } = useUserCalendars();
+  const { timeBlocks, createTimeBlock, updateTimeBlock, deleteTimeBlock, fetchTimeBlocks, getTimeBlocksForDate } = useUserCalendars();
 
   const dateString = format(date, 'yyyy-MM-dd');
 
@@ -63,6 +67,13 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
   const dayEvents = useMemo(() => {
     return getTimeBlocksForDate(dateString);
   }, [timeBlocks, dateString, getTimeBlocksForDate]);
+
+  const resetForm = () => {
+    setNewEvent({ title: '', description: '', start_time: '', end_time: '', estimated_minutes: '' });
+    setShowAddEvent(false);
+    setSelectedSlot(null);
+    setEditingEvent(null);
+  };
 
   const handleAddEvent = async () => {
     if (!newEvent.title || !newEvent.start_time || !newEvent.end_time) return;
@@ -75,9 +86,20 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
       end_time: newEvent.end_time,
     });
 
-    setNewEvent({ title: '', description: '', start_time: '', end_time: '' });
-    setShowAddEvent(false);
-    setSelectedSlot(null);
+    resetForm();
+  };
+
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !newEvent.title || !newEvent.start_time || !newEvent.end_time) return;
+
+    await updateTimeBlock(editingEvent.id, {
+      title: newEvent.title,
+      description: newEvent.description || null,
+      start_time: newEvent.start_time,
+      end_time: newEvent.end_time,
+    });
+
+    resetForm();
   };
 
   const handleSlotClick = (time: string) => {
@@ -85,11 +107,25 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
     const endTime = startIndex < TIME_SLOTS.length - 1 ? TIME_SLOTS[startIndex + 1].time : '18:00';
     
     setSelectedSlot(time);
+    setEditingEvent(null);
     setNewEvent({
       title: '',
       description: '',
       start_time: time,
       end_time: endTime,
+      estimated_minutes: '',
+    });
+    setShowAddEvent(true);
+  };
+
+  const handleEditEvent = (event: CalendarTimeBlock) => {
+    setEditingEvent(event);
+    setNewEvent({
+      title: event.title,
+      description: event.description || '',
+      start_time: event.start_time.slice(0, 5),
+      end_time: event.end_time.slice(0, 5),
+      estimated_minutes: '',
     });
     setShowAddEvent(true);
   };
@@ -131,7 +167,7 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
       {task && (
         <Card className="p-4 mt-4 bg-primary/5 border-primary/20">
           <div className="flex items-start justify-between">
-            <div>
+            <div className="flex-1">
               <Badge variant="secondary" className="mb-2">Today's One Thing</Badge>
               <h3 className="font-medium">{task.title}</h3>
               {task.description && (
@@ -146,14 +182,26 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
                 </div>
               )}
             </div>
-            {task.status !== 'completed' && onCompleteTask && (
-              <Button size="sm" onClick={() => onCompleteTask(task)}>
-                Complete
-              </Button>
-            )}
-            {task.status === 'completed' && (
-              <Badge className="bg-green-500">Done</Badge>
-            )}
+            <div className="flex items-center gap-1">
+              {onEditTask && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditTask(task)}>
+                  <Edit2 className="h-4 w-4" />
+                </Button>
+              )}
+              {onDeleteTask && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onDeleteTask(task)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
+              {task.status !== 'completed' && onCompleteTask && (
+                <Button size="sm" onClick={() => onCompleteTask(task)}>
+                  Complete
+                </Button>
+              )}
+              {task.status === 'completed' && (
+                <Badge className="bg-green-500">Done</Badge>
+              )}
+            </div>
           </div>
         </Card>
       )}
@@ -161,7 +209,11 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
       {/* Time slots calendar */}
       <div className="flex items-center justify-between mt-6 mb-3">
         <h3 className="font-medium">Schedule</h3>
-        <Button size="sm" variant="outline" onClick={() => setShowAddEvent(true)}>
+        <Button size="sm" variant="outline" onClick={() => {
+          setEditingEvent(null);
+          setNewEvent({ title: '', description: '', start_time: '09:00', end_time: '10:00', estimated_minutes: '' });
+          setShowAddEvent(true);
+        }}>
           <Plus className="h-4 w-4 mr-1" /> Add Event
         </Button>
       </div>
@@ -191,8 +243,12 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
                 <div className="flex-1 py-1 pl-2 border-l">
                   {event && isStart && (
                     <div
-                      className="bg-primary/10 border-l-2 border-primary rounded-r px-2 py-1"
+                      className="bg-primary/10 border-l-2 border-primary rounded-r px-2 py-1 cursor-pointer hover:bg-primary/20 transition-colors"
                       style={{ minHeight: `${slotSpan * 48}px` }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEditEvent(event);
+                      }}
                     >
                       <div className="flex items-start justify-between">
                         <div>
@@ -204,17 +260,30 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
                             {event.start_time.slice(0, 5)} - {event.end_time.slice(0, 5)}
                           </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteTimeBlock(event.id, dateString);
-                          }}
-                        >
-                          <Trash2 className="h-3 w-3 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditEvent(event);
+                            }}
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteTimeBlock(event.id, dateString);
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -225,11 +294,11 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
         </div>
       </ScrollArea>
 
-      {/* Add Event Dialog */}
-      <Dialog open={showAddEvent} onOpenChange={setShowAddEvent}>
+      {/* Add/Edit Event Dialog */}
+      <Dialog open={showAddEvent} onOpenChange={(open) => !open && resetForm()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Event</DialogTitle>
+            <DialogTitle>{editingEvent ? 'Edit Event' : 'Add Event'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div className="space-y-2">
@@ -278,8 +347,12 @@ export function FullDayView({ date, task, onClose, onCompleteTask }: FullDayView
                 </Select>
               </div>
             </div>
-            <Button onClick={handleAddEvent} className="w-full" disabled={!newEvent.title || !newEvent.start_time || !newEvent.end_time}>
-              Add Event
+            <Button 
+              onClick={editingEvent ? handleUpdateEvent : handleAddEvent} 
+              className="w-full" 
+              disabled={!newEvent.title || !newEvent.start_time || !newEvent.end_time}
+            >
+              {editingEvent ? 'Update Event' : 'Add Event'}
             </Button>
           </div>
         </DialogContent>
