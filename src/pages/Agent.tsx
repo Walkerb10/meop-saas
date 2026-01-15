@@ -38,6 +38,7 @@ export default function AgentPage() {
   const [hasStarted, setHasStarted] = useState(false);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
   const [isSendingText, setIsSendingText] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -84,12 +85,17 @@ export default function AgentPage() {
 
   const aiState = mapStatusToState(status);
 
-  // Track if conversation has started
+  // Track if conversation has started and sync connecting state
   useEffect(() => {
     if (isActive) {
       setHasStarted(true);
+      setIsConnecting(false);
     }
-  }, [isActive]);
+    if (status === 'idle' && isConnecting) {
+      // If we were connecting but now idle, connection failed or ended
+      setIsConnecting(false);
+    }
+  }, [isActive, status, isConnecting]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -103,8 +109,16 @@ export default function AgentPage() {
     // Start animation immediately on click, don't wait for SDK
     if (!isActive) {
       setHasStarted(true);
+      setIsConnecting(true);
+      
+      // Pass previous messages to resume conversation with context
+      const previousMessages = messages.flatMap(m => 
+        m.lines.map(line => ({ role: m.role, content: line }))
+      );
+      toggle(previousMessages);
+    } else {
+      toggle();
     }
-    toggle();
   };
 
   // Send text via Vapi Chat API (text-only mode, no voice call)
@@ -242,11 +256,15 @@ export default function AgentPage() {
             <VoiceOrb
               state={aiState}
               isActive={isActive}
+              isConnecting={isConnecting || status === 'connecting'}
               onToggle={handleToggle}
               inputVolume={inputVolume}
               outputVolume={outputVolume}
             />
           </motion.div>
+
+          {/* Spacer for status text */}
+          {hasStarted && <div className="h-6 shrink-0" />}
 
           {/* Transcript display */}
           <AnimatePresence>

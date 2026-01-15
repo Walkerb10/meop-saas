@@ -332,7 +332,7 @@ export function useVapiAgent({
     }
   }, [isActive, saveTranscript, updateActivity]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (previousMessages?: Array<{ role: 'user' | 'assistant'; content: string }>) => {
     if (!vapiRef.current) {
       vapiRef.current = getVapiInstance();
     }
@@ -357,7 +357,25 @@ export function useVapiAgent({
 
     try {
       console.log('📞 Starting Vapi call with assistant:', VAPI_ASSISTANT_ID);
-      await vapiRef.current.start(VAPI_ASSISTANT_ID);
+      
+      // If we have previous messages, suppress first message and provide context
+      if (previousMessages && previousMessages.length > 0) {
+        const contextSummary = previousMessages
+          .slice(-10) // Last 10 messages for context
+          .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+          .join('\n');
+        
+        // Use variableValues to inject context, suppress firstMessage
+        await vapiRef.current.start(VAPI_ASSISTANT_ID, {
+          firstMessage: '', // Empty string to suppress greeting
+          variableValues: {
+            conversationContext: contextSummary,
+            isResuming: 'true'
+          }
+        });
+      } else {
+        await vapiRef.current.start(VAPI_ASSISTANT_ID);
+      }
     } catch (error) {
       console.error('❌ Failed to start Vapi call:', error);
       setStatus('idle');
@@ -376,11 +394,11 @@ export function useVapiAgent({
     setIsActive(false);
   }, []);
 
-  const toggle = useCallback(async () => {
+  const toggle = useCallback(async (previousMessages?: Array<{ role: 'user' | 'assistant'; content: string }>) => {
     if (isActive) {
       stop();
     } else {
-      await start();
+      await start(previousMessages);
     }
   }, [isActive, start, stop]);
 
