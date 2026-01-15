@@ -131,49 +131,32 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
         </AnimatePresence>
       </motion.button>
 
-      {/* State label - show connection status or tap to talk */}
-      <AnimatePresence mode="wait">
-        {!isActive ? (
-          <motion.div
-            key="tap"
-            className="absolute -bottom-10 text-center"
-            initial={{ opacity: 0, y: 10 }}
+      {/* State label - single unified label with proper spacing */}
+      <motion.div
+        className="absolute -bottom-12 left-1/2 -translate-x-1/2 text-center whitespace-nowrap"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={!isActive ? 'tap' : state}
+            className={`text-sm font-medium ${isActive && state !== 'thinking' ? 'text-primary' : 'text-muted-foreground'}`}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.15 }}
           >
-            <span className="text-sm font-medium text-muted-foreground">
-              Tap to talk
-            </span>
-          </motion.div>
-        ) : state === 'thinking' ? (
-          <motion.div
-            key="connecting"
-            className="absolute -bottom-10 text-center"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.2 }}
-          >
-            <span className="text-sm font-medium text-muted-foreground">
-              Connecting...
-            </span>
-          </motion.div>
-        ) : (
-          <motion.div
-            key="active"
-            className="absolute -bottom-10 text-center"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.2 }}
-          >
-            <span className="text-sm font-medium text-primary">
-              {state === 'speaking' ? 'Agent speaking' : 'Listening'}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {!isActive 
+              ? 'Tap to talk' 
+              : state === 'thinking' 
+                ? 'Connecting...' 
+                : state === 'speaking' 
+                  ? 'Agent speaking' 
+                  : 'Listening'}
+          </motion.span>
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 }

@@ -164,14 +164,21 @@ export default function AgentPage() {
       <div className="flex flex-col h-full bg-background relative">
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Voice Orb - animates to top when started */}
+          {/* Voice Orb - smoothly animates to top when started */}
           <motion.div
-            className={cn(
-              "flex flex-col items-center justify-center",
-              hasStarted ? "py-6" : "flex-1"
-            )}
-            layout
-            transition={{ type: 'spring', stiffness: 80, damping: 20, duration: 0.8 }}
+            className="flex flex-col items-center justify-center shrink-0"
+            initial={false}
+            animate={{
+              paddingTop: hasStarted ? 24 : 0,
+              paddingBottom: hasStarted ? 32 : 0,
+              flex: hasStarted ? 'none' : 1,
+            }}
+            transition={{ 
+              type: 'spring', 
+              stiffness: 100, 
+              damping: 25,
+              mass: 1,
+            }}
           >
             {/* Tagline - Only show when not started */}
             <AnimatePresence>
@@ -206,14 +213,15 @@ export default function AgentPage() {
             />
           </motion.div>
 
-          {/* Transcript display - below the orb with proper spacing */}
+          {/* Transcript display - clearly separated below the orb */}
           <AnimatePresence>
             {hasStarted && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto', flex: 1 }}
-                exit={{ opacity: 0, height: 0 }}
-                className="flex-1 overflow-hidden px-4 mt-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ delay: 0.2, duration: 0.3 }}
+                className="flex-1 overflow-hidden px-4 border-t border-border/50"
               >
                 <div 
                   ref={scrollContainerRef}
