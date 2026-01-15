@@ -570,11 +570,12 @@ export default function Calendar() {
 
           {/* CALENDARS TAB */}
           <TabsContent value="calendars" className="flex-1 flex flex-col mt-0">
-            {/* View Mode Dropdown */}
-            <div className="flex items-center justify-between mb-4">
+            {/* Calendar Type & View Mode */}
+            <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Calendar:</span>
-                <Badge variant="outline" className="font-semibold">One Thing</Badge>
+                <span className="text-sm text-muted-foreground">Calendars:</span>
+                <Badge variant="outline" className="font-semibold bg-primary/10">One Thing</Badge>
+                <Badge variant="outline" className="font-semibold opacity-50 cursor-pointer hover:opacity-100">+ Add</Badge>
               </div>
               <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
                 <SelectTrigger className="w-[130px]">

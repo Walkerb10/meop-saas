@@ -104,6 +104,56 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_time_blocks: {
+        Row: {
+          assigned_to: string | null
+          calendar_id: string | null
+          created_at: string
+          created_by: string
+          date: string
+          description: string | null
+          end_time: string
+          id: string
+          start_time: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          calendar_id?: string | null
+          created_at?: string
+          created_by: string
+          date: string
+          description?: string | null
+          end_time: string
+          id?: string
+          start_time: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          calendar_id?: string | null
+          created_at?: string
+          created_by?: string
+          date?: string
+          description?: string | null
+          end_time?: string
+          id?: string
+          start_time?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_time_blocks_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "user_calendars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_data_permissions: {
         Row: {
           can_add_knowledge: boolean | null
@@ -991,6 +1041,7 @@ export type Database = {
       team_tasks: {
         Row: {
           assigned_to: string | null
+          calendar_id: string | null
           completed_at: string | null
           created_at: string
           created_by: string
@@ -1006,6 +1057,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          calendar_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by: string
@@ -1021,6 +1073,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          calendar_id?: string | null
           completed_at?: string | null
           created_at?: string
           created_by?: string
@@ -1032,6 +1085,50 @@ export type Database = {
           priority?: string | null
           status?: string
           title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_tasks_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "user_calendars"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_calendars: {
+        Row: {
+          calendar_type: string
+          color: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          calendar_type?: string
+          color?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          calendar_type?: string
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
           updated_at?: string
         }
         Relationships: []

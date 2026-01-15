@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, GripVertical, Trash2, Edit2, User, Mail, Phone, Building2, DollarSign, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,24 +11,54 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { useCRM, CRM_STAGES, CRMLead } from '@/hooks/useCRM';
+import { PipelineStage } from '@/hooks/usePipelines';
 import { cn } from '@/lib/utils';
 
 interface CRMBoardProps {
   pipelineId?: string;
+  pipelineStages?: PipelineStage[];
 }
 
-export function CRMBoard({ pipelineId }: CRMBoardProps) {
+// Convert pipeline stage color to Tailwind class
+function getStageColorClass(color: string) {
+  const colorMap: Record<string, string> = {
+    blue: 'bg-blue-500',
+    green: 'bg-green-500',
+    purple: 'bg-purple-500',
+    orange: 'bg-orange-500',
+    red: 'bg-red-500',
+    yellow: 'bg-yellow-500',
+    pink: 'bg-pink-500',
+    cyan: 'bg-cyan-500',
+  };
+  return colorMap[color] || 'bg-gray-500';
+}
+
+export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
   const { leads, loading, createLead, updateLead, moveLead, deleteLead, getLeadsByStage } = useCRM();
   const [showCreate, setShowCreate] = useState(false);
   const [editingLead, setEditingLead] = useState<CRMLead | null>(null);
   const [draggedLead, setDraggedLead] = useState<CRMLead | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  
+  // Use pipeline stages if provided, otherwise fall back to CRM_STAGES
+  const stages = useMemo(() => {
+    if (pipelineStages && pipelineStages.length > 0) {
+      return pipelineStages.map(s => ({
+        id: s.id,
+        label: s.name,
+        color: getStageColorClass(s.color),
+      }));
+    }
+    return CRM_STAGES;
+  }, [pipelineStages]);
+  
   const [newLead, setNewLead] = useState({
     name: '',
     email: '',
     phone: '',
     company: '',
-    stage: 'new',
+    stage: stages[0]?.id || 'new',
     value: '',
     notes: '',
     source: '',
@@ -165,7 +195,7 @@ export function CRMBoard({ pipelineId }: CRMBoardProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {CRM_STAGES.map(s => (
+                      {stages.map(s => (
                         <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -251,7 +281,7 @@ export function CRMBoard({ pipelineId }: CRMBoardProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {CRM_STAGES.map(s => (
+                      {stages.map(s => (
                         <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
                       ))}
                     </SelectContent>
@@ -287,7 +317,7 @@ export function CRMBoard({ pipelineId }: CRMBoardProps) {
       {/* Kanban Board */}
       <ScrollArea className="w-full">
         <div className="flex gap-4 pb-4" style={{ minWidth: 'max-content' }}>
-          {CRM_STAGES.map((stage) => {
+          {stages.map((stage) => {
             const stageLeads = getLeadsByStage(stage.id);
             const stageValue = stageLeads.reduce((sum, l) => sum + (l.value || 0), 0);
             
