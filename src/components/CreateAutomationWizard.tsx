@@ -675,7 +675,7 @@ export function CreateAutomationWizard({
               </div>
               {config.pipeline && (() => {
                 const selectedPipeline = pipelines.find(p => p.id === config.pipeline);
-                const stages = selectedPipeline?.stages || [];
+                const stages = (selectedPipeline?.stages || []).filter((s: { id: string }) => s.id && s.id.trim() !== '');
                 return (
                   <>
                     <div className="space-y-2">
@@ -747,7 +747,7 @@ export function CreateAutomationWizard({
               </div>
               {config.pipeline && (() => {
                 const selectedPipeline = pipelines.find(p => p.id === config.pipeline);
-                const stages = selectedPipeline?.stages || [];
+                const stages = (selectedPipeline?.stages || []).filter((s: { id: string }) => s.id && s.id.trim() !== '');
                 return (
                   <>
                     <div className="space-y-2">
