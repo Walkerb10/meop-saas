@@ -133,7 +133,7 @@ export function OneThingDisplay({
       <div className="mb-4 p-4 rounded-xl bg-muted/30">
         <div className="text-center py-2">
           <p className="text-muted-foreground">No task set for today</p>
-          {nextTask && (
+          {nextTask ? (
             <div className="mt-3 pt-3 border-t border-border/50">
               <p className="text-xs text-muted-foreground mb-2">Next up:</p>
               <Button
@@ -151,7 +151,11 @@ export function OneThingDisplay({
                 {isCurrentUser && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               </Button>
             </div>
-          )}
+          ) : isCurrentUser ? (
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <p className="text-sm text-amber-500 font-medium">Add a task to get started!</p>
+            </div>
+          ) : null}
         </div>
       </div>
     );
@@ -234,6 +238,15 @@ export function OneThingDisplay({
               </div>
               {isCurrentUser && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
             </Button>
+          </div>
+        )}
+
+        {/* Prompt to add task when completed and no next task */}
+        {isTodayOriginalCompleted && !bonusTask && !nextTask && isCurrentUser && (
+          <div className="mt-4 pt-4 border-t border-border/50">
+            <p className="text-sm text-amber-500 font-medium text-center">
+              Great job! Add your next task to keep the momentum going.
+            </p>
           </div>
         )}
       </div>
