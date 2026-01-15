@@ -6,12 +6,13 @@ import { cn } from '@/lib/utils';
 interface VoiceOrbProps {
   state: AIState;
   isActive: boolean;
+  isConnecting?: boolean;
   onToggle: () => void;
   inputVolume?: number;
   outputVolume?: number;
 }
 
-export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVolume = 0 }: VoiceOrbProps) {
+export function VoiceOrb({ state, isActive, isConnecting = false, onToggle, inputVolume = 0, outputVolume = 0 }: VoiceOrbProps) {
   // Calculate dynamic scale based on volume
   const volume = state === 'speaking' ? outputVolume : inputVolume;
   const volumeScale = 1 + (volume * 0.15);
@@ -25,11 +26,11 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
     return baseHeight + (volume * maxExtraHeight * positionFactor);
   });
 
-  const isConnecting = state === 'thinking';
+  // Show connecting state from prop (immediate on click) or from state
 
   // Determine which icon to show based on state
   const getIcon = () => {
-    // Connecting should show immediately on click (even before call-start)
+    // Connecting should show immediately on click
     if (isConnecting) {
       return <Loader2 className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground animate-spin" />;
     }
@@ -139,7 +140,7 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
       {/* State label - positioned below orb with proper spacing */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={state === 'thinking' ? 'connecting' : isActive ? state : 'tap'}
+          key={isConnecting ? 'connecting' : isActive ? state : 'tap'}
           className="absolute -bottom-8 w-full flex justify-center"
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
@@ -149,16 +150,14 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
           <span
             className={cn(
               'text-xs font-medium tracking-wide',
-              state === 'thinking' ? 'text-muted-foreground' : isActive ? 'text-primary' : 'text-muted-foreground'
+              isConnecting ? 'text-muted-foreground' : isActive ? 'text-primary' : 'text-muted-foreground'
             )}
           >
-            {state === 'thinking'
+            {isConnecting
               ? 'Connecting…'
-              : !isActive
-                ? 'Tap to talk'
-                : state === 'speaking'
-                  ? 'Speaking'
-                  : 'Listening'}
+              : isActive
+                ? (state === 'speaking' ? 'Speaking' : 'Listening')
+                : 'Tap to talk'}
           </span>
         </motion.div>
       </AnimatePresence>
