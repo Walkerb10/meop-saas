@@ -14,6 +14,7 @@ export interface TeamTask {
   due_date: string | null;
   completed_at: string | null;
   estimated_minutes: number | null;
+  is_pinned: boolean | null;
   created_at: string;
   updated_at: string;
   assignee_name?: string;

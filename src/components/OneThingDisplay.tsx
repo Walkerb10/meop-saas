@@ -14,7 +14,7 @@ interface Task {
   due_date: string | null;
   completed_at: string | null;
   estimated_minutes: number | null;
-  is_pinned?: boolean;
+  is_pinned?: boolean | null;
 }
 interface OneThingDisplayProps {
   displayName: string;
@@ -41,17 +41,16 @@ export function OneThingDisplay({
   onPullForward,
   isCurrentUser
 }: OneThingDisplayProps) {
-  const [confirmDialog, setConfirmDialog] = useState<'complete' | 'uncomplete' | null>(null);
-  const [pullForwardDialog, setPullForwardDialog] = useState<Task | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<'complete' | 'uncomplete' | 'complete-bonus' | null>(null);
 
-  // Get the next scheduled task (tomorrow or later)
+  // Get the next scheduled task (tomorrow or later) that is not pinned
   const nextTask = useMemo(() => {
     const today = startOfDay(new Date());
     const tomorrow = addDays(today, 1);
     return allUserTasks.filter(t => {
       if (!t.due_date || t.status === 'completed') return false;
+      if (t.is_pinned) return false; // Skip pinned tasks
       const dueDate = parseISO(t.due_date);
-      // Task scheduled for tomorrow or later
       return dueDate >= tomorrow;
     }).sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())[0] || null;
   }, [allUserTasks]);
@@ -70,6 +69,7 @@ export function OneThingDisplay({
       return isSameDay(parseISO(t.due_date), today);
     }) || null;
   }, [allUserTasks, isTodayOriginalCompleted, todayTask]);
+  
   const handleCheckChange = () => {
     if (!isCurrentUser) return;
     if (todayTask?.status === 'completed') {
@@ -78,29 +78,38 @@ export function OneThingDisplay({
       setConfirmDialog('complete');
     }
   };
+  
   const handleBonusCheckChange = () => {
     if (!isCurrentUser || !bonusTask) return;
-    setConfirmDialog('complete');
+    setConfirmDialog('complete-bonus');
   };
+  
   const handleConfirmComplete = async () => {
     if (todayTask && todayTask.status !== 'completed') {
       await onCompleteTask(todayTask);
-    } else if (bonusTask) {
+      // Auto-pull is now handled in Calendar.tsx handleCompleteTask
+    }
+    setConfirmDialog(null);
+  };
+
+  const handleConfirmCompleteBonus = async () => {
+    if (bonusTask) {
       await onCompleteTask(bonusTask);
     }
     setConfirmDialog(null);
   };
+  
   const handleConfirmUncomplete = async () => {
     if (todayTask) {
       await onUncompleteTask(todayTask);
     }
     setConfirmDialog(null);
   };
-  const handlePullForward = async () => {
-    if (pullForwardDialog) {
-      await onPullForward(pullForwardDialog);
-      setPullForwardDialog(null);
-    }
+
+  // Handle clicking on next task to pull it forward immediately
+  const handlePullForwardClick = async () => {
+    if (!isCurrentUser || !nextTask) return;
+    await onPullForward(nextTask);
   };
 
   // If no task for today
@@ -112,11 +121,11 @@ export function OneThingDisplay({
               <div className="flex items-start gap-3">
                 <Checkbox 
                   checked={false} 
-                  onCheckedChange={() => isCurrentUser && setPullForwardDialog(nextTask)} 
+                  onCheckedChange={handlePullForwardClick} 
                   disabled={!isCurrentUser} 
                   className="mt-1 h-5 w-5" 
                 />
-                <div className="flex-1 cursor-pointer" onClick={() => isCurrentUser && setPullForwardDialog(nextTask)}>
+                <div className="flex-1 cursor-pointer" onClick={handlePullForwardClick}>
                   <p className="font-medium">{nextTask.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {nextTask.due_date && format(parseISO(nextTask.due_date), 'MMM d')}
@@ -135,7 +144,6 @@ export function OneThingDisplay({
         <div className="flex items-start gap-3">
           <Checkbox checked={todayTask.status === 'completed'} onCheckedChange={handleCheckChange} disabled={!isCurrentUser} className="mt-1 h-5 w-5" />
           <div className="flex-1">
-            
             <p className={cn("font-semibold text-lg", todayTask.status === 'completed' && "line-through text-muted-foreground")}>
               {todayTask.title}
             </p>
@@ -153,25 +161,22 @@ export function OneThingDisplay({
             <div className="flex items-start gap-3">
               <Checkbox checked={false} onCheckedChange={handleBonusCheckChange} disabled={!isCurrentUser} className="mt-1 h-5 w-5" />
               <div className="flex-1">
-                <p className="text-xs text-muted-foreground mb-1">
-                  Bonus Task
-                </p>
                 <p className="font-medium">{bonusTask.title}</p>
                 {bonusTask.description && <p className="text-sm text-muted-foreground mt-1">{bonusTask.description}</p>}
               </div>
             </div>
           </div>}
 
-        {/* Next task preview (when today's task is done and no bonus task) */}
+        {/* Next task preview (when today's task is done and no bonus task) - now just shows with checkbox to pull forward */}
         {isTodayOriginalCompleted && !bonusTask && nextTask && <div className="mt-4 pt-4 border-t border-border/50">
             <div className="flex items-start gap-3">
               <Checkbox 
                 checked={false} 
-                onCheckedChange={() => isCurrentUser && setPullForwardDialog(nextTask)} 
+                onCheckedChange={handlePullForwardClick} 
                 disabled={!isCurrentUser} 
                 className="mt-1 h-5 w-5" 
               />
-              <div className="flex-1 cursor-pointer" onClick={() => isCurrentUser && setPullForwardDialog(nextTask)}>
+              <div className="flex-1 cursor-pointer" onClick={handlePullForwardClick}>
                 <p className="font-medium">{nextTask.title}</p>
                 <p className="text-xs text-muted-foreground">
                   {nextTask.due_date && format(parseISO(nextTask.due_date), 'EEEE, MMM d')}
@@ -194,12 +199,30 @@ export function OneThingDisplay({
           <AlertDialogHeader>
             <AlertDialogTitle>Complete this task?</AlertDialogTitle>
             <AlertDialogDescription>
-              {bonusTask ? `Mark "${bonusTask.title}" as completed?` : `Mark "${todayTask.title}" as your completed One Thing for today?`}
+              Mark "{todayTask.title}" as your completed One Thing for today?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmComplete}>
+              Complete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation Dialog for Complete Bonus */}
+      <AlertDialog open={confirmDialog === 'complete-bonus'} onOpenChange={() => setConfirmDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete bonus task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mark "{bonusTask?.title}" as completed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCompleteBonus}>
               Complete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -219,24 +242,6 @@ export function OneThingDisplay({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmUncomplete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Undo Completion
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Pull Forward Confirmation Dialog */}
-      <AlertDialog open={!!pullForwardDialog} onOpenChange={() => setPullForwardDialog(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Pull this task forward?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Move "{pullForwardDialog?.title}" to today? If you don't complete it, it will move back to tomorrow.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePullForward}>
-              Pull Forward
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
