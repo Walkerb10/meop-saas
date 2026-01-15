@@ -63,10 +63,28 @@ export function useTeamMembers() {
 
   const updateMemberRole = async (userId: string, newRole: AppRole) => {
     try {
-      // Update or insert role
-      const { error } = await supabase
+      // First check if user already has a role
+      const { data: existingRole } = await supabase
         .from('user_roles')
-        .upsert({ user_id: userId, role: newRole }, { onConflict: 'user_id,role' });
+        .select('id')
+        .eq('user_id', userId)
+        .single();
+
+      let error;
+      if (existingRole) {
+        // Update existing role
+        const result = await supabase
+          .from('user_roles')
+          .update({ role: newRole })
+          .eq('user_id', userId);
+        error = result.error;
+      } else {
+        // Insert new role
+        const result = await supabase
+          .from('user_roles')
+          .insert({ user_id: userId, role: newRole });
+        error = result.error;
+      }
 
       if (error) throw error;
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, Edit, GripVertical, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Edit, GripVertical, Loader2, ArrowUp, ArrowDown } from 'lucide-react';
 import { usePipelines, Pipeline, PipelineStage } from '@/hooks/usePipelines';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,10 @@ const STAGE_COLORS = [
   { value: 'yellow', label: 'Yellow', class: 'bg-yellow-500' },
   { value: 'pink', label: 'Pink', class: 'bg-pink-500' },
   { value: 'cyan', label: 'Cyan', class: 'bg-cyan-500' },
+  { value: 'indigo', label: 'Indigo', class: 'bg-indigo-500' },
+  { value: 'teal', label: 'Teal', class: 'bg-teal-500' },
+  { value: 'lime', label: 'Lime', class: 'bg-lime-500' },
+  { value: 'amber', label: 'Amber', class: 'bg-amber-500' },
 ];
 
 function getStageColorClass(color: string) {
@@ -89,6 +93,16 @@ export function PipelinesManager() {
     setStages(stages.filter((_, i) => i !== index).map((s, i) => ({ ...s, order: i })));
   };
 
+  const moveStage = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === stages.length - 1) return;
+    
+    const newStages = [...stages];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newStages[index], newStages[targetIndex]] = [newStages[targetIndex], newStages[index]];
+    setStages(newStages.map((s, i) => ({ ...s, order: i })));
+  };
+
   const addEditingStage = () => {
     if (!editingPipeline) return;
     const newId = `stage_${Date.now()}`;
@@ -110,6 +124,20 @@ export function PipelinesManager() {
     setEditingPipeline({
       ...editingPipeline,
       stages: editingPipeline.stages.filter((_, i) => i !== index).map((s, i) => ({ ...s, order: i })),
+    });
+  };
+
+  const moveEditingStage = (index: number, direction: 'up' | 'down') => {
+    if (!editingPipeline) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === editingPipeline.stages.length - 1) return;
+    
+    const newStages = [...editingPipeline.stages];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newStages[index], newStages[targetIndex]] = [newStages[targetIndex], newStages[index]];
+    setEditingPipeline({
+      ...editingPipeline,
+      stages: newStages.map((s, i) => ({ ...s, order: i })),
     });
   };
 
@@ -185,7 +213,28 @@ export function PipelinesManager() {
                     <div className="space-y-2 pr-2">
                       {stages.map((stage, index) => (
                         <div key={stage.id} className="flex items-center gap-2 p-2 rounded-lg border">
-                          <GripVertical className="w-4 h-4 text-muted-foreground" />
+                          <div className="flex flex-col gap-0.5">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() => moveStage(index, 'up')}
+                              disabled={index === 0}
+                            >
+                              <ArrowUp className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5"
+                              onClick={() => moveStage(index, 'down')}
+                              disabled={index === stages.length - 1}
+                            >
+                              <ArrowDown className="w-3 h-3" />
+                            </Button>
+                          </div>
                           <Input
                             value={stage.name}
                             onChange={(e) => updateStage(index, { name: e.target.value })}
@@ -320,7 +369,28 @@ export function PipelinesManager() {
                   <div className="space-y-2 pr-2">
                     {editingPipeline.stages.map((stage, index) => (
                       <div key={stage.id} className="flex items-center gap-2 p-2 rounded-lg border">
-                        <GripVertical className="w-4 h-4 text-muted-foreground" />
+                        <div className="flex flex-col gap-0.5">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => moveEditingStage(index, 'up')}
+                            disabled={index === 0}
+                          >
+                            <ArrowUp className="w-3 h-3" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5"
+                            onClick={() => moveEditingStage(index, 'down')}
+                            disabled={index === editingPipeline.stages.length - 1}
+                          >
+                            <ArrowDown className="w-3 h-3" />
+                          </Button>
+                        </div>
                         <Input
                           value={stage.name}
                           onChange={(e) => updateEditingStage(index, { name: e.target.value })}

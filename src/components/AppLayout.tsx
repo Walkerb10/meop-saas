@@ -31,22 +31,34 @@ import { ExecutionsPopover } from '@/components/ExecutionsPopover';
 import { useExecutions } from '@/hooks/useExecutions';
 import { ToDoButton } from '@/components/ToDoButton';
 
-const mainNavItems = [
-  { icon: Bot, label: 'Agent', path: '/agent' },
-  { icon: Zap, label: 'Automations', path: '/automations' },
-  { icon: Users, label: 'CRM', path: '/crm' },
-  { icon: MessageSquare, label: 'Conversations', path: '/conversations' },
-  { icon: Calendar, label: 'Calendar', path: '/calendar' },
-  { icon: BarChart3, label: 'Analytics', path: '/analytics' },
-];
+// Base nav items - shown to everyone
+const getMainNavItems = (role: string | null) => {
+  const items = [
+    { icon: Bot, label: 'Agent', path: '/agent' },
+    { icon: Zap, label: 'Automations', path: '/automations' },
+  ];
+  
+  // Testers can only view CRM and Calendar (read-only enforced at component level)
+  items.push({ icon: Users, label: 'CRM', path: '/crm' });
+  items.push({ icon: Calendar, label: 'Calendar', path: '/calendar' });
+  
+  // Non-testers get access to more features
+  if (role !== 'tester') {
+    items.push({ icon: MessageSquare, label: 'Conversations', path: '/conversations' });
+    items.push({ icon: BarChart3, label: 'Analytics', path: '/analytics' });
+  }
+  
+  return items;
+};
 
-const getBottomNavItems = (isAdmin: boolean) => {
+const getBottomNavItems = (isOwner: boolean) => {
   const items = [
     { icon: User, label: 'Profile', path: '/profile' },
     { icon: Settings, label: 'Settings', path: '/settings' },
   ];
   
-  if (isAdmin) {
+  // Only owner can access admin dashboard
+  if (isOwner) {
     items.push({ icon: Shield, label: 'Admin', path: '/admin' });
   }
   
@@ -70,9 +82,10 @@ export function AppLayout({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAdmin } = useUserRole();
+  const { role, isOwner } = useUserRole();
 
-  const bottomNavItems = getBottomNavItems(isAdmin);
+  const mainNavItems = getMainNavItems(role);
+  const bottomNavItems = getBottomNavItems(isOwner);
   const isActive = (path: string) => {
     // Handle Agent route - both / and /agent should match
     if (path === '/agent') {
