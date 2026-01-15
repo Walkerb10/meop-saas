@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Check, ChevronRight, Clock } from 'lucide-react';
+import { Check, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isSameDay, startOfDay, addDays } from 'date-fns';
 interface Task {
@@ -107,21 +106,25 @@ export function OneThingDisplay({
   // If no task for today
   if (!todayTask) {
     return <div className="mb-4 p-4 rounded-xl bg-muted/30">
-        <div className="text-center py-2">
-          <p className="text-muted-foreground">No task set for today</p>
+        <div className="py-2">
+          <p className="text-muted-foreground text-center">No task set for today</p>
           {nextTask ? <div className="mt-3 pt-3 border-t border-border/50">
-              <p className="text-xs text-muted-foreground mb-2">Next up:</p>
-              <Button variant="ghost" className="w-full justify-between text-left h-auto py-2" onClick={() => isCurrentUser && setPullForwardDialog(nextTask)} disabled={!isCurrentUser}>
-                <div>
-                  <p className="font-medium text-sm">{nextTask.title}</p>
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  checked={false} 
+                  onCheckedChange={() => isCurrentUser && setPullForwardDialog(nextTask)} 
+                  disabled={!isCurrentUser} 
+                  className="mt-1 h-5 w-5" 
+                />
+                <div className="flex-1 cursor-pointer" onClick={() => isCurrentUser && setPullForwardDialog(nextTask)}>
+                  <p className="font-medium">{nextTask.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {nextTask.due_date && format(parseISO(nextTask.due_date), 'MMM d')}
                   </p>
                 </div>
-                {isCurrentUser && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-              </Button>
+              </div>
             </div> : isCurrentUser ? <div className="mt-3 pt-3 border-t border-border/50">
-              <p className="text-sm text-amber-500 font-medium">Add a task to get started!</p>
+              <p className="text-sm text-amber-500 font-medium text-center">Add a task to get started!</p>
             </div> : null}
         </div>
       </div>;
@@ -161,16 +164,20 @@ export function OneThingDisplay({
 
         {/* Next task preview (when today's task is done and no bonus task) */}
         {isTodayOriginalCompleted && !bonusTask && nextTask && <div className="mt-4 pt-4 border-t border-border/50">
-            <p className="text-xs text-muted-foreground mb-2">Next up:</p>
-            <Button variant="ghost" className="w-full justify-between text-left h-auto py-2 px-3 -mx-3" onClick={() => isCurrentUser && setPullForwardDialog(nextTask)} disabled={!isCurrentUser}>
-              <div>
-                <p className="font-medium text-sm">{nextTask.title}</p>
+            <div className="flex items-start gap-3">
+              <Checkbox 
+                checked={false} 
+                onCheckedChange={() => isCurrentUser && setPullForwardDialog(nextTask)} 
+                disabled={!isCurrentUser} 
+                className="mt-1 h-5 w-5" 
+              />
+              <div className="flex-1 cursor-pointer" onClick={() => isCurrentUser && setPullForwardDialog(nextTask)}>
+                <p className="font-medium">{nextTask.title}</p>
                 <p className="text-xs text-muted-foreground">
                   {nextTask.due_date && format(parseISO(nextTask.due_date), 'EEEE, MMM d')}
                 </p>
               </div>
-              {isCurrentUser && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-            </Button>
+            </div>
           </div>}
 
         {/* Prompt to add task when completed and no next task */}
