@@ -106,16 +106,20 @@ export default function AgentPage() {
   }, [messages]);
 
   const handleToggle = () => {
-    // Start animation immediately on click, don't wait for SDK
+    // Start animation and loading immediately on click, don't wait for SDK
     if (!isActive) {
-      setHasStarted(true);
+      // Set both states synchronously BEFORE any async work
       setIsConnecting(true);
+      setHasStarted(true);
       
-      // Pass previous messages to resume conversation with context
-      const previousMessages = messages.flatMap(m => 
-        m.lines.map(line => ({ role: m.role, content: line }))
-      );
-      toggle(previousMessages);
+      // Use setTimeout to ensure state updates are flushed before toggle
+      setTimeout(() => {
+        // Pass previous messages to resume conversation with context
+        const previousMessages = messages.flatMap(m => 
+          m.lines.map(line => ({ role: m.role, content: line }))
+        );
+        toggle(previousMessages);
+      }, 0);
     } else {
       toggle();
     }

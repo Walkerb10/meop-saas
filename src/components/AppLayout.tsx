@@ -236,7 +236,7 @@ export function AppLayout({
         <header className="fixed top-0 right-0 z-30 h-14 px-4 flex items-center justify-between bg-background/80 backdrop-blur-sm border-b border-border"
           style={{ left: isMobile ? 0 : desktopSidebarOpen ? '200px' : '56px' }}
         >
-          {/* Left side - hamburger on mobile, New Chat button, To-Do */}
+          {/* Left side - hamburger on mobile, New Chat button */}
           <div className="flex items-center gap-2">
             {isMobile && (
               <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
@@ -244,15 +244,16 @@ export function AppLayout({
               </Button>
             )}
             
-            {/* New Chat - on mobile shows next to hamburger */}
+            {/* New Chat - shows with text and icon */}
             {showNewChatButton && onNewChat && (
               <Button 
                 variant="ghost" 
-                size="icon" 
+                size="sm" 
                 onClick={onNewChat}
-                className="text-muted-foreground hover:text-foreground"
+                className="gap-2 text-muted-foreground hover:text-foreground"
               >
-                <SquarePen className="w-5 h-5" />
+                <SquarePen className="w-4 h-4" />
+                <span>New Chat</span>
               </Button>
             )}
           </div>
@@ -260,8 +261,6 @@ export function AppLayout({
           {/* Right side - To-Do and Feedback */}
           <div className="flex items-center gap-2">
             <ToDoButton />
-            
-            {/* Feedback dialog */}
             <FeedbackDialog />
           </div>
         </header>
