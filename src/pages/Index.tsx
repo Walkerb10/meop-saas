@@ -3,9 +3,8 @@ import { AppLayout } from '@/components/AppLayout';
 import { DictationButton } from '@/components/DictationButton';
 import { useUnifiedConversation } from '@/hooks/useUnifiedConversation';
 import { useToast } from '@/hooks/use-toast';
-import { Send, Loader2, Mic, MicOff, Volume2 } from 'lucide-react';
+import { Send, Loader2, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VoiceOrb } from '@/components/VoiceOrb';
@@ -28,7 +27,6 @@ const Index = () => {
     sessionId,
     messages,
     status,
-    voiceModeEnabled,
     isVoiceCallActive,
     inputVolume,
     outputVolume,
@@ -36,7 +34,6 @@ const Index = () => {
     sendTextMessage,
     toggleVoiceMode,
     startNewConversation,
-    setVoiceModeEnabled,
   } = useUnifiedConversation({ onError: handleError });
 
   // Auto-scroll to bottom
@@ -115,32 +112,6 @@ const Index = () => {
                 onToggle={toggleVoiceMode}
                 inputVolume={inputVolume}
                 outputVolume={outputVolume}
-              />
-            </div>
-
-            {/* Voice mode toggle */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-                {voiceModeEnabled ? (
-                  <Volume2 className="w-4 h-4" />
-                ) : (
-                  <MicOff className="w-4 h-4" />
-                )}
-                Voice replies
-              </span>
-              <Switch
-                checked={voiceModeEnabled}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    setVoiceModeEnabled(true);
-                  } else {
-                    // Turn off voice mode and stop any active call
-                    if (isVoiceCallActive) {
-                      toggleVoiceMode();
-                    }
-                    setVoiceModeEnabled(false);
-                  }
-                }}
               />
             </div>
             
