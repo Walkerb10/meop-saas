@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Mic } from 'lucide-react';
+import { Send, Bot, User, Mic, Loader2 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 import { VoiceOrb } from '@/components/VoiceOrb';
 import { useVapiAgent, AgentStatus } from '@/hooks/useVapiAgent';
@@ -35,10 +37,14 @@ export default function AgentPage() {
   const [inputValue, setInputValue] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
+  const [isSendingText, setIsSendingText] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const lastRoleRef = useRef<'user' | 'assistant' | null>(null);
+  
+  // Track Vapi Chat API chat ID for text-only continuity
+  const chatIdRef = useRef<string | null>(null);
 
   // Handle incoming transcripts - consolidate same speaker messages
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
@@ -70,7 +76,8 @@ export default function AgentPage() {
     inputVolume, 
     outputVolume, 
     sendMessage,
-    startNewConversation 
+    startNewConversation,
+    conversationId
   } = useVapiAgent({
     onTranscript: handleTranscript,
   });
@@ -101,32 +108,57 @@ export default function AgentPage() {
     toggle();
   };
 
-  // Track pending message to send once call is active
-  const pendingMessageRef = useRef<string | null>(null);
+  // Send text via Vapi Chat API (text-only mode, no voice call)
+  const sendTextMessage = useCallback(async (text: string) => {
+    if (!text.trim()) return;
+    
+    setIsSendingText(true);
+    
+    // Show user message immediately
+    handleTranscript(text, 'user');
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('vapi-chat', {
+        body: {
+          message: text,
+          previousChatId: chatIdRef.current,
+          sessionId: conversationId,
+        },
+      });
 
-  // Send pending message once call becomes active
-  useEffect(() => {
-    if (isActive && pendingMessageRef.current) {
-      const message = pendingMessageRef.current;
-      pendingMessageRef.current = null;
-      // Small delay to ensure Vapi is fully ready
-      setTimeout(() => {
-        sendMessage(message);
-      }, 500);
+      if (error) {
+        console.error('Text chat error:', error);
+        toast.error('Failed to send message');
+        return;
+      }
+
+      // Store chat ID for conversation continuity
+      if (data?.id) {
+        chatIdRef.current = data.id;
+      }
+
+      // Show assistant response
+      if (data?.output) {
+        handleTranscript(data.output, 'assistant');
+      }
+    } catch (err) {
+      console.error('Text chat error:', err);
+      toast.error('Failed to send message');
+    } finally {
+      setIsSendingText(false);
     }
-  }, [isActive, sendMessage]);
+  }, [conversationId, handleTranscript]);
 
   const handleSendText = () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isSendingText) return;
     
     if (isActive) {
-      // Send to live Vapi session immediately
+      // Voice mode active - inject into live Vapi call
       sendMessage(inputValue);
     } else {
-      // Queue the message and start the call
-      pendingMessageRef.current = inputValue;
+      // Voice mode inactive - use text-only API
       setHasStarted(true);
-      toggle();
+      sendTextMessage(inputValue);
     }
     setInputValue('');
   };
@@ -142,6 +174,7 @@ export default function AgentPage() {
     setHasStarted(false);
     setMessages([]);
     lastRoleRef.current = null;
+    chatIdRef.current = null; // Reset text chat continuity
     startNewConversation();
     if (isActive) {
       toggle();
@@ -318,17 +351,21 @@ export default function AgentPage() {
               {/* Send button */}
               <Button
                 onClick={handleSendText}
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() || isSendingText}
                 size="icon"
                 variant="ghost"
                 className={cn(
                   'shrink-0 h-8 w-8 transition-all rounded-full',
-                  inputValue.trim() 
+                  inputValue.trim() && !isSendingText
                     ? 'text-primary hover:text-primary hover:bg-primary/10' 
                     : 'text-muted-foreground'
                 )}
               >
-                <Send className="w-4 h-4" />
+                {isSendingText ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
               </Button>
             </div>
           </div>
