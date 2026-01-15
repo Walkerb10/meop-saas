@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, MicOff, Radio, Square } from 'lucide-react';
+import { Mic, Loader2, Square } from 'lucide-react';
 import { AIState } from '@/types/agent';
 
 interface VoiceOrbProps {
@@ -14,7 +14,7 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
   // Calculate dynamic scale based on volume
   const volume = state === 'speaking' ? outputVolume : inputVolume;
   const volumeScale = 1 + (volume * 0.15);
-  
+
   // Number of wave bars based on volume
   const waveBarCount = 5;
   const waveHeights = Array.from({ length: waveBarCount }, (_, i) => {
@@ -24,16 +24,20 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
     return baseHeight + (volume * maxExtraHeight * positionFactor);
   });
 
+  const isConnecting = state === 'thinking';
+
   // Determine which icon to show based on state
   const getIcon = () => {
+    // Connecting should show immediately on click (even before call-start)
+    if (isConnecting) {
+      return <Loader2 className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground animate-spin" />;
+    }
+
+    // Not active - show mic (ready to start)
     if (!isActive) {
-      // Not active - show mic (ready to start)
       return <Mic className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />;
     }
-    if (state === 'thinking') {
-      // Connecting - show pulsing indicator
-      return <Radio className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground animate-pulse" />;
-    }
+
     // Active call - show stop icon
     return <Square className="w-8 h-8 md:w-10 md:h-10 text-primary-foreground fill-primary-foreground rounded-sm" />;
   };
@@ -133,27 +137,26 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
 
       {/* State label - centered below the orb */}
       <AnimatePresence mode="wait">
-        <motion.div 
-          key={isActive ? 'active-label' : 'tap-label'}
-          className="absolute -bottom-16 w-full flex justify-center"
-          initial={{ opacity: 0, y: 8 }}
+        <motion.div
+          key={state === 'thinking' ? 'connecting' : isActive ? state : 'tap'}
+          className="absolute -bottom-14 w-full flex justify-center"
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
         >
-          <span className={`text-sm font-medium tracking-wide ${
-            isActive 
-              ? state === 'thinking' 
-                ? 'text-muted-foreground' 
-                : 'text-primary'
-              : 'text-muted-foreground'
-          }`}>
-            {!isActive 
-              ? 'Tap to talk' 
-              : state === 'thinking' 
-                ? 'Connecting...' 
-                : state === 'speaking' 
-                  ? 'Speaking' 
+          <span
+            className={cn(
+              'text-sm font-medium tracking-wide',
+              state === 'thinking' ? 'text-muted-foreground' : isActive ? 'text-primary' : 'text-muted-foreground'
+            )}
+          >
+            {state === 'thinking'
+              ? 'Connecting…'
+              : !isActive
+                ? 'Tap to talk'
+                : state === 'speaking'
+                  ? 'Speaking'
                   : 'Listening'}
           </span>
         </motion.div>

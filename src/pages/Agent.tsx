@@ -164,32 +164,36 @@ export default function AgentPage() {
       <div className="flex flex-col h-full bg-background relative">
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Voice Orb - smoothly animates to top when started */}
+          {/* Voice Orb */}
           <motion.div
-            className="flex flex-col items-center justify-center shrink-0"
-            initial={false}
-            animate={{
-              paddingTop: hasStarted ? 24 : 0,
-              paddingBottom: hasStarted ? 32 : 0,
-              flex: hasStarted ? 'none' : 1,
-              marginTop: hasStarted ? 0 : -60,
-            }}
-            transition={{ 
-              type: 'spring', 
-              stiffness: 100, 
-              damping: 25,
-              mass: 1,
+            layout
+            className={cn(
+              'flex flex-col items-center shrink-0',
+              !hasStarted
+                ? 'flex-1 justify-center -mt-10'
+                : orbDocked
+                  ? 'justify-start pt-6 pb-8'
+                  : 'justify-center pt-10 pb-10'
+            )}
+            transition={{
+              layout: {
+                type: 'spring',
+                stiffness: 70,
+                damping: 22,
+                mass: 1.15,
+              },
             }}
           >
-            {/* Tagline - Only show when not started */}
-            <AnimatePresence>
-              {!hasStarted && (
+            {/* Tagline */}
+            <AnimatePresence initial={false}>
+              {!orbDocked && (
                 <motion.div
-                  initial={{ opacity: 0, y: -20 }}
+                  layout
+                  initial={{ opacity: 0, y: -12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -40, transition: { duration: 0.2 } }}
-                  transition={{ duration: 0.4 }}
-                  className="text-center mb-12 space-y-3"
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  className={cn('text-center space-y-3', !hasStarted ? 'mb-10' : 'mb-6')}
                 >
                   <p className="text-xl md:text-3xl font-light text-foreground tracking-wide">
                     Speak your problem.
@@ -204,7 +208,6 @@ export default function AgentPage() {
               )}
             </AnimatePresence>
 
-          {/* Voice Orb with volume visualization */}
             <VoiceOrb
               state={aiState}
               isActive={isActive}
