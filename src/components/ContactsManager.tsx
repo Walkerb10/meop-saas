@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useContacts, Contact, ContactGroup } from '@/hooks/useContacts';
+import { useContacts, Contact, ContactGroup, CONTACT_ROLES } from '@/hooks/useContacts';
+import { usePipelines, Pipeline, PipelineStage } from '@/hooks/usePipelines';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,11 @@ import {
   FolderPlus,
   Tag,
   Copy,
+  Linkedin,
+  Building2,
+  Globe,
+  Briefcase,
+  GitBranch,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -40,19 +46,41 @@ function getColorClass(color: string): string {
 }
 
 function formatPhoneE164(phone: string): string {
-  // Strip all non-digits
   const digits = phone.replace(/\D/g, '');
-  // If it starts with 1, assume US and add +
   if (digits.length === 11 && digits.startsWith('1')) {
     return '+' + digits;
   }
-  // If 10 digits, assume US and add +1
   if (digits.length === 10) {
     return '+1' + digits;
   }
-  // Otherwise just add + if not present
   return phone.startsWith('+') ? phone : '+' + digits;
 }
+
+interface NewContactForm {
+  name: string;
+  email: string;
+  phone: string;
+  linkedin: string;
+  company: string;
+  website: string;
+  role: string;
+  notes: string;
+  pipeline_id: string;
+  pipeline_stage: string;
+}
+
+const emptyContactForm: NewContactForm = {
+  name: '',
+  email: '',
+  phone: '',
+  linkedin: '',
+  company: '',
+  website: '',
+  role: '',
+  notes: '',
+  pipeline_id: '',
+  pipeline_stage: '',
+};
 
 export function ContactsManager() {
   const {
@@ -70,6 +98,8 @@ export function ContactsManager() {
     getGroupMembers,
     getContactGroups,
   } = useContacts();
+  
+  const { pipelines, loading: pipelinesLoading } = usePipelines();
   const { toast } = useToast();
 
   const [showCreateContact, setShowCreateContact] = useState(false);
@@ -80,19 +110,20 @@ export function ContactsManager() {
   const [groupMembers, setGroupMembers] = useState<Contact[]>([]);
   const [showAddToGroup, setShowAddToGroup] = useState<string | null>(null);
   const [selectedContactGroups, setSelectedContactGroups] = useState<string[]>([]);
+  const [showAddToPipeline, setShowAddToPipeline] = useState<Contact | null>(null);
 
-  const [newContact, setNewContact] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    notes: '',
-  });
+  const [newContact, setNewContact] = useState<NewContactForm>(emptyContactForm);
 
   const [newGroup, setNewGroup] = useState({
     name: '',
     description: '',
     color: 'blue',
   });
+
+  const getSelectedPipelineStages = (pipelineId: string): PipelineStage[] => {
+    const pipeline = pipelines.find(p => p.id === pipelineId);
+    return pipeline?.stages || [];
+  };
 
   const handleCreateContact = async () => {
     if (!newContact.name.trim()) {
@@ -104,10 +135,17 @@ export function ContactsManager() {
       name: newContact.name,
       email: newContact.email || null,
       phone: newContact.phone ? formatPhoneE164(newContact.phone) : null,
+      linkedin: newContact.linkedin || null,
+      company: newContact.company || null,
+      website: newContact.website || null,
+      role: newContact.role || null,
       notes: newContact.notes || null,
+      pipeline_id: newContact.pipeline_id || null,
+      pipeline_stage: newContact.pipeline_stage || null,
+      pipeline_position: 0,
     });
 
-    setNewContact({ name: '', email: '', phone: '', notes: '' });
+    setNewContact(emptyContactForm);
     setShowCreateContact(false);
   };
 
@@ -118,10 +156,28 @@ export function ContactsManager() {
       name: editingContact.name,
       email: editingContact.email,
       phone: editingContact.phone ? formatPhoneE164(editingContact.phone) : null,
+      linkedin: editingContact.linkedin,
+      company: editingContact.company,
+      website: editingContact.website,
+      role: editingContact.role,
       notes: editingContact.notes,
+      pipeline_id: editingContact.pipeline_id,
+      pipeline_stage: editingContact.pipeline_stage,
     });
 
     setEditingContact(null);
+  };
+
+  const handleAssignToPipeline = async (pipelineId: string, stage: string) => {
+    if (!showAddToPipeline) return;
+
+    await updateContact(showAddToPipeline.id, {
+      pipeline_id: pipelineId || null,
+      pipeline_stage: stage || null,
+      pipeline_position: 0,
+    });
+
+    setShowAddToPipeline(null);
   };
 
   const handleCreateGroup = async () => {
@@ -191,6 +247,11 @@ export function ContactsManager() {
     }
   };
 
+  const getPipelineName = (pipelineId: string | null) => {
+    if (!pipelineId) return null;
+    return pipelines.find(p => p.id === pipelineId)?.name || null;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -209,7 +270,7 @@ export function ContactsManager() {
           </TabsTrigger>
           <TabsTrigger value="groups" className="gap-2">
             <Tag className="w-4 h-4" />
-            Groups ({groups.length})
+            Lists ({groups.length})
           </TabsTrigger>
         </TabsList>
 
@@ -222,36 +283,115 @@ export function ContactsManager() {
                 Add Contact
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Contact</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label>Name <span className="text-destructive">*</span></Label>
-                  <Input
-                    value={newContact.name}
-                    onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
-                    placeholder="John Doe"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Name <span className="text-destructive">*</span></Label>
+                    <Input
+                      value={newContact.name}
+                      onChange={(e) => setNewContact({ ...newContact, name: e.target.value })}
+                      placeholder="John Doe"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <Select value={newContact.role} onValueChange={(v) => setNewContact({ ...newContact, role: v })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select role..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONTACT_ROLES.map((role) => (
+                          <SelectItem key={role} value={role}>{role}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={newContact.email}
+                      onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
+                      placeholder="john@example.com"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input
+                      value={newContact.phone}
+                      onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
+                      placeholder="+18885551234"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Company</Label>
+                    <Input
+                      value={newContact.company}
+                      onChange={(e) => setNewContact({ ...newContact, company: e.target.value })}
+                      placeholder="Acme Inc"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Website</Label>
+                    <Input
+                      value={newContact.website}
+                      onChange={(e) => setNewContact({ ...newContact, website: e.target.value })}
+                      placeholder="https://example.com"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
+                  <Label>LinkedIn</Label>
                   <Input
-                    type="email"
-                    value={newContact.email}
-                    onChange={(e) => setNewContact({ ...newContact, email: e.target.value })}
-                    placeholder="john@example.com"
+                    value={newContact.linkedin}
+                    onChange={(e) => setNewContact({ ...newContact, linkedin: e.target.value })}
+                    placeholder="https://linkedin.com/in/johndoe"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input
-                    value={newContact.phone}
-                    onChange={(e) => setNewContact({ ...newContact, phone: e.target.value })}
-                    placeholder="+18885551234"
-                  />
-                  <p className="text-xs text-muted-foreground">Will be formatted to E.164 (+1XXXXXXXXXX)</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Pipeline</Label>
+                    <Select 
+                      value={newContact.pipeline_id} 
+                      onValueChange={(v) => setNewContact({ ...newContact, pipeline_id: v, pipeline_stage: '' })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select pipeline..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {pipelines.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {newContact.pipeline_id && (
+                    <div className="space-y-2">
+                      <Label>Stage</Label>
+                      <Select 
+                        value={newContact.pipeline_stage} 
+                        onValueChange={(v) => setNewContact({ ...newContact, pipeline_stage: v })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select stage..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getSelectedPipelineStages(newContact.pipeline_id).map((stage) => (
+                            <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Notes</Label>
@@ -259,6 +399,7 @@ export function ContactsManager() {
                     value={newContact.notes}
                     onChange={(e) => setNewContact({ ...newContact, notes: e.target.value })}
                     placeholder="Any notes about this contact..."
+                    rows={2}
                   />
                 </div>
                 <Button onClick={handleCreateContact} className="w-full">
@@ -270,39 +411,125 @@ export function ContactsManager() {
 
           {/* Edit Contact Dialog */}
           <Dialog open={!!editingContact} onOpenChange={(open) => !open && setEditingContact(null)}>
-            <DialogContent>
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit Contact</DialogTitle>
               </DialogHeader>
               {editingContact && (
                 <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label>Name</Label>
-                    <Input
-                      value={editingContact.name}
-                      onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input
+                        value={editingContact.name}
+                        onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Role</Label>
+                      <Select 
+                        value={editingContact.role || ''} 
+                        onValueChange={(v) => setEditingContact({ ...editingContact, role: v || null })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {CONTACT_ROLES.map((role) => (
+                            <SelectItem key={role} value={role}>{role}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={editingContact.email || ''}
+                        onChange={(e) => setEditingContact({ ...editingContact, email: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phone</Label>
+                      <Input
+                        value={editingContact.phone || ''}
+                        onChange={(e) => setEditingContact({ ...editingContact, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Company</Label>
+                      <Input
+                        value={editingContact.company || ''}
+                        onChange={(e) => setEditingContact({ ...editingContact, company: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Website</Label>
+                      <Input
+                        value={editingContact.website || ''}
+                        onChange={(e) => setEditingContact({ ...editingContact, website: e.target.value })}
+                      />
+                    </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>Email</Label>
+                    <Label>LinkedIn</Label>
                     <Input
-                      type="email"
-                      value={editingContact.email || ''}
-                      onChange={(e) => setEditingContact({ ...editingContact, email: e.target.value })}
+                      value={editingContact.linkedin || ''}
+                      onChange={(e) => setEditingContact({ ...editingContact, linkedin: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Phone</Label>
-                    <Input
-                      value={editingContact.phone || ''}
-                      onChange={(e) => setEditingContact({ ...editingContact, phone: e.target.value })}
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Pipeline</Label>
+                      <Select 
+                        value={editingContact.pipeline_id || ''} 
+                        onValueChange={(v) => setEditingContact({ 
+                          ...editingContact, 
+                          pipeline_id: v || null, 
+                          pipeline_stage: null 
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select pipeline..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {pipelines.map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {editingContact.pipeline_id && (
+                      <div className="space-y-2">
+                        <Label>Stage</Label>
+                        <Select 
+                          value={editingContact.pipeline_stage || ''} 
+                          onValueChange={(v) => setEditingContact({ ...editingContact, pipeline_stage: v || null })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select stage..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getSelectedPipelineStages(editingContact.pipeline_id).map((stage) => (
+                              <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Notes</Label>
                     <Textarea
                       value={editingContact.notes || ''}
                       onChange={(e) => setEditingContact({ ...editingContact, notes: e.target.value })}
+                      rows={2}
                     />
                   </div>
                   <Button onClick={handleUpdateContact} className="w-full">
@@ -317,11 +544,11 @@ export function ContactsManager() {
           <Dialog open={!!showAddToGroup} onOpenChange={(open) => !open && setShowAddToGroup(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Manage Groups</DialogTitle>
+                <DialogTitle>Manage Lists</DialogTitle>
               </DialogHeader>
               <div className="space-y-3 pt-4">
                 {groups.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">No groups yet. Create one first.</p>
+                  <p className="text-muted-foreground text-center py-4">No lists yet. Create one first.</p>
                 ) : (
                   groups.map((group) => (
                     <div
@@ -347,6 +574,49 @@ export function ContactsManager() {
             </DialogContent>
           </Dialog>
 
+          {/* Add to Pipeline Dialog */}
+          <Dialog open={!!showAddToPipeline} onOpenChange={(open) => !open && setShowAddToPipeline(null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add to Pipeline</DialogTitle>
+              </DialogHeader>
+              {showAddToPipeline && (
+                <div className="space-y-4 pt-4">
+                  <p className="text-sm text-muted-foreground">
+                    Adding <strong>{showAddToPipeline.name}</strong> to a pipeline
+                  </p>
+                  {pipelines.map((pipeline) => (
+                    <div key={pipeline.id} className="space-y-2">
+                      <h4 className="font-medium text-sm flex items-center gap-2">
+                        <GitBranch className="w-4 h-4" />
+                        {pipeline.name}
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {pipeline.stages.map((stage) => (
+                          <Button
+                            key={stage.id}
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => handleAssignToPipeline(pipeline.id, stage.id)}
+                          >
+                            <div className={`w-2 h-2 rounded-full bg-${stage.color}-500`} />
+                            {stage.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {pipelines.length === 0 && (
+                    <p className="text-muted-foreground text-center py-4">
+                      No pipelines yet. Create one in the CRM section.
+                    </p>
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
           {/* Contacts List */}
           <Card className="bg-card/50 border-border">
             <CardHeader>
@@ -355,26 +625,40 @@ export function ContactsManager() {
                 All Contacts
               </CardTitle>
               <CardDescription>
-                Your saved contacts for automations
+                Your saved contacts for automations and pipelines
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[400px]">
+              <ScrollArea className="h-[500px]">
                 <div className="space-y-3">
                   {contacts.map((contact) => (
                     <div
                       key={contact.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 border border-border"
+                      className="flex items-start justify-between p-4 rounded-lg bg-secondary/30 border border-border"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                           <span className="text-sm font-medium text-primary">
                             {contact.name[0].toUpperCase()}
                           </span>
                         </div>
-                        <div>
-                          <p className="font-medium text-foreground">{contact.name}</p>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-foreground">{contact.name}</p>
+                            {contact.role && (
+                              <Badge variant="outline" className="text-xs">
+                                <Briefcase className="w-3 h-3 mr-1" />
+                                {contact.role}
+                              </Badge>
+                            )}
+                          </div>
+                          {contact.company && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-1">
+                              <Building2 className="w-3 h-3" />
+                              {contact.company}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                             {contact.email && (
                               <span className="flex items-center gap-1">
                                 <Mail className="w-3 h-3" />
@@ -387,14 +671,56 @@ export function ContactsManager() {
                                 {contact.phone}
                               </span>
                             )}
+                            {contact.linkedin && (
+                              <a 
+                                href={contact.linkedin} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-blue-400 hover:underline"
+                              >
+                                <Linkedin className="w-3 h-3" />
+                                LinkedIn
+                              </a>
+                            )}
+                            {contact.website && (
+                              <a 
+                                href={contact.website} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-blue-400 hover:underline"
+                              >
+                                <Globe className="w-3 h-3" />
+                                Website
+                              </a>
+                            )}
                           </div>
+                          {contact.pipeline_id && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="secondary" className="text-xs gap-1">
+                                <GitBranch className="w-3 h-3" />
+                                {getPipelineName(contact.pipeline_id)}
+                                {contact.pipeline_stage && ` → ${
+                                  getSelectedPipelineStages(contact.pipeline_id).find(s => s.id === contact.pipeline_stage)?.name || contact.pipeline_stage
+                                }`}
+                              </Badge>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAddToPipeline(contact)}
+                          title="Add to Pipeline"
+                        >
+                          <GitBranch className="w-4 h-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => handleAddToGroup(contact.id)}
+                          title="Add to List"
                         >
                           <Tag className="w-4 h-4" />
                         </Button>
@@ -433,16 +759,16 @@ export function ContactsManager() {
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <FolderPlus className="w-4 h-4" />
-                Create Group
+                Create List
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New Group</DialogTitle>
+                <DialogTitle>Create New List</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-4">
                 <div className="space-y-2">
-                  <Label>Group Name <span className="text-destructive">*</span></Label>
+                  <Label>List Name <span className="text-destructive">*</span></Label>
                   <Input
                     value={newGroup.name}
                     onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
@@ -476,7 +802,7 @@ export function ContactsManager() {
                   </Select>
                 </div>
                 <Button onClick={handleCreateGroup} className="w-full">
-                  Create Group
+                  Create List
                 </Button>
               </div>
             </DialogContent>
@@ -486,12 +812,12 @@ export function ContactsManager() {
           <Dialog open={!!editingGroup} onOpenChange={(open) => !open && setEditingGroup(null)}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Edit Group</DialogTitle>
+                <DialogTitle>Edit List</DialogTitle>
               </DialogHeader>
               {editingGroup && (
                 <div className="space-y-4 pt-4">
                   <div className="space-y-2">
-                    <Label>Group Name</Label>
+                    <Label>List Name</Label>
                     <Input
                       value={editingGroup.name}
                       onChange={(e) => setEditingGroup({ ...editingGroup, name: e.target.value })}
@@ -598,7 +924,7 @@ export function ContactsManager() {
                     ))}
                     {groupMembers.length === 0 && (
                       <p className="text-center py-8 text-muted-foreground">
-                        No contacts in this group yet.
+                        No contacts in this list yet.
                       </p>
                     )}
                   </div>
@@ -612,7 +938,7 @@ export function ContactsManager() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Tag className="w-5 h-5" />
-                Contact Groups
+                Contact Lists
               </CardTitle>
               <CardDescription>
                 Organize contacts into lists for bulk operations
@@ -663,7 +989,7 @@ export function ContactsManager() {
                   ))}
                   {groups.length === 0 && (
                     <div className="text-center py-12 text-muted-foreground">
-                      No groups yet. Create one to organize your contacts.
+                      No lists yet. Create one to organize your contacts.
                     </div>
                   )}
                 </div>

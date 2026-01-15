@@ -344,43 +344,55 @@ export type Database = {
       }
       contacts: {
         Row: {
+          company: string | null
           created_at: string
           created_by: string
           email: string | null
           id: string
+          linkedin: string | null
           name: string
           notes: string | null
           phone: string | null
           pipeline_id: string | null
           pipeline_position: number | null
           pipeline_stage: string | null
+          role: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
+          company?: string | null
           created_at?: string
           created_by: string
           email?: string | null
           id?: string
+          linkedin?: string | null
           name: string
           notes?: string | null
           phone?: string | null
           pipeline_id?: string | null
           pipeline_position?: number | null
           pipeline_stage?: string | null
+          role?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
+          company?: string | null
           created_at?: string
           created_by?: string
           email?: string | null
           id?: string
+          linkedin?: string | null
           name?: string
           notes?: string | null
           phone?: string | null
           pipeline_id?: string | null
           pipeline_position?: number | null
           pipeline_stage?: string | null
+          role?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: [
           {

@@ -9,9 +9,32 @@ export interface Contact {
   email: string | null;
   phone: string | null;
   notes: string | null;
+  linkedin: string | null;
+  company: string | null;
+  website: string | null;
+  role: string | null;
+  pipeline_id: string | null;
+  pipeline_stage: string | null;
+  pipeline_position: number | null;
   created_at: string;
   updated_at: string;
 }
+
+export const CONTACT_ROLES = [
+  'CEO',
+  'CTO',
+  'Founder',
+  'Co-Founder',
+  'Manager',
+  'Developer',
+  'Designer',
+  'Marketing',
+  'Sales',
+  'HR',
+  'Investor',
+  'Advisor',
+  'Other',
+] as const;
 
 export interface ContactGroup {
   id: string;
