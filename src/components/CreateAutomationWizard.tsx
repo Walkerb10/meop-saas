@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Mail, Search, ArrowLeft, ArrowRight, Check, Loader2, Clock, Calendar, Repeat, Zap, TrendingUp } from 'lucide-react';
+import { MessageSquare, Mail, Search, ArrowLeft, ArrowRight, Check, Loader2, Clock, Calendar, Repeat, Zap, TrendingUp, Users, ArrowRightLeft, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { AIEnhanceButton } from '@/components/AIEnhanceButton';
 import { supabase } from '@/integrations/supabase/client';
+import { usePipelines } from '@/hooks/usePipelines';
 
 // Icons for action types - using custom SVGs for Discord and Slack
 const SlackIcon = () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
@@ -17,15 +18,28 @@ const SlackIcon = () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="curre
 const DiscordIcon = () => <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
     <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
   </svg>;
-type ActionType = 'text' | 'slack' | 'discord' | 'email' | 'research' | 'linkedin';
+
+type ActionType = 'text' | 'slack' | 'discord' | 'email' | 'research' | 'linkedin' | 'crm_stage_change' | 'crm_follow_up';
 type FrequencyType = 'manual' | 'once' | 'daily' | 'weekly' | 'monthly';
+type CRMSubType = 'stage_change' | 'follow_up';
+
 interface ActionOption {
   type: ActionType;
   label: string;
   description: string;
   icon: React.ReactNode;
   color: string;
+  hasSubOptions?: boolean;
 }
+
+interface CRMSubOption {
+  type: CRMSubType;
+  actionType: ActionType;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}
+
 interface FrequencyOption {
   type: FrequencyType;
   label: string;
@@ -68,6 +82,27 @@ const ACTION_OPTIONS: ActionOption[] = [{
   description: 'Content ideas from social trends',
   icon: <TrendingUp className="w-6 h-6" />,
   color: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/30'
+}, {
+  type: 'crm_stage_change',
+  label: 'CRM',
+  description: 'Automate CRM actions',
+  icon: <Users className="w-6 h-6" />,
+  color: 'bg-pink-500/10 text-pink-500 border-pink-500/30',
+  hasSubOptions: true
+}];
+
+const CRM_SUB_OPTIONS: CRMSubOption[] = [{
+  type: 'stage_change',
+  actionType: 'crm_stage_change',
+  label: 'Stage Change',
+  description: 'Trigger actions when a lead moves to a new stage',
+  icon: <ArrowRightLeft className="w-6 h-6" />
+}, {
+  type: 'follow_up',
+  actionType: 'crm_follow_up',
+  label: 'Follow-Up',
+  description: 'Automated follow-up reminders for leads',
+  icon: <UserPlus className="w-6 h-6" />
 }];
 const FREQUENCY_OPTIONS: FrequencyOption[] = [{
   type: 'manual',
@@ -200,6 +235,7 @@ export function CreateAutomationWizard({
 }: CreateAutomationWizardProps) {
   const [step, setStep] = useState(1);
   const [selectedType, setSelectedType] = useState<ActionType | null>(null);
+  const [showCRMSubOptions, setShowCRMSubOptions] = useState(false);
   const [name, setName] = useState('');
   const [nameError, setNameError] = useState('');
   const [existingNames, setExistingNames] = useState<string[]>([]);
@@ -210,7 +246,10 @@ export function CreateAutomationWizard({
     days: [],
     dayOfMonth: '1'
   });
-  const selectedOption = ACTION_OPTIONS.find(o => o.type === selectedType);
+  const { pipelines } = usePipelines();
+  
+  const selectedOption = ACTION_OPTIONS.find(o => o.type === selectedType) || 
+    (selectedType?.startsWith('crm_') ? ACTION_OPTIONS.find(o => o.type === 'crm_stage_change') : undefined);
 
   // Fetch existing automation names to check for duplicates
   useEffect(() => {
@@ -277,6 +316,10 @@ export function CreateAutomationWizard({
         return !!config.query;
       case 'linkedin':
         return true; // LinkedIn uses preset config
+      case 'crm_stage_change':
+        return !!config.pipeline && !!config.fromStage && !!config.toStage;
+      case 'crm_follow_up':
+        return !!config.pipeline && !!config.stage && !!config.daysAfter;
       default:
         return false;
     }
@@ -305,33 +348,109 @@ export function CreateAutomationWizard({
   };
   const renderStep1 = () => <div className="space-y-4">
       <div className="text-center mb-4">
-        <h2 className="text-xl font-semibold">What do you want to automate?</h2>
+        <h2 className="text-xl font-semibold">
+          {showCRMSubOptions ? 'Select CRM Automation Type' : 'What do you want to automate?'}
+        </h2>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {ACTION_OPTIONS.map(option => <motion.button key={option.type} whileHover={{
-        scale: 1.02
-      }} whileTap={{
-        scale: 0.98
-      }} onClick={() => {
-        setSelectedType(option.type);
-        setStep(2);
-      }} className={cn('flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center', 'border-border hover:border-primary/50 hover:bg-accent/50')}>
-            <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center border', option.color)}>
-              {option.icon}
-            </div>
-            <p className="font-medium text-sm">{option.label}</p>
-          </motion.button>)}
-      </div>
+      <AnimatePresence mode="wait">
+        {showCRMSubOptions ? (
+          <motion.div 
+            key="crm-sub-options"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-3"
+          >
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setShowCRMSubOptions(false)}
+              className="mb-2"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to actions
+            </Button>
+            {CRM_SUB_OPTIONS.map(option => (
+              <motion.button 
+                key={option.type} 
+                whileHover={{ scale: 1.01 }} 
+                whileTap={{ scale: 0.99 }} 
+                onClick={() => {
+                  setSelectedType(option.actionType);
+                  setShowCRMSubOptions(false);
+                  setStep(2);
+                }} 
+                className={cn(
+                  'flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left w-full',
+                  'border-border hover:border-pink-500/50 hover:bg-pink-500/5'
+                )}
+              >
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center border bg-pink-500/10 text-pink-500 border-pink-500/30">
+                  {option.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{option.label}</p>
+                  <p className="text-xs text-muted-foreground">{option.description}</p>
+                </div>
+              </motion.button>
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="action-options"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="grid grid-cols-2 sm:grid-cols-3 gap-2"
+          >
+            {ACTION_OPTIONS.map(option => (
+              <motion.button 
+                key={option.type} 
+                whileHover={{ scale: 1.02 }} 
+                whileTap={{ scale: 0.98 }} 
+                onClick={() => {
+                  if (option.hasSubOptions) {
+                    setShowCRMSubOptions(true);
+                  } else {
+                    setSelectedType(option.type);
+                    setStep(2);
+                  }
+                }} 
+                className={cn(
+                  'flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all text-center',
+                  'border-border hover:border-primary/50 hover:bg-accent/50'
+                )}
+              >
+                <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center border', option.color)}>
+                  {option.icon}
+                </div>
+                <p className="font-medium text-sm">{option.label}</p>
+              </motion.button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>;
   const renderStep2 = () => {
     if (!selectedType) return null;
+    
+    // Get proper label for CRM sub-options
+    const getCRMLabel = () => {
+      const crmOption = CRM_SUB_OPTIONS.find(o => o.actionType === selectedType);
+      return crmOption ? `CRM: ${crmOption.label}` : selectedOption?.label;
+    };
+    
+    const displayLabel = selectedType.startsWith('crm_') ? getCRMLabel() : selectedOption?.label;
+    const crmSubOption = CRM_SUB_OPTIONS.find(o => o.actionType === selectedType);
+    const displayIcon = crmSubOption ? crmSubOption.icon : selectedOption?.icon;
+    
     return <div className="space-y-4">
         <div className="text-center mb-6">
           <div className={cn('w-14 h-14 rounded-xl flex items-center justify-center border mx-auto mb-3', selectedOption?.color)}>
-            {selectedOption?.icon}
+            {displayIcon}
           </div>
-          <h2 className="text-xl font-semibold">Configure {selectedOption?.label}</h2>
+          <h2 className="text-xl font-semibold">Configure {displayLabel}</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Set up the details for your sequence
           </p>
@@ -530,6 +649,154 @@ export function CreateAutomationWizard({
                   and specific CTAs.
                 </p>
               </div>
+            </>}
+
+          {selectedType === 'crm_stage_change' && <>
+              <div className="p-4 rounded-lg bg-pink-500/10 border border-pink-500/30 text-sm mb-4">
+                <p className="font-medium text-pink-700 dark:text-pink-300 mb-2">Stage Change Automation</p>
+                <p className="text-muted-foreground">
+                  Trigger actions automatically when a lead moves from one stage to another in your pipeline.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pipeline">Pipeline *</Label>
+                <Select value={config.pipeline || ''} onValueChange={v => {
+                  setConfig({ ...config, pipeline: v, fromStage: '', toStage: '' });
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a pipeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pipelines.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {config.pipeline && (() => {
+                const selectedPipeline = pipelines.find(p => p.id === config.pipeline);
+                const stages = selectedPipeline?.stages || [];
+                return (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="fromStage">From Stage *</Label>
+                      <Select value={config.fromStage || ''} onValueChange={v => setConfig({ ...config, fromStage: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select starting stage" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {stages.map((s: { id: string; name: string }) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="toStage">To Stage *</Label>
+                      <Select value={config.toStage || ''} onValueChange={v => setConfig({ ...config, toStage: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select target stage" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {stages.filter((s: { id: string }) => s.id !== config.fromStage).map((s: { id: string; name: string }) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="action">Action to Trigger</Label>
+                      <Select value={config.triggerAction || 'notification'} onValueChange={v => setConfig({ ...config, triggerAction: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select action" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="notification">Send Notification</SelectItem>
+                          <SelectItem value="email">Send Email</SelectItem>
+                          <SelectItem value="slack">Send Slack Message</SelectItem>
+                          <SelectItem value="task">Create Task</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                );
+              })()}
+            </>}
+
+          {selectedType === 'crm_follow_up' && <>
+              <div className="p-4 rounded-lg bg-pink-500/10 border border-pink-500/30 text-sm mb-4">
+                <p className="font-medium text-pink-700 dark:text-pink-300 mb-2">Follow-Up Automation</p>
+                <p className="text-muted-foreground">
+                  Automatically remind you to follow up with leads after they've been in a stage for a certain time.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="pipeline">Pipeline *</Label>
+                <Select value={config.pipeline || ''} onValueChange={v => {
+                  setConfig({ ...config, pipeline: v, stage: '' });
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a pipeline" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pipelines.map(p => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {config.pipeline && (() => {
+                const selectedPipeline = pipelines.find(p => p.id === config.pipeline);
+                const stages = selectedPipeline?.stages || [];
+                return (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="stage">Stage to Monitor *</Label>
+                      <Select value={config.stage || ''} onValueChange={v => setConfig({ ...config, stage: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select stage" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {stages.map((s: { id: string; name: string }) => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="daysAfter">Days After Entering Stage *</Label>
+                      <Select value={config.daysAfter || ''} onValueChange={v => setConfig({ ...config, daysAfter: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select days" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 day</SelectItem>
+                          <SelectItem value="2">2 days</SelectItem>
+                          <SelectItem value="3">3 days</SelectItem>
+                          <SelectItem value="5">5 days</SelectItem>
+                          <SelectItem value="7">1 week</SelectItem>
+                          <SelectItem value="14">2 weeks</SelectItem>
+                          <SelectItem value="30">1 month</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="reminderAction">Reminder Action</Label>
+                      <Select value={config.reminderAction || 'notification'} onValueChange={v => setConfig({ ...config, reminderAction: v })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select action" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="notification">Send Notification</SelectItem>
+                          <SelectItem value="email">Send Email Reminder</SelectItem>
+                          <SelectItem value="slack">Send Slack Reminder</SelectItem>
+                          <SelectItem value="task">Create Follow-Up Task</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                );
+              })()}
             </>}
         </div>
       </div>;
