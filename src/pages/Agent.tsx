@@ -83,7 +83,6 @@ export default function AgentPage() {
   });
 
   const aiState = mapStatusToState(status);
-  const orbDocked = status === 'connecting' || isActive;
 
   // Track if conversation has started
   useEffect(() => {
@@ -198,16 +197,14 @@ export default function AgentPage() {
       <div className="flex flex-col h-full bg-background relative">
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Voice Orb */}
+          {/* Voice Orb - stays docked at top once conversation starts */}
           <motion.div
             layout
             className={cn(
               'flex flex-col items-center shrink-0',
               !hasStarted
                 ? 'flex-1 justify-center -mt-10'
-                : orbDocked
-                  ? 'justify-start pt-6 pb-8'
-                  : 'justify-center pt-10 pb-10'
+                : 'justify-start pt-6 pb-4'
             )}
             transition={{
               layout: {
@@ -218,16 +215,16 @@ export default function AgentPage() {
               },
             }}
           >
-            {/* Tagline */}
+            {/* Tagline - only show before conversation starts */}
             <AnimatePresence initial={false}>
-              {!orbDocked && (
+              {!hasStarted && (
                 <motion.div
                   layout
                   initial={{ opacity: 0, y: -12 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -12 }}
                   transition={{ duration: 0.35, ease: 'easeOut' }}
-                  className={cn('text-center space-y-3', !hasStarted ? 'mb-10' : 'mb-6')}
+                  className="text-center space-y-3 mb-10"
                 >
                   <p className="text-xl md:text-3xl font-light text-foreground tracking-wide">
                     Speak your problem.

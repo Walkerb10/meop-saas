@@ -136,19 +136,19 @@ export function VoiceOrb({ state, isActive, onToggle, inputVolume = 0, outputVol
         </AnimatePresence>
       </motion.button>
 
-      {/* State label - centered below the orb */}
+      {/* State label - positioned below orb with proper spacing */}
       <AnimatePresence mode="wait">
         <motion.div
           key={state === 'thinking' ? 'connecting' : isActive ? state : 'tap'}
-          className="absolute -bottom-14 w-full flex justify-center"
-          initial={{ opacity: 0, y: 10 }}
+          className="absolute -bottom-8 w-full flex justify-center"
+          initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
+          exit={{ opacity: 0, y: -5 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
         >
           <span
             className={cn(
-              'text-sm font-medium tracking-wide',
+              'text-xs font-medium tracking-wide',
               state === 'thinking' ? 'text-muted-foreground' : isActive ? 'text-primary' : 'text-muted-foreground'
             )}
           >
