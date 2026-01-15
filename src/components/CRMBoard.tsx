@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useCRM, CRM_STAGES, CRMLead } from '@/hooks/useCRM';
 import { PipelineStage } from '@/hooks/usePipelines';
 import { useContacts, Contact } from '@/hooks/useContacts';
+import { useUserRole } from '@/hooks/useUserRole';
 import { cn } from '@/lib/utils';
 
 interface CRMBoardProps {
@@ -39,6 +40,7 @@ function getStageColorClass(color: string) {
 export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
   const { leads, loading, createLead, updateLead, moveLead, deleteLead, getLeadsByStage } = useCRM();
   const { contacts, loading: contactsLoading } = useContacts();
+  const { isTester } = useUserRole();
   const [showCreate, setShowCreate] = useState(false);
   const [editingLead, setEditingLead] = useState<CRMLead | null>(null);
   const [draggedLead, setDraggedLead] = useState<CRMLead | null>(null);
@@ -110,6 +112,7 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
   };
 
   const handleDragStart = (e: React.DragEvent, lead: CRMLead) => {
+    if (isTester) return; // Testers can't drag
     setDraggedLead(lead);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -161,19 +164,20 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
           <h2 className="text-lg font-semibold">Sales Pipeline</h2>
           <p className="text-sm text-muted-foreground">{leads.length} total leads</p>
         </div>
-        <Dialog open={showCreate} onOpenChange={setShowCreate}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add Lead
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg">
+        {!isTester && (
+          <Dialog open={showCreate} onOpenChange={setShowCreate}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add Lead
+              </Button>
+            </DialogTrigger>
+          <DialogContent className="max-w-md sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Add New Lead</DialogTitle>
             </DialogHeader>
-            <Tabs value={createMode} onValueChange={(v) => setCreateMode(v as 'manual' | 'contact')} className="mt-4">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={createMode} onValueChange={(v) => setCreateMode(v as 'manual' | 'contact')} className="mt-2">
+              <TabsList className="grid w-full grid-cols-2 h-9">
                 <TabsTrigger value="manual" className="gap-2">
                   <Plus className="w-4 h-4" />
                   Manual Entry
@@ -184,7 +188,7 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="contact" className="space-y-4 pt-4">
+              <TabsContent value="contact" className="space-y-3 pt-3">
                 <div className="space-y-2">
                   <Label>Select Contact</Label>
                   <Select value={selectedContactId} onValueChange={setSelectedContactId}>
@@ -245,8 +249,8 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
                 </Button>
               </TabsContent>
 
-              <TabsContent value="manual" className="space-y-4 pt-4">
-                <div className="grid grid-cols-2 gap-4">
+              <TabsContent value="manual" className="space-y-3 pt-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Name *</Label>
                     <Input
@@ -264,7 +268,7 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Email</Label>
                     <Input
@@ -283,7 +287,7 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label>Stage</Label>
                     <Select value={newLead.stage} onValueChange={(v) => setNewLead({ ...newLead, stage: v })}>
@@ -328,88 +332,91 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
             </Tabs>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editingLead} onOpenChange={(open) => !open && setEditingLead(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Lead</DialogTitle>
-          </DialogHeader>
-          {editingLead && (
-            <div className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4">
+      {/* Edit Dialog - not available for testers */}
+      {!isTester && (
+        <Dialog open={!!editingLead} onOpenChange={(open) => !open && setEditingLead(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Lead</DialogTitle>
+            </DialogHeader>
+            {editingLead && (
+              <div className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input
+                      value={editingLead.name}
+                      onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Company</Label>
+                    <Input
+                      value={editingLead.company || ''}
+                      onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Email</Label>
+                    <Input
+                      value={editingLead.email || ''}
+                      onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Phone</Label>
+                    <Input
+                      value={editingLead.phone || ''}
+                      onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Stage</Label>
+                    <Select value={editingLead.stage} onValueChange={(v) => setEditingLead({ ...editingLead, stage: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stages.map(s => (
+                          <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Deal Value</Label>
+                    <Input
+                      type="number"
+                      value={editingLead.value || ''}
+                      onChange={(e) => setEditingLead({ ...editingLead, value: e.target.value ? parseFloat(e.target.value) : null })}
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label>Name</Label>
-                  <Input
-                    value={editingLead.name}
-                    onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
+                  <Label>Notes</Label>
+                  <Textarea
+                    value={editingLead.notes || ''}
+                    onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Company</Label>
-                  <Input
-                    value={editingLead.company || ''}
-                    onChange={(e) => setEditingLead({ ...editingLead, company: e.target.value })}
-                  />
+                <div className="flex gap-2">
+                  <Button onClick={handleUpdate} className="flex-1">Save Changes</Button>
+                  <Button variant="destructive" size="icon" onClick={() => { deleteLead(editingLead.id); setEditingLead(null); }}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input
-                    value={editingLead.email || ''}
-                    onChange={(e) => setEditingLead({ ...editingLead, email: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input
-                    value={editingLead.phone || ''}
-                    onChange={(e) => setEditingLead({ ...editingLead, phone: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Stage</Label>
-                  <Select value={editingLead.stage} onValueChange={(v) => setEditingLead({ ...editingLead, stage: v })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {stages.map(s => (
-                        <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Deal Value</Label>
-                  <Input
-                    type="number"
-                    value={editingLead.value || ''}
-                    onChange={(e) => setEditingLead({ ...editingLead, value: e.target.value ? parseFloat(e.target.value) : null })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea
-                  value={editingLead.notes || ''}
-                  onChange={(e) => setEditingLead({ ...editingLead, notes: e.target.value })}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleUpdate} className="flex-1">Save Changes</Button>
-                <Button variant="destructive" size="icon" onClick={() => { deleteLead(editingLead.id); setEditingLead(null); }}>
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Kanban Board */}
       <ScrollArea className="w-full">
@@ -451,17 +458,19 @@ export function CRMBoard({ pipelineId, pipelineStages }: CRMBoardProps) {
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          draggable
+                          draggable={!isTester}
                           onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent, lead)}
                           onDragEnd={handleDragEnd}
                           className={cn(
-                            'p-3 rounded-md border bg-background cursor-grab active:cursor-grabbing hover:border-primary/50 transition-colors',
+                            'p-3 rounded-md border bg-background transition-colors',
+                            !isTester && 'cursor-grab active:cursor-grabbing hover:border-primary/50',
+                            isTester && 'cursor-default',
                             draggedLead?.id === lead.id && 'opacity-50'
                           )}
-                          onClick={() => setEditingLead(lead)}
+                          onClick={() => !isTester && setEditingLead(lead)}
                         >
                           <div className="flex items-start gap-2">
-                            <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                            {!isTester && <GripVertical className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />}
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm truncate">{lead.name}</p>
                               {lead.company && (

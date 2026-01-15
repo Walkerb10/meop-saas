@@ -278,7 +278,7 @@ export function WorkflowCanvas({
     };
   }, []);
 
-  // Render connection path - connect from source bottom circle to target top circle
+  // Render connection path - straight vertical line connecting to circle center
   const renderConnection = useCallback((connection: WorkflowConnection) => {
     const sourceNode = nodes.find(n => n.id === connection.sourceId);
     const targetNode = nodes.find(n => n.id === connection.targetId);
@@ -287,14 +287,11 @@ export function WorkflowCanvas({
     const sourcePoint = getNodeBottomCenter(sourceNode);
     const targetPoint = getNodeTopCenter(targetNode);
 
-    // Calculate bezier curve control points for smooth connection
-    const dy = targetPoint.y - sourcePoint.y;
-    const controlOffset = Math.min(Math.abs(dy) * 0.4, 60);
-
     const isExecuting = executingNodeId === connection.targetId;
     const isCompleted = completedNodeIds.includes(connection.targetId);
 
-    const pathD = `M ${sourcePoint.x} ${sourcePoint.y} C ${sourcePoint.x} ${sourcePoint.y + controlOffset}, ${targetPoint.x} ${targetPoint.y - controlOffset}, ${targetPoint.x} ${targetPoint.y}`;
+    // Single straight vertical line
+    const pathD = `M ${sourcePoint.x} ${sourcePoint.y} L ${targetPoint.x} ${targetPoint.y}`;
 
     return (
       <g key={connection.id}>
@@ -316,7 +313,7 @@ export function WorkflowCanvas({
           strokeDasharray={isExecuting ? '5,5' : undefined}
           className={isExecuting ? 'animate-dash' : ''}
         />
-        {/* Arrow head at target */}
+        {/* Arrow head at target - connects to middle of circle */}
         <circle
           cx={targetPoint.x}
           cy={targetPoint.y}
