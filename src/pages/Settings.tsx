@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Volume2, Bell, Shield, LogOut, MessageSquare, Settings2 } from 'lucide-react';
+import { Bell, Shield, LogOut, MessageSquare, Settings2, Book } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AppLayout } from '@/components/AppLayout';
-import { VoiceSettings } from '@/components/VoiceSettings';
 import { GeneralSettings } from '@/components/GeneralSettings';
 import { UserFeedbackList } from '@/components/UserFeedbackList';
+import { KnowledgeSettings } from '@/components/KnowledgeSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { PageTransition } from '@/components/PageTransition';
 
@@ -39,9 +39,9 @@ const Settings = () => {
                   <Settings2 className="w-4 h-4" />
                   <span className="hidden sm:inline">General</span>
                 </TabsTrigger>
-                <TabsTrigger value="voice" className="gap-2">
-                  <Volume2 className="w-4 h-4" />
-                  <span className="hidden sm:inline">Voice</span>
+                <TabsTrigger value="knowledge" className="gap-2">
+                  <Book className="w-4 h-4" />
+                  <span className="hidden sm:inline">Knowledge</span>
                 </TabsTrigger>
                 <TabsTrigger value="feedback" className="gap-2">
                   <MessageSquare className="w-4 h-4" />
@@ -61,8 +61,8 @@ const Settings = () => {
                 <GeneralSettings />
               </TabsContent>
 
-              <TabsContent value="voice">
-                <VoiceSettings />
+              <TabsContent value="knowledge">
+                <KnowledgeSettings />
               </TabsContent>
 
               <TabsContent value="feedback">

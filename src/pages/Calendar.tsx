@@ -30,6 +30,7 @@ import {
   Users,
   Clock,
   Flame,
+  Edit2,
 } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, addMonths, subMonths, parseISO, isBefore, isToday, startOfDay, isAfter } from 'date-fns';
 import { useTeamTasks, TeamTask } from '@/hooks/useTeamTasks';
@@ -891,6 +892,7 @@ export default function Calendar() {
               onUncomplete={handleUncompleteTask}
               onAssignTask={handleAssignTaskToDate}
               onDelete={deleteTask}
+              onEdit={(task, updates) => updateTask(task.id, updates)}
               onCreateAndAssign={handleCreateAndAssignTask}
               onInsertAndShift={handleInsertTaskAndShift}
             />
@@ -1238,6 +1240,7 @@ interface DayViewProps {
   onUncomplete: (task: TeamTask) => void;
   onAssignTask: (taskId: string, date: Date, userId?: string) => void;
   onDelete: (taskId: string) => void;
+  onEdit: (task: TeamTask, updates: Partial<TeamTask>) => void;
   onCreateAndAssign: (date: Date, userId: string, isPinned: boolean, title?: string, description?: string, estimatedMinutes?: number) => void;
   onInsertAndShift: (date: Date, userId: string, title?: string, description?: string, estimatedMinutes?: number) => void;
 }
@@ -1252,14 +1255,65 @@ function DayView({
   onUncomplete, 
   onAssignTask, 
   onDelete,
+  onEdit,
   onCreateAndAssign,
   onInsertAndShift,
 }: DayViewProps) {
+  const [editingTask, setEditingTask] = useState<TeamTask | null>(null);
+  const [editForm, setEditForm] = useState({ title: '', description: '', estimated_time: '', time_unit: 'minutes' as 'minutes' | 'hours' });
+  
   const visibleUserIds = viewMode === 'all' 
     ? [TEAM_USERS.walker, TEAM_USERS.griffin] 
     : [viewMode === 'walker' ? TEAM_USERS.walker : TEAM_USERS.griffin];
 
   const showUserName = viewMode === 'all';
+
+  const handleStartEdit = (task: TeamTask) => {
+    setEditingTask(task);
+    let estimatedTime = '';
+    let timeUnit: 'minutes' | 'hours' = 'minutes';
+    if (task.estimated_minutes) {
+      if (task.estimated_minutes >= 60 && task.estimated_minutes % 60 === 0) {
+        estimatedTime = String(task.estimated_minutes / 60);
+        timeUnit = 'hours';
+      } else {
+        estimatedTime = String(task.estimated_minutes);
+        timeUnit = 'minutes';
+      }
+    }
+    setEditForm({
+      title: task.title,
+      description: task.description || '',
+      estimated_time: estimatedTime,
+      time_unit: timeUnit,
+    });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingTask || !editForm.title) return;
+    
+    let estimatedMinutes: number | undefined;
+    if (editForm.estimated_time) {
+      const value = parseInt(editForm.estimated_time);
+      if (!isNaN(value)) {
+        estimatedMinutes = editForm.time_unit === 'hours' ? value * 60 : value;
+      }
+    }
+    
+    onEdit(editingTask, {
+      title: editForm.title,
+      description: editForm.description || undefined,
+      estimated_minutes: estimatedMinutes,
+    });
+    
+    setEditingTask(null);
+    setEditForm({ title: '', description: '', estimated_time: '', time_unit: 'minutes' });
+  };
+
+  const cancelEdit = () => {
+    setEditingTask(null);
+    setEditForm({ title: '', description: '', estimated_time: '', time_unit: 'minutes' });
+  };
 
   return (
     <div className="space-y-4">
@@ -1269,6 +1323,7 @@ function DayView({
         const allTaskBank = getTaskBank();
         const isCompleted = task?.status === 'completed';
         const status = getDayStatus(task, date);
+        const isEditing = editingTask?.id === task?.id;
 
         return (
           <div key={userId} className="space-y-3">
@@ -1284,65 +1339,130 @@ function DayView({
             )}
 
             {task ? (
-              <Card className={cn(
-                'p-3',
-                isCompleted && 'bg-green-500/10 border-green-500/30',
-                status === 'missed' && 'bg-red-500/10 border-red-500/30'
-              )}>
-                <div className="flex items-start gap-3">
-                  <Checkbox
-                    checked={isCompleted}
-                    onCheckedChange={() => isCompleted ? onUncomplete(task) : onComplete(task)}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className={cn(
-                        'font-semibold',
-                        isCompleted && 'line-through text-muted-foreground'
-                      )}>
-                        {task.title}
-                      </p>
-                      {task.is_pinned && (
-                        <Pin className="h-3 w-3 text-primary" />
-                      )}
-                      {task.estimated_minutes && (
-                        <Badge variant="outline" className="text-[10px] gap-1">
-                          <Clock className="h-3 w-3" />
-                          {formatDuration(task.estimated_minutes)}
-                        </Badge>
+              isEditing ? (
+                <Card className="p-3">
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="text-xs">Title *</Label>
+                      <Input
+                        value={editForm.title}
+                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        placeholder="Task title"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Description</Label>
+                      <Textarea
+                        value={editForm.description}
+                        onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                        placeholder="Optional description"
+                        rows={2}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Estimated time</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={editForm.estimated_time}
+                          onChange={(e) => setEditForm({ ...editForm, estimated_time: e.target.value })}
+                          placeholder={editForm.time_unit === 'hours' ? '2' : '30'}
+                          className="w-20"
+                          min="1"
+                        />
+                        <Select 
+                          value={editForm.time_unit} 
+                          onValueChange={(v) => setEditForm({ ...editForm, time_unit: v as 'minutes' | 'hours' })}
+                        >
+                          <SelectTrigger className="w-[100px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="minutes">Minutes</SelectItem>
+                            <SelectItem value="hours">Hours</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleSaveEdit} disabled={!editForm.title} className="flex-1">
+                        Save
+                      </Button>
+                      <Button variant="outline" onClick={cancelEdit}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Card className={cn(
+                  'p-3',
+                  isCompleted && 'bg-green-500/10 border-green-500/30',
+                  status === 'missed' && 'bg-red-500/10 border-red-500/30'
+                )}>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isCompleted}
+                      onCheckedChange={() => isCompleted ? onUncomplete(task) : onComplete(task)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className={cn(
+                          'font-semibold',
+                          isCompleted && 'line-through text-muted-foreground'
+                        )}>
+                          {task.title}
+                        </p>
+                        {task.is_pinned && (
+                          <Pin className="h-3 w-3 text-primary" />
+                        )}
+                        {task.estimated_minutes && (
+                          <Badge variant="outline" className="text-[10px] gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatDuration(task.estimated_minutes)}
+                          </Badge>
+                        )}
+                      </div>
+                      {task.description && (
+                        <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
                       )}
                     </div>
-                    {task.description && (
-                      <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
-                    )}
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleStartEdit(task)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => onDelete(task.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => onDelete(task.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {isCompleted && (
-                  <div className="mt-3 p-2 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center text-sm">
-                    <Check className="h-4 w-4 mx-auto mb-1" />
-                    Completed!
-                  </div>
-                )}
-                
-                {status === 'missed' && (
-                  <div className="mt-3 p-2 rounded-lg bg-red-500/20 text-red-500 text-center text-sm">
-                    <X className="h-4 w-4 mx-auto mb-1" />
-                    Missed
-                  </div>
-                )}
-              </Card>
+                  
+                  {isCompleted && (
+                    <div className="mt-3 p-2 rounded-lg bg-green-500/20 text-green-600 dark:text-green-400 text-center text-sm">
+                      <Check className="h-4 w-4 mx-auto mb-1" />
+                      Completed!
+                    </div>
+                  )}
+                  
+                  {status === 'missed' && (
+                    <div className="mt-3 p-2 rounded-lg bg-red-500/20 text-red-500 text-center text-sm">
+                      <X className="h-4 w-4 mx-auto mb-1" />
+                      Missed
+                    </div>
+                  )}
+                </Card>
+              )
             ) : (
               <EmptyDayForm 
                 userId={userId}
