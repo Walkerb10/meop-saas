@@ -189,6 +189,10 @@ export default function Calendar() {
   const [showTaskBankDialog, setShowTaskBankDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<'calendars' | 'taskbank' | 'completed'>('calendars');
   const [completedFilter, setCompletedFilter] = useState<CompletedFilter>('all');
+  
+  // Drag and drop state
+  const [draggedTask, setDraggedTask] = useState<{ task: TeamTask; sourceDate: Date } | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
 
   const { tasks, loading, createTask, updateTask, deleteTask } = useTeamTasks();
   const { members } = useTeamMembers();
@@ -300,7 +304,7 @@ export default function Calendar() {
 
     // Pull forward: move next day's task to today if it's not pinned
     const futureTasks = getFutureTasks(task.assigned_to!);
-    const nextNonPinnedTask = futureTasks.find(t => t.id !== task.id && !(t as any).is_pinned);
+    const nextNonPinnedTask = futureTasks.find(t => t.id !== task.id && !t.is_pinned);
     
     if (nextNonPinnedTask) {
       await updateTask(nextNonPinnedTask.id, {
@@ -338,6 +342,47 @@ export default function Calendar() {
     await updateTask(task.id, {
       due_date: startOfDay(new Date()).toISOString(),
     });
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (task: TeamTask, sourceDate: Date) => {
+    if (task.is_pinned) return; // Don't allow dragging pinned tasks
+    setDraggedTask({ task, sourceDate });
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: Date) => {
+    e.preventDefault();
+    setDragOverDate(date);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDate(null);
+  };
+
+  const handleDrop = async (targetDate: Date) => {
+    if (!draggedTask) return;
+    
+    const { task } = draggedTask;
+    
+    // Don't move pinned tasks
+    if (task.is_pinned) {
+      setDraggedTask(null);
+      setDragOverDate(null);
+      return;
+    }
+    
+    // Move task to target date
+    await updateTask(task.id, {
+      due_date: startOfDay(targetDate).toISOString(),
+    });
+    
+    setDraggedTask(null);
+    setDragOverDate(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTask(null);
+    setDragOverDate(null);
   };
 
   const handleCreateTaskToBank = async () => {
@@ -401,7 +446,7 @@ export default function Calendar() {
     // Get all future non-pinned tasks for this user starting from this date
     const userTasks = getTasksForUser(userId);
     const tasksToShift = userTasks
-      .filter(t => t.due_date && !isBefore(parseISO(t.due_date), startOfDay(date)) && t.status !== 'completed' && !(t as any).is_pinned)
+      .filter(t => t.due_date && !isBefore(parseISO(t.due_date), startOfDay(date)) && t.status !== 'completed' && !t.is_pinned)
       .sort((a, b) => new Date(b.due_date!).getTime() - new Date(a.due_date!).getTime()); // Sort descending to update from end
     
     // Shift all tasks back by one day
@@ -410,10 +455,10 @@ export default function Calendar() {
       let newDate = addDays(currentDate, 1);
       
       // Skip over any pinned tasks
-      let existingPinned = userTasks.find(t => t.due_date && isSameDay(parseISO(t.due_date), newDate) && (t as any).is_pinned);
+      let existingPinned = userTasks.find(t => t.due_date && isSameDay(parseISO(t.due_date), newDate) && t.is_pinned);
       while (existingPinned) {
         newDate = addDays(newDate, 1);
-        existingPinned = userTasks.find(t => t.due_date && isSameDay(parseISO(t.due_date), newDate) && (t as any).is_pinned);
+        existingPinned = userTasks.find(t => t.due_date && isSameDay(parseISO(t.due_date), newDate) && t.is_pinned);
       }
       
       await updateTask(task.id, { due_date: startOfDay(newDate).toISOString() });
@@ -584,12 +629,13 @@ export default function Calendar() {
                 ))}
               </div>
 
-              {/* Calendar days - larger cells */}
+              {/* Calendar days - larger cells with drag and drop */}
               <div className="grid grid-cols-7 gap-2">
                 {calendarDays.map((day, idx) => {
                   const isCurrentMonth = isSameMonth(day, currentMonth);
                   const isTodayDate = isToday(day);
                   const isPastDay = isBefore(startOfDay(day), startOfDay(new Date()));
+                  const isDragOver = dragOverDate && isSameDay(day, dragOverDate);
 
                   // Get statuses for visible users
                   const userStatuses = visibleUserIds.map(userId => {
@@ -598,6 +644,8 @@ export default function Calendar() {
                   });
 
                   const primaryStatus = userStatuses[0]?.status || 'empty';
+                  const dayTask = !showBothUsers ? userStatuses[0]?.task : null;
+                  const isPinnedTask = dayTask?.is_pinned;
                   
                   // Color based on status - simplified: past = red, done = green, today = orange, future = yellow
                   let cellBg = 'hover:bg-muted/30';
@@ -615,18 +663,24 @@ export default function Calendar() {
                     }
                   }
 
-                  // Get estimated time for the day (single user view only)
-                  const dayTask = !showBothUsers ? userStatuses[0]?.task : null;
                   const estimatedTime = dayTask?.estimated_minutes ? formatDuration(dayTask.estimated_minutes) : null;
 
                   return (
                     <div
                       key={idx}
+                      draggable={!!dayTask && !isPinnedTask && !isPastDay}
+                      onDragStart={() => dayTask && !isPinnedTask && handleDragStart(dayTask, day)}
+                      onDragOver={(e) => isCurrentMonth && handleDragOver(e, day)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={() => isCurrentMonth && handleDrop(day)}
+                      onDragEnd={handleDragEnd}
                       onClick={() => openDayView(day)}
                       className={cn(
                         'aspect-square flex flex-col items-center justify-center rounded-xl cursor-pointer transition-all min-h-[48px] relative',
                         !isCurrentMonth && 'opacity-30',
-                        isCurrentMonth && cellBg
+                        isCurrentMonth && cellBg,
+                        isDragOver && 'ring-2 ring-primary ring-offset-2',
+                        dayTask && !isPinnedTask && !isPastDay && 'cursor-grab active:cursor-grabbing'
                       )}
                     >
                       <span className={cn(
@@ -639,6 +693,10 @@ export default function Calendar() {
                       {/* Today indicator dot */}
                       {isTodayDate && isCurrentMonth && (
                         <div className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full bg-foreground" />
+                      )}
+                      {/* Pinned indicator */}
+                      {isPinnedTask && isCurrentMonth && (
+                        <Pin className="absolute top-1 right-1 h-3 w-3 text-primary" />
                       )}
                       {estimatedTime && isCurrentMonth && !isTodayDate && (
                         <span className="text-[9px] text-muted-foreground mt-0.5">{estimatedTime}</span>
@@ -1244,7 +1302,7 @@ function DayView({
                       )}>
                         {task.title}
                       </p>
-                      {(task as any).is_pinned && (
+                      {task.is_pinned && (
                         <Pin className="h-3 w-3 text-primary" />
                       )}
                       {task.estimated_minutes && (
