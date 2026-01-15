@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { RoleProtectedRoute } from "@/components/RoleProtectedRoute";
 import { useVapiPreload } from "@/hooks/useVapiPreload";
 import Index from "./pages/Index";
 import Agent from "./pages/Agent";
@@ -45,7 +46,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
           <Route path="/agent" element={<ProtectedRoute><Agent /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin" element={<RoleProtectedRoute requireOwner><AdminDashboard /></RoleProtectedRoute>} />
           <Route path="/scheduled-actions" element={<ProtectedRoute><ScheduledActions /></ProtectedRoute>} />
           <Route path="/automations" element={<ProtectedRoute><Automations /></ProtectedRoute>} />
           <Route path="/crm" element={<ProtectedRoute><CRM /></ProtectedRoute>} />
@@ -53,9 +54,9 @@ const App = () => (
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/executions" element={<ProtectedRoute><Executions /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/conversations" element={<ProtectedRoute><Conversations /></ProtectedRoute>} />
+          <Route path="/conversations" element={<RoleProtectedRoute allowedRoles={['owner', 'admin', 'manager', 'member']}><Conversations /></RoleProtectedRoute>} />
           <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
-          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+          <Route path="/analytics" element={<RoleProtectedRoute allowedRoles={['owner', 'admin', 'manager', 'member']}><Analytics /></RoleProtectedRoute>} />
           <Route path="/newsletter" element={<Newsletter />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

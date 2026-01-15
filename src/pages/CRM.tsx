@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Users, GitBranch, Contact, Plus, Edit, ChevronDown } from 'lucide-react';
+import { Users, GitBranch, Contact, Plus, Edit, ChevronDown, Lock } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { CRMBoard } from '@/components/CRMBoard';
 import { ContactsManager } from '@/components/ContactsManager';
 import { PipelinesManager } from '@/components/PipelinesManager';
 import { usePipelines, Pipeline } from '@/hooks/usePipelines';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +25,7 @@ export default function CRMPage() {
   const [editingPipeline, setEditingPipeline] = useState<Pipeline | null>(null);
   const { pipelines, loading, createPipeline, updatePipeline, DEFAULT_SALES_STAGES } = usePipelines();
   const { user } = useAuth();
+  const { isTester } = useUserRole();
   
   // Selected pipeline ID
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
@@ -77,10 +80,16 @@ export default function CRMPage() {
               <Users className="w-5 h-5 md:w-6 md:h-6" />
               CRM
             </h1>
+            {isTester && (
+              <Badge variant="secondary" className="gap-1">
+                <Lock className="w-3 h-3" />
+                View Only
+              </Badge>
+            )}
           </div>
           
           {/* Pipeline Selector Dropdown */}
-          {activeTab === 'pipelines' && (
+          {activeTab === 'pipelines' && !isTester && (
             <div className="flex items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -114,6 +123,13 @@ export default function CRMPage() {
                 <Edit className="w-4 h-4" />
               </Button>
             </div>
+          )}
+          
+          {activeTab === 'pipelines' && isTester && (
+            <Button variant="outline" className="gap-2" disabled>
+              <GitBranch className="w-4 h-4" />
+              {selectedPipeline?.name || 'Sales Pipeline'}
+            </Button>
           )}
         </div>
 
