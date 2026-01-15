@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { CheckCircle2, Plus, Calendar, ArrowDown, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Plus, Calendar, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -143,8 +143,9 @@ export function ToDoButton() {
   };
 
   const handlePullForward = async () => {
-    if (pullForwardDialog) {
-      await updateTask(pullForwardDialog.id, {
+    const taskToPull = pullForwardDialog || nextTask;
+    if (taskToPull) {
+      await updateTask(taskToPull.id, {
         due_date: startOfDay(new Date()).toISOString(),
       });
       setPullForwardDialog(null);
@@ -265,15 +266,18 @@ export function ToDoButton() {
                     </div>
                   )}
                   
-                  {/* Next task preview when completed */}
+                  {/* Next task shown when today's is completed */}
                   {completedToday && nextTask && (
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-between text-left h-auto py-2 mt-2"
-                      onClick={() => setPullForwardDialog(nextTask)}
-                    >
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-0.5">Next up:</p>
+                    <div className="flex items-start gap-3 mt-4 p-3 rounded-lg bg-muted/50 border">
+                      <Checkbox
+                        checked={false}
+                        onCheckedChange={() => handlePullForward()}
+                        className="mt-0.5"
+                      />
+                      <div 
+                        className="flex-1 cursor-pointer"
+                        onClick={() => handlePullForward()}
+                      >
                         <p className="font-medium text-sm">{nextTask.title}</p>
                         {nextTask.due_date && (
                           <p className="text-xs text-muted-foreground">
@@ -281,8 +285,7 @@ export function ToDoButton() {
                           </p>
                         )}
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </Button>
+                    </div>
                   )}
                 </div>
                 
