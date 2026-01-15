@@ -188,7 +188,7 @@ export default function AgentPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -40, transition: { duration: 0.2 } }}
                   transition={{ duration: 0.4 }}
-                  className="text-center mb-12 space-y-3"
+                  className="text-center mb-16 space-y-3 mt-8"
                 >
                   <p className="text-xl md:text-3xl font-light text-foreground tracking-wide">
                     Speak your problem.
