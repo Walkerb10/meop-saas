@@ -355,50 +355,87 @@ export function useVapiAgent({
     setStatus('connecting');
     updateActivity();
 
+    const vapi = vapiRef.current;
+
+    // Helper: ensure the call is actually started before we inject history.
+    // In practice, sending add-message too early can be ignored by the call transport.
+    const waitForCallStart = () =>
+      new Promise<void>((resolve) => {
+        if (!vapi) return resolve();
+
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+
+        const timeout = window.setTimeout(done, 1500);
+
+        // Using `.once` so we don't leak listeners.
+        vapi.once('call-start', () => {
+          window.clearTimeout(timeout);
+          done();
+        });
+        vapi.once('call-start-failed', () => {
+          window.clearTimeout(timeout);
+          done();
+        });
+      });
+
     try {
       console.log('📞 Starting Vapi call with assistant:', VAPI_ASSISTANT_ID);
 
-      // Start call (suppress greeting if resuming)
-      if (previousMessages && previousMessages.length > 0) {
-        const contextSummary = previousMessages
-          .slice(-10)
-          .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      const hasHistory = !!previousMessages && previousMessages.length > 0;
+      const history = (previousMessages ?? []).slice(-20);
+
+      if (hasHistory) {
+        console.log(`🧠 Resuming with ${history.length} messages of context`);
+
+        const historyText = history
+          .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
           .join('\n');
 
-        await vapiRef.current.start(VAPI_ASSISTANT_ID, {
+        const callStartPromise = waitForCallStart();
+
+        // Start call (suppress greeting if resuming)
+        await vapi?.start(VAPI_ASSISTANT_ID, {
           firstMessage: '',
           variableValues: {
-            conversationContext: contextSummary,
+            // Provide at least last 20 messages (requested) as a single context string,
+            // so it works even if the assistant prompt only looks at variables.
+            conversationContext: historyText,
             isResuming: 'true',
           },
         });
 
-        // IMPORTANT: also inject the actual message history into the new call so Vapi truly “remembers”
-        // even if the assistant prompt doesn't reference {{conversationContext}}.
-        vapiRef.current.send({
+        // Wait until the call transport is up before injecting history into the live call.
+        await callStartPromise;
+
+        // Inject the *full* history into the live call so Vapi actually “remembers”.
+        // Keep triggerResponseEnabled=false so it doesn't auto-respond to each injected line.
+        vapi?.send({
           type: 'add-message',
           message: {
             role: 'system',
             content:
-              'Conversation history for context. Continue naturally. Do not repeat greetings. Do not mention you were given history.',
+              `Conversation history for context. Continue naturally. Do not repeat greetings. Do not mention you were given history.\n\n${historyText}`,
           },
           triggerResponseEnabled: false,
         });
 
-        previousMessages
-          .slice(-20)
-          .forEach((m) => {
-            vapiRef.current?.send({
-              type: 'add-message',
-              message: {
-                role: m.role,
-                content: m.content,
-              },
-              triggerResponseEnabled: false,
-            });
+        history.forEach((m) => {
+          vapi?.send({
+            type: 'add-message',
+            message: {
+              role: m.role,
+              content: m.content,
+            },
+            triggerResponseEnabled: false,
           });
+        });
       } else {
-        await vapiRef.current.start(VAPI_ASSISTANT_ID);
+        await vapi?.start(VAPI_ASSISTANT_ID);
       }
     } catch (error) {
       console.error('❌ Failed to start Vapi call:', error);
