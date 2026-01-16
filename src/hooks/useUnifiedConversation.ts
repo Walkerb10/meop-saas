@@ -41,6 +41,7 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
   const vapiRef = useRef<Vapi | null>(null);
   const onErrorRef = useRef(onError);
   const statusRef = useRef<ConversationStatus>('idle');
+  const messagesRef = useRef<ConversationMessage[]>([]);
   const previousChatIdRef = useRef<string | null>(null);
   const pendingTextRef = useRef<string | null>(null);
   
@@ -95,7 +96,11 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
       timestamp: new Date(),
       source,
     };
-    setMessages(prev => [...prev, message]);
+    setMessages(prev => {
+      const next = [...prev, message];
+      messagesRef.current = next;
+      return next;
+    });
     updateActivity();
     
     // Save to database
@@ -126,6 +131,7 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
     
     // Clear state
     setMessages([]);
+    messagesRef.current = [];
     setStatus('idle');
     setIsVoiceCallActive(false);
     previousChatIdRef.current = null;
@@ -212,6 +218,7 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
             vapi.send({
               type: 'add-message',
               message: { role: 'user', content: text },
+              triggerResponseEnabled: true,
             });
           }, 500);
         }
@@ -320,6 +327,7 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
         vapiRef.current.send({
           type: 'add-message',
           message: { role: 'user', content: trimmedText },
+          triggerResponseEnabled: true,
         });
         // Add to messages immediately (Vapi won't echo back typed messages)
         addMessage(trimmedText, 'user', 'text');
@@ -330,42 +338,46 @@ export function useUnifiedConversation({ onError }: UseUnifiedConversationOption
     }
     
     // Text-only mode (no active voice call): use Vapi Chat API
+    // IMPORTANT: include current conversation context so text mode continues a voice conversation seamlessly.
+    const conversationContext = messagesRef.current
+      .slice(-20)
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n');
+
     addMessage(trimmedText, 'user', 'text');
     setIsTextLoading(true);
     setStatus('thinking');
-    
+
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vapi-chat`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            message: trimmedText,
-            previousChatId: previousChatIdRef.current,
-            sessionId,
-          }),
-        }
-      );
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get response');
+      const { data, error } = await supabase.functions.invoke('vapi-chat', {
+        body: {
+          message: trimmedText,
+          previousChatId: previousChatIdRef.current,
+          sessionId,
+          conversationContext,
+        },
+      });
+
+      if (error) {
+        throw error;
       }
-      
-      const data = await response.json();
-      
-      // Update chat ID for context chain
-      if (data.id) {
-        previousChatIdRef.current = data.id;
-        localStorage.setItem(CHAT_ID_KEY, data.id);
+
+      const nextChatId =
+        // vapi-chat returns { id } today
+        (data as { id?: string; previousChatId?: string } | null)?.id ||
+        (data as { previousChatId?: string } | null)?.previousChatId;
+
+      if (nextChatId) {
+        previousChatIdRef.current = nextChatId;
+        localStorage.setItem(CHAT_ID_KEY, nextChatId);
       }
-      
-      // Add assistant response
-      if (data.output) {
-        addMessage(data.output, 'assistant', 'text');
+
+      const output = (data as { output?: string } | null)?.output;
+      if (output) {
+        addMessage(output, 'assistant', 'text');
+      } else {
+        throw new Error('Empty response');
       }
-      
     } catch (error) {
       console.error('Text chat error:', error);
       onErrorRef.current?.(error instanceof Error ? error.message : 'Failed to send message');
