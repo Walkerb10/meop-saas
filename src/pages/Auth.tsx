@@ -176,7 +176,10 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">MEOP OS</CardTitle>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <img src="/meop-logo.svg" alt="MEOP SaaS" className="w-8 h-8" />
+            <CardTitle className="text-2xl">MEOP SaaS</CardTitle>
+          </div>
           <CardDescription>Sign in or create an account to continue</CardDescription>
         </CardHeader>
         <CardContent>

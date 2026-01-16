@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, ChevronRight, ArrowLeft, Trash2, Loader2, User, Bot, Zap, Pin, PinOff } from 'lucide-react';
+import { MessageSquare, ChevronRight, ArrowLeft, Trash2, Loader2, User, Bot, Zap, Pin, PinOff, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AppLayout } from '@/components/AppLayout';
 import { PageTransition } from '@/components/PageTransition';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { usePinMessage } from '@/hooks/usePinMessage';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +21,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface ConversationMessage {
   id: string;
@@ -51,8 +58,10 @@ const Conversations = () => {
   const [loading, setLoading] = useState(true);
   const [analyzingIds, setAnalyzingIds] = useState<Set<string>>(new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const { pinMessage, unpinMessage, pinning } = usePinMessage();
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchConversations();
@@ -175,6 +184,57 @@ const Conversations = () => {
     }
   };
 
+  const bulkDeleteConversations = async (days: number) => {
+    setBulkDeleting(true);
+    try {
+      const cutoffDate = subDays(new Date(), days).toISOString();
+
+      // Find conversations to delete
+      const conversationsToDelete = conversations.filter(conv =>
+        new Date(conv.lastTime) >= new Date(cutoffDate)
+      );
+
+      if (conversationsToDelete.length === 0) {
+        toast({
+          title: "No conversations found",
+          description: `No conversations from the last ${days} days to delete.`,
+        });
+        return;
+      }
+
+      // Delete from database
+      const { error } = await supabase
+        .from('conversation_transcripts')
+        .delete()
+        .gte('created_at', cutoffDate);
+
+      if (error) throw error;
+
+      // Update UI
+      setConversations(prev =>
+        prev.filter(c => new Date(c.lastTime) < new Date(cutoffDate))
+      );
+
+      if (selectedConversation && new Date(selectedConversation.lastTime) >= new Date(cutoffDate)) {
+        setSelectedConversation(null);
+      }
+
+      toast({
+        title: "Conversations deleted",
+        description: `Deleted ${conversationsToDelete.length} conversation${conversationsToDelete.length > 1 ? 's' : ''} from the last ${days} days.`,
+      });
+    } catch (error) {
+      console.error('Error bulk deleting conversations:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete conversations. Please try again.",
+      });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   // Helper to determine proper role display
   const getRoleDisplay = (role: string): { label: string; isUser: boolean } => {
     const lowerRole = role.toLowerCase();
@@ -213,6 +273,39 @@ const Conversations = () => {
               </p>
             )}
           </div>
+          {!selectedConversation && conversations.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={bulkDeleting}>
+                  {bulkDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="w-4 h-4 mr-2" />
+                      Clear History
+                    </>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => bulkDeleteConversations(1)}>
+                  Last 24 hours
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => bulkDeleteConversations(7)}>
+                  Last 7 days
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => bulkDeleteConversations(28)}>
+                  Last 28 days
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => bulkDeleteConversations(90)}>
+                  Last 90 days
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           {selectedConversation && (
             <AlertDialog>
               <AlertDialogTrigger asChild>

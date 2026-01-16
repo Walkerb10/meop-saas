@@ -1,0 +1,9 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Blue circular logo with concentric circles and horizontal bars -->
+  <circle cx="100" cy="100" r="95" stroke="#0E3F7A" stroke-width="10" fill="none"/>
+  <circle cx="100" cy="100" r="70" stroke="#0E3F7A" stroke-width="8" fill="none"/>
+  <rect x="25" y="85" width="50" height="30" fill="#0E3F7A"/>
+  <rect x="125" y="85" width="50" height="30" fill="#0E3F7A"/>
+  <circle cx="100" cy="100" r="45" fill="white"/>
+  <path d="M 60 115 L 75 100 L 90 115 L 110 115 L 125 100 L 140 115" stroke="#0E3F7A" stroke-width="6" fill="none"/>
+</svg>
