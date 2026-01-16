@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Mic, Loader2 } from 'lucide-react';
+import { Send, Bot, User, Loader2 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
+import { DictationButton } from '@/components/DictationButton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -212,20 +213,7 @@ export default function AgentPage() {
     }
   };
 
-  // Dictation handler - only works when voice mode is inactive
-  const handleDictation = () => {
-    if (isActive) return; // Don't allow dictation during active voice call
-
-    setHasStarted(true);
-
-    // Use ref to avoid missing the most recent text message
-    const previousMessages = messagesRef.current.flatMap(m =>
-      m.lines.map(line => ({ role: m.role, content: line }))
-    );
-
-    toggle(previousMessages);
-    inputRef.current?.focus();
-  };
+  // Dictation is handled by the DictationButton (speech-to-text) in the input bar.
 
   return (
     <AppLayout 
@@ -247,9 +235,9 @@ export default function AgentPage() {
             transition={{
               layout: {
                 type: 'spring',
-                stiffness: 70,
-                damping: 22,
-                mass: 1.15,
+                stiffness: 55,
+                damping: 26,
+                mass: 1.25,
               },
             }}
           >
@@ -361,22 +349,13 @@ export default function AgentPage() {
                 className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
               />
               
-              {/* Dictation mic button - disabled while voice mode active */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleDictation}
+              <DictationButton
+                onTranscript={(text) =>
+                  setInputValue((prev) => (prev ? `${prev} ${text}` : text))
+                }
                 disabled={isActive}
-                className={cn(
-                  'shrink-0 h-8 w-8 transition-colors rounded-full',
-                  isActive 
-                    ? 'text-muted-foreground/50 cursor-not-allowed' 
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                title={isActive ? 'Dictation unavailable during voice call' : 'Start voice mode'}
-              >
-                <Mic className="w-4 h-4" />
-              </Button>
+                className="shrink-0 h-8 w-8 rounded-full"
+              />
               
               {/* Send button */}
               <Button
