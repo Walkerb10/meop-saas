@@ -357,22 +357,46 @@ export function useVapiAgent({
 
     try {
       console.log('📞 Starting Vapi call with assistant:', VAPI_ASSISTANT_ID);
-      
-      // If we have previous messages, suppress first message and provide context
+
+      // Start call (suppress greeting if resuming)
       if (previousMessages && previousMessages.length > 0) {
         const contextSummary = previousMessages
-          .slice(-10) // Last 10 messages for context
+          .slice(-10)
           .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
           .join('\n');
-        
-        // Use variableValues to inject context, suppress firstMessage
+
         await vapiRef.current.start(VAPI_ASSISTANT_ID, {
-          firstMessage: '', // Empty string to suppress greeting
+          firstMessage: '',
           variableValues: {
             conversationContext: contextSummary,
-            isResuming: 'true'
-          }
+            isResuming: 'true',
+          },
         });
+
+        // IMPORTANT: also inject the actual message history into the new call so Vapi truly “remembers”
+        // even if the assistant prompt doesn't reference {{conversationContext}}.
+        vapiRef.current.send({
+          type: 'add-message',
+          message: {
+            role: 'system',
+            content:
+              'Conversation history for context. Continue naturally. Do not repeat greetings. Do not mention you were given history.',
+          },
+          triggerResponseEnabled: false,
+        });
+
+        previousMessages
+          .slice(-20)
+          .forEach((m) => {
+            vapiRef.current?.send({
+              type: 'add-message',
+              message: {
+                role: m.role,
+                content: m.content,
+              },
+              triggerResponseEnabled: false,
+            });
+          });
       } else {
         await vapiRef.current.start(VAPI_ASSISTANT_ID);
       }

@@ -37,6 +37,9 @@ export default function AgentPage() {
   const [inputValue, setInputValue] = useState('');
   const [hasStarted, setHasStarted] = useState(false);
   const [messages, setMessages] = useState<TranscriptMessage[]>([]);
+  // Keep an always-up-to-date ref so we can resume voice with the latest messages
+  // even if the user toggles voice immediately after sending text.
+  const messagesRef = useRef<TranscriptMessage[]>([]);
   const [isSendingText, setIsSendingText] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -50,23 +53,33 @@ export default function AgentPage() {
   // Handle incoming transcripts - consolidate same speaker messages
   const handleTranscript = useCallback((text: string, role: 'user' | 'assistant') => {
     setMessages(prev => {
+      let next: TranscriptMessage[];
+
       // If same role as last message, append to existing message
       if (prev.length > 0 && prev[prev.length - 1].role === role) {
         const updated = [...prev];
         const lastMsg = { ...updated[updated.length - 1] };
         lastMsg.lines = [...lastMsg.lines, text];
         updated[updated.length - 1] = lastMsg;
-        return updated;
+        next = updated;
+      } else {
+        // New speaker, create new message
+        next = [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            lines: [text],
+            role,
+            timestamp: new Date(),
+          },
+        ];
       }
-      
-      // New speaker, create new message
-      return [...prev, {
-        id: crypto.randomUUID(),
-        lines: [text],
-        role,
-        timestamp: new Date()
-      }];
+
+      // Critical: keep ref in sync for immediate voice resume
+      messagesRef.current = next;
+      return next;
     });
+
     lastRoleRef.current = role;
   }, []);
 
@@ -111,11 +124,11 @@ export default function AgentPage() {
       // Set both states synchronously BEFORE any async work
       setIsConnecting(true);
       setHasStarted(true);
-      
+
       // Use setTimeout to ensure state updates are flushed before toggle
       setTimeout(() => {
-        // Pass previous messages to resume conversation with context
-        const previousMessages = messages.flatMap(m => 
+        // Use ref to avoid missing the most recent text message
+        const previousMessages = messagesRef.current.flatMap(m =>
           m.lines.map(line => ({ role: m.role, content: line }))
         );
         toggle(previousMessages);
@@ -190,6 +203,7 @@ export default function AgentPage() {
   const handleNewChat = () => {
     setHasStarted(false);
     setMessages([]);
+    messagesRef.current = [];
     lastRoleRef.current = null;
     chatIdRef.current = null; // Reset text chat continuity
     startNewConversation();
@@ -201,12 +215,14 @@ export default function AgentPage() {
   // Dictation handler - only works when voice mode is inactive
   const handleDictation = () => {
     if (isActive) return; // Don't allow dictation during active voice call
-    
+
     setHasStarted(true);
-    // Pass previous messages to resume conversation with context
-    const previousMessages = messages.flatMap(m => 
+
+    // Use ref to avoid missing the most recent text message
+    const previousMessages = messagesRef.current.flatMap(m =>
       m.lines.map(line => ({ role: m.role, content: line }))
     );
+
     toggle(previousMessages);
     inputRef.current?.focus();
   };
