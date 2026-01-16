@@ -12,6 +12,9 @@ import { VoiceOrb } from '@/components/VoiceOrb';
 const Index = () => {
   const [textInput, setTextInput] = useState('');
   const [inputFocused, setInputFocused] = useState(false);
+  const [hasStartedUI, setHasStartedUI] = useState(false);
+  const [pendingVoiceStart, setPendingVoiceStart] = useState(false);
+  const [uiConnecting, setUiConnecting] = useState(false);
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -36,13 +39,24 @@ const Index = () => {
     startNewConversation,
   } = useUnifiedConversation({ onError: handleError });
 
+  const hasStartedChat = messages.length > 0 || isVoiceCallActive;
+  const shouldDockOrb = hasStartedUI || hasStartedChat || pendingVoiceStart || uiConnecting;
+  const showTagline = !shouldDockOrb;
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const hasStartedChat = messages.length > 0 || isVoiceCallActive;
-  const showTagline = !hasStartedChat;
+  // Once a chat actually starts, keep UI in docked mode
+  useEffect(() => {
+    if (hasStartedChat) setHasStartedUI(true);
+  }, [hasStartedChat]);
+
+  // Stop showing the spinner once connection state clears
+  useEffect(() => {
+    if (status !== 'connecting') setUiConnecting(false);
+  }, [status]);
 
   // Map status to VoiceOrb state
   const getOrbState = () => {
@@ -57,6 +71,7 @@ const Index = () => {
     if (!textInput.trim() || isLoading) return;
     const messageText = textInput.trim();
     setTextInput('');
+    setHasStartedUI(true);
     await sendTextMessage(messageText);
   }, [textInput, isLoading, sendTextMessage]);
 
@@ -68,12 +83,40 @@ const Index = () => {
   }, [handleSendText]);
 
   const handleNewChat = useCallback(() => {
+    setPendingVoiceStart(false);
+    setUiConnecting(false);
+    setHasStartedUI(false);
     startNewConversation();
   }, [startNewConversation]);
 
+  const handleVoiceToggle = useCallback(() => {
+    if (isVoiceCallActive) {
+      setPendingVoiceStart(false);
+      setUiConnecting(false);
+      toggleVoiceMode();
+      return;
+    }
+
+    // Dock immediately; only start connecting once we've docked at the top
+    setHasStartedUI(true);
+    setPendingVoiceStart(true);
+  }, [isVoiceCallActive, toggleVoiceMode]);
+
+  const handleOrbLayoutComplete = useCallback(() => {
+    if (!pendingVoiceStart) return;
+
+    setPendingVoiceStart(false);
+    setUiConnecting(true);
+
+    // Defer actual voice start so spinner paints immediately
+    setTimeout(() => {
+      toggleVoiceMode();
+    }, 0);
+  }, [pendingVoiceStart, toggleVoiceMode]);
+
   return (
     <AppLayout 
-      showNewChatButton={hasStartedChat}
+      showNewChatButton={shouldDockOrb}
       onNewChat={handleNewChat}
     >
       <div className="flex-1 flex flex-col relative h-full overflow-hidden">
@@ -87,41 +130,56 @@ const Index = () => {
 
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Top section - tagline and voice control */}
-          <div className="flex flex-col items-center pt-8">
+          {/* Top section - voice control (docks after first interaction) */}
+          <motion.div
+            layout
+            onLayoutAnimationComplete={handleOrbLayoutComplete}
+            className={`flex flex-col items-center shrink-0 ${
+              !shouldDockOrb ? 'flex-1 justify-center -mt-10' : 'justify-start pt-6 pb-6'
+            }`}
+            transition={{
+              layout: {
+                type: 'spring',
+                stiffness: 70,
+                damping: 22,
+                mass: 1.15,
+              },
+            }}
+          >
             {/* Tagline - only shows before first chat */}
-            {showTagline && (
-              <div className="text-center space-y-1 max-w-md px-4 mb-8">
-                <p className="text-xl md:text-2xl font-semibold text-foreground">
-                  Speak your problem.
-                </p>
-                <p className="text-xl md:text-2xl font-semibold text-foreground">
-                  Agents handle it.
-                </p>
-                <p className="text-xl md:text-2xl font-semibold text-foreground">
-                  Start to finish.
-                </p>
-              </div>
-            )}
+            <AnimatePresence initial={false}>
+              {showTagline && (
+                <motion.div
+                  layout
+                  initial={{ opacity: 0, y: -12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  className="text-center space-y-1 max-w-md px-4 mb-10"
+                >
+                  <p className="text-xl md:text-2xl font-semibold text-foreground">
+                    Speak your problem.
+                  </p>
+                  <p className="text-xl md:text-2xl font-semibold text-foreground">
+                    Agents handle it.
+                  </p>
+                  <p className="text-xl md:text-2xl font-semibold text-foreground">
+                    Start to finish.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            {/* Voice Orb - tap to talk control */}
-            <div className={hasStartedChat ? 'mb-4' : ''}>
-              <VoiceOrb
-                state={getOrbState()}
-                isActive={isVoiceCallActive}
-                onToggle={toggleVoiceMode}
-                inputVolume={inputVolume}
-                outputVolume={outputVolume}
-              />
-            </div>
-            
-            {/* Status text */}
-            {hasStartedChat && messages.length === 0 && !isLoading && (
-              <p className="text-muted-foreground text-sm">
-                {isVoiceCallActive ? 'Listening...' : 'Start speaking or type a message...'}
-              </p>
-            )}
-          </div>
+            <VoiceOrb
+              state={getOrbState()}
+              isActive={isVoiceCallActive}
+              isConnecting={uiConnecting || status === 'connecting'}
+              onToggle={handleVoiceToggle}
+              inputVolume={inputVolume}
+              outputVolume={outputVolume}
+            />
+          </motion.div>
+        </div>
 
           {/* Messages area */}
           {messages.length > 0 && (
