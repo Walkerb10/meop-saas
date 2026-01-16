@@ -179,7 +179,6 @@ const Index = () => {
               outputVolume={outputVolume}
             />
           </motion.div>
-        </div>
 
           {/* Messages area */}
           {messages.length > 0 && (
