@@ -94,8 +94,8 @@ export function ToDoButton() {
   const completedToday = todayTask?.status === 'completed';
   const needsToSetNextTask = !todayTask && !nextTask && taskBank.length === 0;
 
-  // Should show red badge? Show if no task set for today (needs to add one)
-  const showRedBadge = !todayTask;
+  // Should show red badge? Show if no task set OR task exists but not completed
+  const showRedBadge = !todayTask || todayTask.status !== 'completed';
 
   const handleConfirmComplete = async () => {
     if (!todayTask) return;
