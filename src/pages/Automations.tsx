@@ -506,7 +506,7 @@ export default function AutomationsPage() {
         </div>
 
         {/* Workflow list */}
-        <div className="space-y-3">
+        <div className="space-y-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -628,21 +628,21 @@ export default function AutomationsPage() {
               </motion.div>
             ))}
             
-            {/* Create Automation button at the bottom of the list */}
+            {/* Add Automation button at the bottom of the list */}
             {workflows.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: workflows.length * 0.05 }}
-                className="pt-4"
+                className="pt-6 flex justify-center"
               >
                 <Button 
                   variant="outline" 
-                  className="w-full gap-2"
+                  className="gap-2"
                   onClick={() => setIsCreatingWizard(true)}
                 >
                   <Plus className="w-4 h-4" />
-                  Create Automation
+                  Add Automation
                 </Button>
               </motion.div>
             )}

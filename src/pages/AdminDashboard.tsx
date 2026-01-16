@@ -11,6 +11,7 @@ import { ContactsManager } from '@/components/ContactsManager';
 import { WebhooksManager } from '@/components/WebhooksManager';
 import { MarketingEmailsManager } from '@/components/MarketingEmailsManager';
 import { PageTransition } from '@/components/PageTransition';
+import { UserActivityPanel } from '@/components/UserActivityPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,6 +48,7 @@ import {
   Contact,
   Webhook,
   Mail,
+  Activity,
 } from 'lucide-react';
 
 function UserManagementTab() {
@@ -792,6 +794,11 @@ export default function AdminDashboard() {
                 <span className="hidden sm:inline">Users</span>
                 <span className="sm:hidden">Users</span>
               </TabsTrigger>
+              <TabsTrigger value="activity" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
+                <Activity className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Activity</span>
+                <span className="sm:hidden">Activity</span>
+              </TabsTrigger>
               <TabsTrigger value="team-contacts" className="gap-1.5 text-xs sm:text-sm px-2 py-1.5">
                 <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span className="hidden sm:inline">Team</span>
@@ -849,6 +856,10 @@ export default function AdminDashboard() {
 
             <TabsContent value="users">
               <UserManagementTab />
+            </TabsContent>
+
+            <TabsContent value="activity">
+              <UserActivityPanel />
             </TabsContent>
 
             <TabsContent value="team-contacts">
