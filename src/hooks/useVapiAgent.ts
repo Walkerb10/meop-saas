@@ -318,6 +318,7 @@ export function useVapiAgent({
           role: 'user',
           content: text.trim(),
         },
+        triggerResponseEnabled: true,
       });
       
       // Immediately show in transcript (Vapi won't echo back typed messages)
@@ -414,8 +415,7 @@ export function useVapiAgent({
         // Wait until the call transport is up before injecting history into the live call.
         await callStartPromise;
 
-        // Inject history and immediately trigger a response so the assistant starts *from this conversation*
-        // instead of defaulting to a generic greeting.
+        // Inject history so the assistant resumes *this* conversation.
         vapi?.send({
           type: 'add-message',
           message: {
@@ -432,6 +432,15 @@ export function useVapiAgent({
               'Conversation history (most recent last):',
               historyText,
             ].join('\n'),
+          },
+        });
+
+        // Nudge the assistant to speak immediately after receiving the context.
+        vapi?.send({
+          type: 'add-message',
+          message: {
+            role: 'user',
+            content: 'Continue.',
           },
           triggerResponseEnabled: true,
         });
