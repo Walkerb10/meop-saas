@@ -14,6 +14,15 @@ export interface KnowledgeEntry {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // Second brain enhancements
+  source_type?: string;
+  importance_score?: number;
+  last_accessed_at?: string | null;
+  access_count?: number;
+  tags?: string[];
+  related_entries?: string[];
+  expires_at?: string | null;
+  is_archived?: boolean;
 }
 
 export function useKnowledgeBase() {
@@ -40,6 +49,9 @@ export function useKnowledgeBase() {
       category: string;
       is_public?: boolean;
       allowed_roles?: AppRole[];
+      source_type?: string;
+      importance_score?: number;
+      tags?: string[];
     }) => {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -51,6 +63,9 @@ export function useKnowledgeBase() {
           category: entry.category,
           is_public: entry.is_public ?? true,
           allowed_roles: entry.allowed_roles || ['admin', 'manager', 'member', 'tester'],
+          source_type: entry.source_type || 'manual',
+          importance_score: entry.importance_score || 5,
+          tags: entry.tags || [],
         })
         .select()
         .single();
