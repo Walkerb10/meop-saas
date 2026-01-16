@@ -396,14 +396,16 @@ export function useVapiAgent({
           .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
           .join('\n');
 
+        const lastUserMessage = [...history].reverse().find((m) => m.role === 'user')?.content;
+
         const callStartPromise = waitForCallStart();
 
         // Start call (suppress greeting if resuming)
         await vapi?.start(VAPI_ASSISTANT_ID, {
           firstMessage: '',
           variableValues: {
-            // Provide at least last 20 messages (requested) as a single context string,
-            // so it works even if the assistant prompt only looks at variables.
+            // Provide at least last 20 messages as a single context string.
+            // Note: this only helps if your assistant prompt references these variables.
             conversationContext: historyText,
             isResuming: 'true',
           },
@@ -412,27 +414,26 @@ export function useVapiAgent({
         // Wait until the call transport is up before injecting history into the live call.
         await callStartPromise;
 
-        // Inject the *full* history into the live call so Vapi actually “remembers”.
-        // Keep triggerResponseEnabled=false so it doesn't auto-respond to each injected line.
+        // Inject history and immediately trigger a response so the assistant starts *from this conversation*
+        // instead of defaulting to a generic greeting.
         vapi?.send({
           type: 'add-message',
           message: {
             role: 'system',
-            content:
-              `Conversation history for context. Continue naturally. Do not repeat greetings. Do not mention you were given history.\n\n${historyText}`,
+            content: [
+              'You are resuming an existing conversation.',
+              'Use the conversation history below as the ONLY context; do not greet or restart the chat.',
+              (
+                lastUserMessage
+                  ? `Your FIRST response must begin by repeating the user's last sentence verbatim: "${lastUserMessage}"`
+                  : 'Your FIRST response must continue naturally from the latest point in the history.'
+              ),
+              '',
+              'Conversation history (most recent last):',
+              historyText,
+            ].join('\n'),
           },
-          triggerResponseEnabled: false,
-        });
-
-        history.forEach((m) => {
-          vapi?.send({
-            type: 'add-message',
-            message: {
-              role: m.role,
-              content: m.content,
-            },
-            triggerResponseEnabled: false,
-          });
+          triggerResponseEnabled: true,
         });
       } else {
         await vapi?.start(VAPI_ASSISTANT_ID);
