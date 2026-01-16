@@ -639,6 +639,7 @@ export type Database = {
       }
       knowledge_base: {
         Row: {
+          access_count: number | null
           allowed_roles: Database["public"]["Enums"]["app_role"][] | null
           category: string
           chunk_index: number | null
@@ -646,16 +647,24 @@ export type Database = {
           created_at: string
           created_by: string | null
           embedding: string | null
+          expires_at: string | null
           file_name: string | null
           file_url: string | null
           id: string
+          importance_score: number | null
+          is_archived: boolean | null
           is_public: boolean
           is_shared: boolean | null
+          last_accessed_at: string | null
           metadata: Json | null
+          related_entries: string[] | null
+          source_type: string | null
+          tags: string[] | null
           title: string
           updated_at: string
         }
         Insert: {
+          access_count?: number | null
           allowed_roles?: Database["public"]["Enums"]["app_role"][] | null
           category?: string
           chunk_index?: number | null
@@ -663,16 +672,24 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           embedding?: string | null
+          expires_at?: string | null
           file_name?: string | null
           file_url?: string | null
           id?: string
+          importance_score?: number | null
+          is_archived?: boolean | null
           is_public?: boolean
           is_shared?: boolean | null
+          last_accessed_at?: string | null
           metadata?: Json | null
+          related_entries?: string[] | null
+          source_type?: string | null
+          tags?: string[] | null
           title: string
           updated_at?: string
         }
         Update: {
+          access_count?: number | null
           allowed_roles?: Database["public"]["Enums"]["app_role"][] | null
           category?: string
           chunk_index?: number | null
@@ -680,12 +697,19 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           embedding?: string | null
+          expires_at?: string | null
           file_name?: string | null
           file_url?: string | null
           id?: string
+          importance_score?: number | null
+          is_archived?: boolean | null
           is_public?: boolean
           is_shared?: boolean | null
+          last_accessed_at?: string | null
           metadata?: Json | null
+          related_entries?: string[] | null
+          source_type?: string | null
+          tags?: string[] | null
           title?: string
           updated_at?: string
         }

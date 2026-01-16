@@ -35,3 +35,18 @@ verify_jwt = false
 
 [functions.vapi-chat]
 verify_jwt = false
+
+[functions.run-scheduled-automations]
+verify_jwt = false
+
+[functions.execute-automation]
+verify_jwt = false
+
+[functions.execute-sequence]
+verify_jwt = false
+
+[functions.summarize-session]
+verify_jwt = false
+
+[functions.generate-conversation-embedding]
+verify_jwt = false
