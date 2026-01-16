@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { message, previousChatId, sessionId } = await req.json();
+    const { message, previousChatId, sessionId: _sessionId, conversationContext } = await req.json();
 
     if (!message) {
       return new Response(
@@ -32,7 +32,22 @@ serve(async (req) => {
     // Vapi Assistant ID
     const VAPI_ASSISTANT_ID = "9526dfda-7749-42f3-af9c-0dfec7fdd6cd";
 
-    console.log(`📨 Vapi Chat request: message="${message.substring(0, 50)}..." previousChatId=${previousChatId || "none"}`);
+    console.log(
+      `📨 Vapi Chat request: message="${message.substring(0, 50)}..." previousChatId=${previousChatId || "none"} context=${conversationContext ? "yes" : "no"}`
+    );
+
+    const input = conversationContext
+      ? [
+          'Continue this conversation using ONLY the context below.',
+          'Do not restart or greet.',
+          '',
+          'Context (most recent last):',
+          conversationContext,
+          '',
+          'User:',
+          message,
+        ].join('\n')
+      : message;
 
     // Call Vapi Chat API
     const response = await fetch("https://api.vapi.ai/chat", {
@@ -43,7 +58,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         assistantId: VAPI_ASSISTANT_ID,
-        input: message,
+        input,
         ...(previousChatId && { previousChatId }),
       }),
     });
