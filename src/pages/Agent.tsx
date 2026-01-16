@@ -198,12 +198,16 @@ export default function AgentPage() {
     }
   };
 
-  // Dictation handler
+  // Dictation handler - only works when voice mode is inactive
   const handleDictation = () => {
-    if (!isActive) {
-      setHasStarted(true);
-      toggle();
-    }
+    if (isActive) return; // Don't allow dictation during active voice call
+    
+    setHasStarted(true);
+    // Pass previous messages to resume conversation with context
+    const previousMessages = messages.flatMap(m => 
+      m.lines.map(line => ({ role: m.role, content: line }))
+    );
+    toggle(previousMessages);
     inputRef.current?.focus();
   };
 
@@ -341,15 +345,19 @@ export default function AgentPage() {
                 className="flex-1 border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
               />
               
-              {/* Dictation mic button */}
+              {/* Dictation mic button - disabled while voice mode active */}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleDictation}
+                disabled={isActive}
                 className={cn(
                   'shrink-0 h-8 w-8 transition-colors rounded-full',
-                  isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                  isActive 
+                    ? 'text-muted-foreground/50 cursor-not-allowed' 
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
+                title={isActive ? 'Dictation unavailable during voice call' : 'Start voice mode'}
               >
                 <Mic className="w-4 h-4" />
               </Button>
