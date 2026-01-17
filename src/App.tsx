@@ -54,7 +54,7 @@ const App = () => (
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/executions" element={<ProtectedRoute><Executions /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/conversations" element={<RoleProtectedRoute allowedRoles={['owner', 'admin', 'manager', 'member']}><Conversations /></RoleProtectedRoute>} />
+          <Route path="/conversations" element={<ProtectedRoute><Conversations /></ProtectedRoute>} />
           <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
           <Route path="/analytics" element={<RoleProtectedRoute allowedRoles={['owner', 'admin', 'manager', 'member']}><Analytics /></RoleProtectedRoute>} />
           <Route path="/newsletter" element={<Newsletter />} />
